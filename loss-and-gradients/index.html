@@ -145,7 +145,9 @@ summary { cursor: pointer; font: 560 15px/1.4 var(--font-display); color: var(--
 .pl-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; margin-top: 16px; }
 @media (max-width: 760px) { .pl-pair { grid-template-columns: minmax(0, 1fr); } }
 .pl-pair canvas { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; border-radius: 10px; border: 1px solid var(--rule); }
-#pl-map { cursor: crosshair; touch-action: manipulation; }
+#pl-map { cursor: grab; touch-action: pan-y; }
+#pl-map.flat { cursor: crosshair; }
+.phead .seg button { padding: 6px 9px; }
 .phead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .ptitle2 { font: 600 15px/1.2 var(--font-display); color: var(--ink); }
 .hint { font: 13px/1.3 var(--font-display); color: var(--ink-3); }
@@ -215,7 +217,7 @@ ol.road a { color: inherit; }
       <div class="film-stage">
         <div class="pair">
           <div class="panel"><div class="ptitle">The dots and the neuron's line</div><canvas id="f-data" aria-label="The dots, with the neuron's line for the current weights"></canvas></div>
-          <div class="panel"><div class="ptitle" id="f-map-title">Every pair of weights, colored by loss</div><canvas id="f-map" aria-label="The loss landscape over the two weights, with the ball"></canvas></div>
+          <div class="panel"><div class="ptitle" id="f-map-title">Every pair of weights: a map, seen from above</div><canvas id="f-map" aria-label="The loss landscape over the two weights, with the ball"></canvas></div>
         </div>
         <div class="film-over" id="f-over" hidden>
           <div class="over-title">Same rules, more weights</div>
@@ -282,7 +284,8 @@ ol.road a { color: inherit; }
     </details>
 
     <h2>The loss landscape</h2>
-    <p>Now give the neuron two weights, w₁ and w₂, so it computes ŷ = σ(w₁x₁ + w₂x₂). Every pair of values is one point on a map, and every point has a loss: the average over all 160 dots. Color the map by loss and you get a landscape, deep for low loss and pale for high. The best weights sit at the bottom of the valley.</p>
+    <p>Now give the neuron two weights, w₁ and w₂, so it computes ŷ = σ(w₁x₁ + w₂x₂). Every pair of values is one point on a flat map, and every point has a loss: the average over all 160 dots. Lift every point to a height equal to its loss, and the map becomes ground, with hills where the neuron does badly and a valley where it does well. The best weights sit at the bottom of the valley.</p>
+    <p>The loss curve you dragged across earlier is one slice through this ground, cut along w₁. And the flat, colored map is the same ground seen from directly above, the way a hiking map shows height with color and contour lines. The film opens from above and then tilts, so you can watch one turn into the other.</p>
     <p>The point on the map and the neuron are the same thing seen two ways. The point (w₁, w₂) is also an arrow from the center of the dot plot, and the neuron's line always runs at right angles to that arrow. Move the point and the line turns.</p>
 
     <h2>The gradient: which way is down</h2>
@@ -295,7 +298,7 @@ ol.road a { color: inherit; }
     <p>This is called <b>gradient descent</b>. With 17 weights the map has 17 dimensions and nobody can draw it, but the rules are the same: the gradient is just a list of 17 slopes. Measuring them by nudging costs one run of the network per weight. <a href="../backprop/">Chapter 3</a> shows how backpropagation gets all of them at once.</p>
 
     <h2>The playground</h2>
-    <p>Click anywhere on the map to drop the ball, then press <kbd>Run</kbd>. Try different learning rates. Then switch the map to squared error or to accuracy, and see why they make poor landscapes.</p>
+    <p>Click anywhere on the ground to drop the ball, then press <kbd>Run</kbd>. Drag to turn the ground and look at it from any side. Try different learning rates. Then switch to squared error or to accuracy, and see why they make poor landscapes.</p>
   </main>
 
   <section class="bench" id="playground" aria-label="Loss landscape playground">
@@ -330,7 +333,7 @@ ol.road a { color: inherit; }
         </div>
         <div class="ctl">
           <span class="lab">Show</span>
-          <label class="tog" for="pl-field" data-tip="field"><input type="checkbox" id="pl-field">downhill arrows</label>
+          <label class="tog" for="pl-field" data-tip="field"><input type="checkbox" id="pl-field">downhill arrows (map view)</label>
         </div>
       </div>
       <div class="pl-pair">
@@ -340,9 +343,10 @@ ol.road a { color: inherit; }
           <div class="legend"><span><i class="dot"></i>blue</span><span><i class="dot neg"></i>orange</span><span><i class="dot hollow"></i>wrong right now</span></div>
         </div>
         <div>
-          <div class="phead"><span class="ptitle2" id="pl-map-title">The loss landscape</span><span class="hint">click to drop the ball</span></div>
+          <div class="phead"><span class="ptitle2" id="pl-map-title">The loss landscape</span>
+            <div class="seg" role="group" aria-label="View" id="pl-view"><button type="button" data-v="3d" data-tip="view-3d" aria-pressed="true">3D</button><button type="button" data-v="map" data-tip="view-map" aria-pressed="false">Map</button></div></div>
           <canvas id="pl-map" aria-label="The loss over every pair of weights; click to place the ball"></canvas>
-          <div class="legend"><span><i class="ramp"></i><span id="pl-ramp-lab">low loss → high loss</span></span><span><i class="ball"></i>ball</span><span><i class="arr dash"></i>gradient (uphill)</span><span><i class="arr"></i>next step</span></div>
+          <div class="legend"><span class="hint" id="pl-hint">drag to turn · click to drop the ball</span><span><i class="ramp"></i><span id="pl-ramp-lab">low loss → high loss</span></span><span><i class="ball"></i>ball</span><span><i class="arr dash"></i>gradient (uphill)</span><span><i class="arr"></i>next step</span></div>
         </div>
       </div>
       <div class="stats">
@@ -361,8 +365,10 @@ ol.road a { color: inherit; }
   <section class="col">
     <h2>How to read the figures</h2>
     <dl class="read2">
-      <dt>The map</dt>
-      <dd>Every point is one pair of weights: w₁ across, w₂ up. Its color is the loss for those weights, deeper for lower. The thin lines join points of equal loss, like contour lines on a hiking map.</dd>
+      <dt>3D view</dt>
+      <dd>The floor holds every pair of weights, w₁ one way and w₂ the other. The height of the ground above each point is the loss for those weights. Its color repeats the height, deeper for lower, and the shading is light falling from one side, so slopes are easy to see.</dd>
+      <dt>Map view</dt>
+      <dd>The same ground seen from directly above: w₁ across, w₂ up, color for height. The thin lines join points of equal loss, like contour lines on a hiking map.</dd>
       <dt>Ball and trail</dt>
       <dd>The ball is the current weights. The trail is the path gradient descent took to get there.</dd>
       <dt>Arrows</dt>
@@ -378,13 +384,13 @@ ol.road a { color: inherit; }
       <li>Drop the ball in a pale corner and press Run with η = 1. Watch the line on the left swing into place as the ball rolls.</li>
       <li>Set η to 15 and drop the ball in the upper part of the valley. It bounces from side to side forever, because every step overshoots the floor.</li>
       <li>From a pale corner, try η = 10. The first step is so big the ball flies off the map, then has to find its way back.</li>
-      <li>Switch the map to Accuracy. It is a set of flat terraces. Press Step: the ball cannot move, because the slope is zero everywhere.</li>
-      <li>Switch to Squared error and drop the ball in the far left. It crawls: the push vanishes when the neuron is confidently wrong.</li>
+      <li>Switch to Accuracy and turn the 3D view. The ground is a staircase of flat terraces. Press Step: the ball cannot move, because the slope is zero everywhere.</li>
+      <li>Switch to Squared error and look for the high, flat plateau. Drop the ball on it: it crawls, because the push vanishes when the neuron is confidently wrong.</li>
       <li>Look at the bottom of the valley. Even the best weights get some dots wrong, because no straight line through the middle can separate these two groups perfectly.</li>
     </ul>
 
     <h2>What runs where</h2>
-    <p>Everything runs in your browser. Each map is computed by evaluating the loss at 110 × 110 pairs of weights over all 160 dots. The ball's gradient comes from the same autograd as the other chapters. The explanation box also shows the gradient measured by nudging each weight, so you can see the two agree.</p>
+    <p>Everything runs in your browser, with no graphics library. Each map is computed by evaluating the loss at 110 × 110 pairs of weights over all 160 dots, and the 3D ground is a 41 × 41 mesh of the same loss, drawn from back to front. The ball's gradient comes from the same autograd as the other chapters. The explanation box also shows the gradient measured by nudging each weight, so you can see the two agree.</p>
 
     <h2>Where this is going</h2>
     <ol class="road">
@@ -477,6 +483,7 @@ function backward(loss) {
   function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function gaussian(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
   const N = 160, DR = 3.3, WR = 3;
+  const DOM = [-2.2, 4.4, -1.1, 5.5], DC = [(DOM[0] + DOM[1]) / 2, (DOM[2] + DOM[3]) / 2], DH = (DOM[1] - DOM[0]) / 2; // the landscape window, centered on the valley
   const DATA = (() => {
     const r = mulberry32(11), pts = [];
     for (let i = 0; i < N; i++) {
@@ -577,8 +584,8 @@ function backward(loss) {
       ctx.fillStyle = rgba(C.ink); arrowHead(ctx, x0, y0, x1, y1, 9);
       ctx.font = `600 12px ${MONO}`; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
       const ux = (x1 - x0) / (Math.hypot(x1 - x0, y1 - y0) || 1), uy = (y1 - y0) / (Math.hypot(x1 - x0, y1 - y0) || 1);
-      const lx = x1 + ux * 12 - 4, ly = y1 + uy * 12 + 4;
-      ctx.lineWidth = 3.5; ctx.strokeStyle = rgba(C.sheet, 0.9); ctx.strokeText("w", lx, ly); ctx.fillText("w", lx, ly);
+      const lx = x1 - uy * 13 + ux * 4 - 4, ly = y1 + ux * 13 + uy * 4 + 4;
+      ctx.fillText("w", lx, ly);
     }
   }
 
@@ -622,7 +629,7 @@ function backward(loss) {
     }
     return out;
   }
-  const FULL = [-WR, WR, -WR, WR];
+  const FULL = DOM;
   // s: { mode, dom, w, trail, grad, step, comps, field, minMark }
   function drawMap(cv, s) {
     const [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d"), dom = s.dom || FULL, F = getField(s.mode, dom);
@@ -697,9 +704,145 @@ function backward(loss) {
     }
   }
 
+  // ---------- drawing the landscape in 3D ----------
+  // The same loss drawn as ground: w₁ and w₂ run across the floor, and the height is the loss.
+  const meshes = new Map();
+  function getMesh(mode) {
+    let m = meshes.get(mode);
+    if (!m) {
+      const M = mode === "acc" ? 61 : 57, h = new Float64Array(M * M);
+      for (let j = 0; j < M; j++) { const w2 = DOM[2] + ((DOM[3] - DOM[2]) * j) / (M - 1); for (let i = 0; i < M; i++) h[j * M + i] = lossAt(mode, DOM[0] + ((DOM[1] - DOM[0]) * i) / (M - 1), w2); }
+      let lo = Infinity, hi = -Infinity; for (const v of h) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+      const tcol = mode === "ce" ? (v) => (Math.log(v) - Math.log(lo)) / (Math.log(hi) - Math.log(lo)) : (v) => (v - lo) / Math.max(1e-9, hi - lo);
+      m = { M, h, lo, hi, tcol, grid: mode === "acc" ? 6 : 7 };
+      meshes.set(mode, m);
+    }
+    return m;
+  }
+  const HZ = 0.95; // height of the highest point, in units of the floor's half-width
+  // a camera: turned by az, tilted by el, magnified by zoom around the point f (in the drawing's own units)
+  const CAM_TOP = { az: 0, el: Math.PI / 2, zoom: 1, f: [0, 0, 0] }, CAM_3D = { az: -0.62, el: 0.58, zoom: 1, f: [0, 0, 0] };
+  const CAM_VALLEY = { az: -0.1, el: 0.7, zoom: 1.6, f: [0.05, 0.08, -0.36] };
+  const lerpCam = (a, b, t) => ({ az: a.az + (b.az - a.az) * t, el: a.el + (b.el - a.el) * t, zoom: a.zoom + (b.zoom - a.zoom) * t, f: a.f.map((v, i) => v + (b.f[i] - v) * t) });
+  function makeProj(W, H, cam, m) {
+    const k = Math.max(0, Math.min(1, (cam.el - CAM_3D.el) / (Math.PI / 2 - CAM_3D.el)));
+    const S = Math.min(W, H) * (0.34 + 0.12 * k), ca = Math.cos(cam.az), sa = Math.sin(cam.az), ce = Math.cos(cam.el), se = Math.sin(cam.el);
+    const cx = W / 2, cy = H / 2 + (1 - k) * H * 0.03, zoom = cam.zoom || 1, f = cam.f || [0, 0, 0];
+    const fx = f[0] * ca - f[1] * sa, fy = f[2] * ce + (f[0] * sa + f[1] * ca) * se;
+    return (w1, w2, h) => {
+      const X = (w1 - DC[0]) / DH, Y = (w2 - DC[1]) / DH, Z = ((h - m.lo) / (m.hi - m.lo)) * HZ - HZ / 2;
+      const x = X * ca - Y * sa, y = X * sa + Y * ca;
+      return [cx + (x - fx) * S * zoom, cy - (Z * ce + y * se - fy) * S * zoom, y * ce - Z * se];
+    };
+  }
+  const clampW = (w) => [Math.max(DOM[0], Math.min(DOM[1], w[0])), Math.max(DOM[2], Math.min(DOM[3], w[1]))];
+  const inDom = (w) => w[0] >= DOM[0] && w[0] <= DOM[1] && w[1] >= DOM[2] && w[1] <= DOM[3];
+  const gridW = (i, j, M) => [DOM[0] + ((DOM[1] - DOM[0]) * i) / (M - 1), DOM[2] + ((DOM[3] - DOM[2]) * j) / (M - 1)];
+  // s: { mode, w, trail, grad, step, comps, showGrad, minMark, cam }
+  function drawSurface(cv, s) {
+    const [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d"), m = getMesh(s.mode), M = m.M, cam = s.cam || CAM_3D;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = rgba(C.sheet); ctx.fillRect(0, 0, W, H);
+    const P = makeProj(W, H, cam, m), span = m.hi - m.lo;
+    const px = new Float64Array(M * M), py = new Float64Array(M * M), pd = new Float64Array(M * M);
+    for (let j = 0; j < M; j++) for (let i = 0; i < M; i++) {
+      const k = j * M + i, g = gridW(i, j, M), q = P(g[0], g[1], m.h[k]);
+      px[k] = q[0]; py[k] = q[1]; pd[k] = q[2];
+    }
+    // the floor, under everything
+    const CORN = [[DOM[0], DOM[2]], [DOM[1], DOM[2]], [DOM[1], DOM[3]], [DOM[0], DOM[3]]];
+    const floorH = m.lo - span * 0.03, fl = CORN.map(([a, b]) => P(a, b, floorH));
+    ctx.strokeStyle = rgba(C["ink-3"], 0.5); ctx.lineWidth = 1;
+    ctx.beginPath(); fl.forEach((p, k) => (k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); ctx.stroke();
+    const tilted = cam.el < 1.35;
+    if (tilted) { // the height axis, at the back corner
+      const corners = CORN.map(([a, b]) => ({ a, b, d: P(a, b, floorH)[2] }));
+      const back = corners.reduce((x, y) => (y.d > x.d ? y : x)), b0 = P(back.a, back.b, floorH), b1 = P(back.a, back.b, m.hi);
+      ctx.beginPath(); ctx.moveTo(b0[0], b0[1]); ctx.lineTo(b1[0], b1[1]); ctx.stroke();
+      ctx.font = `11px ${MONO}`; ctx.fillStyle = rgba(C["ink-2"]); ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+      ctx.fillText(s.mode === "acc" ? "error ↑" : "loss ↑", b1[0], b1[1] - 4);
+    }
+    // the ground, painted from far to near
+    const order = [];
+    for (let j = 0; j < M - 1; j++) for (let i = 0; i < M - 1; i++) { const k = j * M + i; order.push([pd[k] + pd[k + 1] + pd[k + M] + pd[k + M + 1], k]); }
+    order.sort((a, b) => b[0] - a[0]);
+    const lut = C.lutL, L = [-0.45, -0.55, 0.7], Ln = Math.hypot(...L), zs = HZ / span, cell = 2 / (M - 1);
+    for (const [, k] of order) {
+      const i = k % M, j = (k - i) / M, h00 = m.h[k], h10 = m.h[k + 1], h01 = m.h[k + M], h11 = m.h[k + M + 1];
+      const dzx = ((h10 - h00 + h11 - h01) / 2) * zs, dzy = ((h01 - h00 + h11 - h10) / 2) * zs;
+      const dot = (-dzx * L[0] - dzy * L[1] + cell * L[2]) / (Math.hypot(dzx, dzy, cell) * Ln);
+      const shade = 0.62 + 0.38 * Math.max(0, dot);
+      const li = Math.round(Math.max(0, Math.min(1, m.tcol((h00 + h10 + h01 + h11) / 4))) * 255) * 3;
+      const col = `rgb(${(lut[li] * shade) | 0},${(lut[li + 1] * shade) | 0},${(lut[li + 2] * shade) | 0})`;
+      ctx.beginPath(); ctx.moveTo(px[k], py[k]); ctx.lineTo(px[k + 1], py[k + 1]); ctx.lineTo(px[k + M + 1], py[k + M + 1]); ctx.lineTo(px[k + M], py[k + M]); ctx.closePath();
+      ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 0.8; ctx.stroke();
+      if (i % m.grid === 0 || j % m.grid === 0) {
+        ctx.strokeStyle = rgba(C.ink, 0.14); ctx.lineWidth = 0.8; ctx.beginPath();
+        if (j % m.grid === 0) { ctx.moveTo(px[k], py[k]); ctx.lineTo(px[k + 1], py[k + 1]); }
+        if (i % m.grid === 0) { ctx.moveTo(px[k], py[k]); ctx.lineTo(px[k + M], py[k + M]); }
+        ctx.stroke();
+      }
+    }
+    // axis names on the floor edges
+    ctx.font = `11px ${MONO}`; ctx.fillStyle = rgba(C["ink-2"]); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    const l1 = P(DC[0], DC[1] - DH * 1.12, floorH), l2 = P(DC[0] + DH * 1.12, DC[1], floorH);
+    ctx.fillText("w₁", l1[0], l1[1]); ctx.fillText("w₂", l2[0], l2[1]);
+    // things on the ground
+    const lift = span * 0.012, onG = (a, b) => P(a, b, lossAt(s.mode, a, b) + lift);
+    if (s.minMark !== false && s.mode !== "acc") {
+      const q = onG(...MIN[s.mode]);
+      ctx.strokeStyle = rgba(C.sheet, 0.95); ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(q[0] - 5, q[1] - 5); ctx.lineTo(q[0] + 5, q[1] + 5); ctx.moveTo(q[0] + 5, q[1] - 5); ctx.lineTo(q[0] - 5, q[1] + 5); ctx.stroke();
+      ctx.strokeStyle = rgba(C.ink); ctx.lineWidth = 1.6; ctx.stroke();
+    }
+    if (s.trail && s.trail.length) {
+      ctx.strokeStyle = rgba(C.ink, 0.9); ctx.lineWidth = 1.8; ctx.lineJoin = "round"; ctx.beginPath();
+      const pts = s.trail.concat([s.w]).map((p) => onG(...clampW(p)));
+      pts.forEach((q, k) => (k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.stroke();
+      if (s.trail.length < 120) { ctx.fillStyle = rgba(C.ink, 0.9); for (const q of pts.slice(0, -1)) { ctx.beginPath(); ctx.arc(q[0], q[1], 2, 0, Math.PI * 2); ctx.fill(); } }
+    }
+    const inside = inDom(s.w), b = onG(...clampW(s.w)), GS = 1.1;
+    const arrowTo = (v, dashed, color, width) => {
+      const e = onG(...clampW([s.w[0] + v[0], s.w[1] + v[1]]));
+      if (Math.hypot(e[0] - b[0], e[1] - b[1]) < 3) return;
+      if (!dashed) { ctx.strokeStyle = rgba(C.sheet, 0.9); ctx.lineWidth = width + 3; ctx.beginPath(); ctx.moveTo(b[0], b[1]); ctx.lineTo(e[0], e[1]); ctx.stroke(); }
+      ctx.setLineDash(dashed ? [5, 4] : []); ctx.strokeStyle = color; ctx.lineWidth = width;
+      ctx.beginPath(); ctx.moveTo(b[0], b[1]); ctx.lineTo(e[0], e[1]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = color; arrowHead(ctx, b[0], b[1], e[0], e[1], 8);
+    };
+    if (inside && s.comps && s.grad) {
+      if (s.comps.g1) arrowTo([s.grad[0] * GS, 0], false, rgba(C["ink-2"]), 2);
+      if (s.comps.g2) arrowTo([0, s.grad[1] * GS], false, rgba(C["ink-2"]), 2);
+    }
+    if (inside && s.grad && s.showGrad !== false && Math.hypot(...s.grad) > 1e-6) arrowTo([s.grad[0] * GS, s.grad[1] * GS], true, rgba(C["ink-2"]), 2);
+    if (inside && s.step && Math.hypot(...s.step) > 1e-6) arrowTo(s.step, false, rgba(C.ink), 2.4);
+    ctx.beginPath(); ctx.arc(b[0], b[1], 7, 0, Math.PI * 2); ctx.fillStyle = rgba(C.ink); ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = rgba(C.sheet); ctx.stroke();
+    if (!inside) {
+      ctx.font = `600 12px ${UI}`; ctx.fillStyle = rgba(C.ink); ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+      ctx.lineWidth = 3; ctx.strokeStyle = rgba(C.sheet, 0.9); ctx.strokeText("off the map", b[0], b[1] - 12); ctx.fillText("off the map", b[0], b[1] - 12);
+    }
+  }
+  // which pair of weights is under a point on the 3D view: nearest grid point, preferring the front surface, then refined
+  function pickSurface(cv, mode, cam, clientX, clientY) {
+    const r = cv.getBoundingClientRect(), x = clientX - r.left - cv.clientLeft, y = clientY - r.top - cv.clientTop;
+    const m = getMesh(mode), M = m.M, P = makeProj(cv.clientWidth, cv.clientHeight, cam, m);
+    let best = null, bd = Infinity, bdep = Infinity;
+    for (let j = 0; j < M; j++) for (let i = 0; i < M; i++) {
+      const w = gridW(i, j, M), q = P(w[0], w[1], m.h[j * M + i]), d = Math.hypot(q[0] - x, q[1] - y);
+      if (d < 10 ? (bd >= 10 || q[2] < bdep) : d < bd) { best = w; bd = d; bdep = q[2]; }
+    }
+    if (!best || bd > 40) return null;
+    const c = (DOM[1] - DOM[0]) / (M - 1);
+    let fine = best, fd = Infinity;
+    for (let a = -5; a <= 5; a++) for (let b2 = -5; b2 <= 5; b2++) {
+      const w = clampW([best[0] + (a / 5) * c, best[1] + (b2 / 5) * c]), q = P(w[0], w[1], lossAt(mode, w[0], w[1])), d = Math.hypot(q[0] - x, q[1] - y);
+      if (d < fd) { fd = d; fine = w; }
+    }
+    return fine;
+  }
+
   // ---------- the film ----------
   const film = (() => {
-    const A = [-1.2, -0.9], B = [2.6, -1.2], Cc = MIN.ce, LR = 0.5, Z = [0.7, 3.4], ZLR = 15, ZOOM = [0.1, 2.7, 1.1, 3.7];
+    const A = [-1.2, -0.9], B = [3.6, -0.6], Cc = MIN.ce, LR = 0.5, Z = [1.7, 2.95], ZLR = 15;
     const gA = gradAt("ce", ...A), A1 = [A[0] - LR * gA[0], A[1] - LR * gA[1]];
     const path = descend("ce", A, LR, 160), zig = descend("ce", Z, ZLR, 40);
     const SC = [{ k: "knobs", d: 7500 }, { k: "height", d: 6500 }, { k: "slope", d: 8500 }, { k: "step", d: 6500 }, { k: "repeat", d: 11000 }, { k: "big", d: 9500 }, { k: "more", d: 7500 }];
@@ -709,12 +852,12 @@ function backward(loss) {
     const pct = (v) => Math.round(v * 100) + "%";
     const endW = path[path.length - 1];
     const CAP = {
-      knobs: "<b>Two knobs.</b> This neuron has two weights. Each pair (w₁, w₂) is one point on the map, and it is also the arrow on the left. Move the point and the neuron's line turns with it.",
-      height: `<b>Height is loss.</b> Color the map by loss: pale is high, deep is low. The best weights sit at the bottom of the valley, marked ×. Right now the ball is high up: the loss is ${fmt(lossAt("ce", ...A))}, and only ${pct(accAt(...A))} of the dots are right. The neuron has the colors backwards.`,
+      knobs: "<b>Two knobs.</b> This neuron has two weights. Each pair (w₁, w₂) is one point on this map, seen from above, and it is also the arrow on the left. Move the point and the neuron's line turns with it.",
+      height: `<b>Height is loss.</b> Now lift every point on the map to a height equal to its loss. The flat map becomes ground: high where the neuron does badly, a valley where it does well. The ball starts high up, at loss ${fmt(lossAt("ce", ...A))}, where the neuron has the colors backwards. The bottom of the valley is marked ×.`,
       slope: "<b>Feel the slope.</b> The network cannot see the valley. It nudges each weight and measures how the loss responds: one slope for w₁, one for w₂. Together they are the gradient, an arrow pointing straight uphill.",
       step: `<b>Step downhill.</b> Move the opposite way, scaled by the learning rate η = ${LR}. One small step, and the line on the left turns a little.`,
       repeat: "<b>Repeat.</b> Feel the slope, step downhill, over and over. The steps shrink as the ground flattens, and the line on the left swings into place.",
-      big: `<b>Too big a step</b> (zoomed in). With η = ${ZLR}, every step overshoots the valley floor. The ball bounces from side to side and never settles.`,
+      big: `<b>Too big a step.</b> Zoomed in, looking along the valley. With η = ${ZLR}, every step overshoots the floor and lands on the opposite wall. The ball bounces from side to side and never settles.`,
       more: "<b>More weights.</b> Chapter 1's network has 17 weights, so its landscape has 17 dimensions. Nobody can draw it, but the rules are the same. Chapter 3 shows how backpropagation measures all 17 slopes at once.",
     };
     let t = 0, playing = false, last = 0, started = false, autoPaused = false, capKey = "";
@@ -725,10 +868,10 @@ function backward(loss) {
       let w = A, map = { mode: "ce", w: A }, ticker = "";
       if (k === "knobs") {
         const seg = u < 0.33 ? lerp(A, B, sm(u / 0.33)) : u < 0.66 ? lerp(B, Cc, sm((u - 0.33) / 0.33)) : lerp(Cc, A, sm(Math.min(1, (u - 0.66) / 0.3)));
-        w = seg; map = { mode: "ce", w, minMark: false };
+        w = seg; map = { mode: "ce", w, minMark: false, cam: CAM_TOP };
         ticker = `(w₁, w₂) = ${pair(w)}   loss ${fmt(lossAt("ce", ...w))}   accuracy ${pct(accAt(...w))}`;
       } else if (k === "height") {
-        w = A; map = { mode: "ce", w };
+        w = A; map = { mode: "ce", w, cam: lerpCam(CAM_TOP, CAM_3D, sm(Math.max(0, Math.min(1, (u - 0.1) / 0.55)))) };
         ticker = `here: loss ${fmt(lossAt("ce", ...A))}   bottom of the valley ×: loss ${fmt(lossAt("ce", ...Cc))}`;
       } else if (k === "slope") {
         w = A; map = { mode: "ce", w, grad: gA, comps: { g1: u > 0.12, g2: u > 0.38 }, showGrad: u > 0.64 };
@@ -746,14 +889,14 @@ function backward(loss) {
       } else if (k === "big") {
         const x = Math.min(zig.length - 1, (u / 0.95) * 18), lo = Math.floor(x), hi = Math.min(zig.length - 1, lo + 1);
         w = lerp(zig[lo], zig[hi], sm(x - lo));
-        map = { mode: "ce", dom: ZOOM, w, trail: zig.slice(0, lo + 1) };
+        map = { mode: "ce", w, trail: zig.slice(0, lo + 1), cam: lerpCam(CAM_3D, CAM_VALLEY, sm(Math.min(1, u / 0.2))) };
         ticker = `η = ${ZLR}   step ${lo}   (w₁, w₂) = ${pair(w)}   loss ${fmt(lossAt("ce", ...w), 3)}`;
       } else {
         w = endW; map = { mode: "ce", w, trail: path };
         ticker = "2 weights: a map.   17 weights: 17 dimensions.   175 billion: same rules.";
       }
-      drawData($("f-data"), w); drawMap($("f-map"), map);
-      $("f-map-title").textContent = k === "big" ? "Zoomed in on the valley" : "Every pair of weights, colored by loss";
+      drawData($("f-data"), w); drawSurface($("f-map"), map);
+      $("f-map-title").textContent = k === "knobs" ? "Every pair of weights: a map, seen from above" : "Height is the loss";
       $("f-over").hidden = k !== "more";
       $("f-ticker").textContent = ticker;
       if (k !== capKey) { capKey = k; $("f-cap").innerHTML = CAP[k]; }
@@ -856,7 +999,7 @@ function backward(loss) {
 
   // ---------- the playground ----------
   const START = [-1.2, -0.9];
-  const PL = { w: START.slice(), trail: [], mode: "ce", lr: 1, running: false, steps: 0, field: false, flewOff: false };
+  const PL = { w: START.slice(), trail: [], mode: "ce", lr: 1, running: false, steps: 0, field: false, view: "3d", cam: { ...CAM_3D, f: [0, 0, 0] } };
   const MODE_NAME = { ce: "cross-entropy loss", mse: "squared-error loss", acc: "error rate" };
   function plState() {
     const g = gradAt(PL.mode, ...PL.w);
@@ -865,7 +1008,10 @@ function backward(loss) {
   function plRender() {
     const st = plState(), g = st.g, step = [-PL.lr * g[0], -PL.lr * g[1]], gm = Math.hypot(g[0], g[1]);
     drawData($("pl-data"), PL.w);
-    drawMap($("pl-map"), { mode: PL.mode, w: PL.w, trail: PL.trail, grad: g, step, field: PL.field });
+    const land = { mode: PL.mode, w: PL.w, trail: PL.trail, grad: g, step, field: PL.field, cam: PL.cam };
+    if (PL.view === "3d") drawSurface($("pl-map"), land); else drawMap($("pl-map"), land);
+    $("pl-map").classList.toggle("flat", PL.view === "map");
+    $("pl-hint").textContent = PL.view === "3d" ? "drag to turn · click to drop the ball" : "click to drop the ball";
     $("st-w").textContent = pair(PL.w);
     $("st-loss-lab").textContent = PL.mode === "acc" ? "Error rate" : "Loss";
     $("st-loss").textContent = PL.mode === "acc" ? Math.round(st.loss * 100) + "%" : fmt(st.loss, 3);
@@ -874,7 +1020,7 @@ function backward(loss) {
     $("st-steps").textContent = PL.steps;
     $("pl-map-title").textContent = PL.mode === "acc" ? "The error-rate landscape" : PL.mode === "mse" ? "The squared-error landscape" : "The loss landscape";
     $("pl-ramp-lab").textContent = PL.mode === "acc" ? "few wrong → many wrong" : "low loss → high loss";
-    const off = Math.abs(PL.w[0]) > WR || Math.abs(PL.w[1]) > WR;
+    const off = !inDom(PL.w);
     let text;
     if (PL.mode === "acc") text = "<b>The accuracy map is flat terraces.</b> Nudge either weight a little and the share of wrong dots does not change, so both slopes are 0 and the ball has nowhere to go. This is why networks are not trained on accuracy.";
     else if (off) text = `<b>The ball flew off the map.</b> With η = ${PL.lr}, the step was much bigger than the valley. It is now at ${pair(PL.w)}, where the ground is ${gm > 0.05 ? "still sloping back toward the valley" : "almost flat"}. Press Run to see whether it finds its way back.`;
@@ -917,11 +1063,32 @@ function backward(loss) {
     $("pl-mode").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
     PL.mode = b.dataset.v; plRun(false); PL.trail = []; PL.steps = 0; plRender();
   });
-  $("pl-map").addEventListener("click", (e) => {
-    const cv = $("pl-map"), r = cv.getBoundingClientRect();
-    const u = (e.clientX - r.left - cv.clientLeft) / cv.clientWidth, v = (e.clientY - r.top - cv.clientTop) / cv.clientHeight;
-    PL.w = [-WR + u * 2 * WR, WR - v * 2 * WR]; PL.trail = []; PL.steps = 0;
-    plRender();
+  function dropAt(e) {
+    const cv = $("pl-map");
+    let w;
+    if (PL.view === "3d") w = pickSurface(cv, PL.mode, PL.cam, e.clientX, e.clientY);
+    else { const r = cv.getBoundingClientRect(); w = [DOM[0] + ((e.clientX - r.left - cv.clientLeft) / cv.clientWidth) * (DOM[1] - DOM[0]), DOM[3] - ((e.clientY - r.top - cv.clientTop) / cv.clientHeight) * (DOM[3] - DOM[2])]; }
+    if (!w) return;
+    plRun(false); PL.w = w; PL.trail = []; PL.steps = 0; plRender();
+  }
+  let drag = null;
+  $("pl-map").addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, az: PL.cam.az, el: PL.cam.el, moved: false }; $("pl-map").setPointerCapture(e.pointerId); });
+  $("pl-map").addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.hypot(dx, dy) > 5) drag.moved = true;
+    if (drag.moved && PL.view === "3d") {
+      PL.cam.az = drag.az - dx * 0.01;
+      if (e.pointerType === "mouse") PL.cam.el = Math.max(0.15, Math.min(Math.PI / 2, drag.el + dy * 0.008));
+      plRender();
+    }
+  });
+  $("pl-map").addEventListener("pointerup", (e) => { if (drag && !drag.moved) dropAt(e); drag = null; });
+  $("pl-map").addEventListener("pointercancel", () => { drag = null; });
+  $("pl-view").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-v]"); if (!b) return;
+    $("pl-view").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+    PL.view = b.dataset.v; plRender();
   });
   new ResizeObserver(() => plRender()).observe($("pl-map"));
 
@@ -935,7 +1102,9 @@ function backward(loss) {
     "mode-ce": () => "<b>Cross-entropy</b>: the loss chapter 1 trains on. Smooth, with a single valley.",
     "mode-mse": () => "<b>Squared error</b>: a simpler loss. Look for the flat plateau where the neuron is confidently wrong.",
     "mode-acc": () => "<b>Accuracy</b> (shown as error rate): flat terraces, so the gradient is zero almost everywhere.",
-    field: () => "Draw small arrows pointing downhill all over the map. Gradient descent follows them.",
+    field: () => "In the map view, draw small arrows pointing downhill all over the map. Gradient descent follows them.",
+    "view-3d": () => "<b>3D</b>: the loss as ground, with height for loss. Drag to turn it.",
+    "view-map": () => "<b>Map</b>: the same ground seen from directly above, with color for height and contour lines, like a hiking map.",
     "st-w": () => `<b>(w₁, w₂) = ${pair(PL.w)}</b>: the ball's position on the map, and the arrow on the dots.`,
     "st-loss": () => (PL.mode === "acc" ? "The share of dots on the wrong side of the line." : "The loss for the current weights: the height of the map under the ball."),
     "st-acc": () => `${Math.round(accAt(...PL.w) * N)} of ${N} dots are on the right side of the line.`,
