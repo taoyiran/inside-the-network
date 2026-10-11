@@ -32,6 +32,12 @@ A small convolutional network reads handwritten digits, and the chapter opens it
 
 The digits are a 7,000-image subset of the [MNIST database](http://yann.lecun.com/exdb/mnist/) by Yann LeCun and Corinna Cortes, under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/); `seeing/digits.js` is shared under that license, and so are `seeing/weights.js` (the two networks trained in advance on those digits with the chapter's own code) and images made from the digits.
 
+## Chapter 5′: Listening, spectrograms and sound
+
+A branch of chapter 5. Sound becomes a picture (a spectrogram), so chapter 5's convolutional network, with the same code, can recognize the spoken digits "zero" to "nine". The chapter opens with why recognizing sound matters and why it is hard, then takes a recording apart step by step (window, Fourier transform, mel bands, decibels). Four secrets follow: what the first-layer stencils learned (where sounds start and end, high against low); where the network listens; why moving a word in time barely matters while moving it in pitch does; and how noise hurts. A final section separates sounds by painting a mask on a spectrogram, the working space of separation networks. The playground listens to your microphone; the sound never leaves the browser.
+
+The recordings are 9,000 clips of spoken digits from the [Speech Commands dataset](https://www.tensorflow.org/datasets/catalog/speech_commands) by Pete Warden (Google), under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); `listening/sounds.js` holds their spectrograms and 51 of the recordings. `listening/weights.js` holds the two networks trained in advance with the chapter's own code.
+
 ## Run it locally
 
 The chapters share files in `assets/`, and some pages read their own code from there to display it, which browsers block for pages opened straight from disk. Serve the folder instead:
@@ -43,7 +49,7 @@ python3 -m http.server 8000
 
 ## Project layout
 
-- `index.html`, `loss-and-gradients/`, `backprop/`, `going-deeper/`, `seeing/`: one folder per chapter, each a self-contained page.
+- `index.html`, `loss-and-gradients/`, `backprop/`, `going-deeper/`, `seeing/`, `listening/`: one folder per chapter, each a self-contained page.
 - `assets/site.css`: the shared design tokens and components.
 - `assets/autograd.js`: the shared autograd. Chapters 1 to 3 run on it, and chapter 4 checks its hand-written backward pass against it. Chapter 3 shows it in five parts, split at blank lines, next to a Python translation with the same five parts, so keep exactly five blank-line-separated sections in both.
 - `assets/common.js`: shared helpers: number formatting, hover descriptions, the Words · Math · Code switch.
@@ -55,7 +61,7 @@ python3 -m http.server 8000
 3. [Backprop, one operation at a time](https://taoyiran.github.io/inside-the-network/backprop/)
 4. [Going deeper: why layers help](https://taoyiran.github.io/inside-the-network/going-deeper/)
 5. [Seeing: convolutional networks](https://taoyiran.github.io/inside-the-network/seeing/)
-   - 5′. Listening: spectrograms and sound
+   - 5′. [Listening: spectrograms and sound](https://taoyiran.github.io/inside-the-network/listening/)
 6. Words as vectors: tokens and embeddings
 7. Attention
 8. A tiny GPT, trained in your browser
@@ -64,4 +70,5 @@ python3 -m http.server 8000
 
 - Code: [MIT](LICENSE)
 - Text and figures: [CC BY 4.0](LICENSE-CONTENT.md)
+- Speech Commands recordings and spectrograms in `listening/sounds.js`, and the weights trained on them in `listening/weights.js`: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), from the [Speech Commands dataset](https://www.tensorflow.org/datasets/catalog/speech_commands) by Pete Warden (Google)
 - MNIST digits in `seeing/digits.js`, the weights in `seeing/weights.js` and images made from the digits: [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/), from the [MNIST database](http://yann.lecun.com/exdb/mnist/) by Yann LeCun and Corinna Cortes

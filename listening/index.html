@@ -1,0 +1,1491 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="How a network recognizes spoken words: sound as a wave, a spectrogram as a picture, chapter 5's convolutional network listening, what it learned, and how a mask pulls one sound out of a mix.">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; font: 14px system-ui, -apple-system, "Segoe UI", sans-serif; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>Listening</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='8' cy='16' r='4' fill='%232a78d6'/%3E%3Ccircle cx='24' cy='9' r='4' fill='%23eb6834'/%3E%3Ccircle cx='24' cy='23' r='4' fill='%232a78d6'/%3E%3Cpath d='M11 15 21 10M11 17l10 5' stroke='%2314171c' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* Chapter 5′: waves as lines, spectrograms as pictures (time left to right, pitch bottom to top). */
+.pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 520px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+.panel { position: relative; min-width: 0; }
+.panel canvas { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; border-radius: 8px; border: 1px solid var(--rule); }
+.ptitle { font: 600 11px/1.2 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 6px; min-height: 1.2em; }
+.film-cap { min-height: 5.5em; }
+.readout { font: 16px/1.5 var(--font-body); color: var(--ink-2); margin: 10px 0 0; font-variant-numeric: tabular-nums; }
+.readout b { color: var(--ink); }
+.status { font: 13px/1.4 var(--font-mono); color: var(--ink-3); margin: 8px 0 0; }
+.btn.small { padding: 7px 10px; font-size: 13px; }
+.hint { font: 13px/1.3 var(--font-display); color: var(--ink-3); }
+.cap2 { font: 13px/1.35 var(--font-display); color: var(--ink-3); margin: 6px 0 0; }
+.cap2 b { color: var(--ink); font-weight: 600; }
+h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6px; }
+.cv { display: block; width: 100%; aspect-ratio: 1; border-radius: 8px; border: 1px solid var(--rule); }
+.wave { display: block; width: 100%; height: 90px; border-radius: 8px; border: 1px solid var(--rule); }
+.ctl-row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 12px; }
+.ctl-row label { font: 13px var(--font-display); color: var(--ink-2); display: inline-flex; gap: 8px; align-items: center; }
+.ctl-row input[type="range"] { width: 140px; }
+/* clip pickers: a small spectrogram per clip, with a play mark when it can be heard */
+.picker { display: flex; flex-wrap: wrap; gap: 5px; }
+.picker button { position: relative; padding: 2px; border: 1px solid var(--rule); border-radius: 7px; background: var(--sheet); cursor: pointer; line-height: 0; }
+.picker button[aria-pressed="true"] { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.picker button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.picker canvas { display: block; width: 34px; height: 34px; border-radius: 4px; }
+.picker .d { position: absolute; left: 3px; top: 2px; font: 600 10px/1 var(--font-mono); color: var(--ink); background: color-mix(in srgb, var(--sheet) 80%, transparent); padding: 1px 2px; border-radius: 3px; }
+/* probability bars */
+.bars { display: grid; grid-template-columns: 1.1em minmax(0, 1fr) 3.1em; gap: 2px 8px; align-items: center; font: 12px/1.2 var(--font-mono); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.bars .bar { height: 9px; background: var(--well); border-radius: 3px; overflow: hidden; }
+.bars .bar i { display: block; height: 100%; background: var(--ink-3); border-radius: 3px; }
+.bars .top { color: var(--ink); font-weight: 600; }
+.bars .bar.top i { background: var(--ink); }
+.guess { font: 600 15px/1.3 var(--font-display); color: var(--ink); margin: 0 0 6px; }
+.guess small { font: 13px var(--font-body); color: var(--ink-3); font-weight: 400; }
+/* the variety widget and the ladder */
+.va-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 560px) { .va-grid { grid-template-columns: minmax(0, 1fr); } .va-avg { max-width: 160px; } }
+.va-many { display: block; width: 100%; aspect-ratio: 8 / 3.1; cursor: pointer; }
+.ladder { display: grid; gap: 12px; }
+.lr { display: grid; grid-template-columns: minmax(0, 15em) minmax(0, 1fr) 3em; gap: 4px 12px; align-items: center; font: 14px/1.3 var(--font-display); color: var(--ink); }
+.lr .bar { height: 14px; background: var(--well); border-radius: 4px; overflow: hidden; }
+.lr .bar i { display: block; height: 100%; background: var(--ink-3); border-radius: 4px; }
+.lr.best .bar i { background: var(--ink); }
+.lr b { font: 600 14px var(--font-mono); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.lr small { display: block; font: 12.5px var(--font-body); color: var(--ink-3); }
+@media (max-width: 520px) { .lr { grid-template-columns: minmax(0, 1fr) 3em; grid-template-areas: "l v" "b b"; } .lr > span:first-child { grid-area: l; } .lr .bar { grid-area: b; } .lr b { grid-area: v; } }
+/* three columns: a picture and two networks' answers */
+.tri { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 5fr) minmax(0, 5fr); gap: 16px; align-items: start; }
+@media (max-width: 640px) { .tri { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .tri > :first-child { grid-column: 1 / -1; max-width: 260px; } }
+/* tool 1 and tool 2 */
+.sounds { display: flex; flex-wrap: wrap; gap: 6px; }
+.t2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 560px) { .t2 { grid-template-columns: minmax(0, 1fr); } }
+.t2 canvas { display: block; width: 100%; height: 130px; border-radius: 8px; border: 1px solid var(--rule); }
+.t2 .pic { height: auto; aspect-ratio: 1; max-width: 240px; }
+#t2-frame { width: 100%; }
+/* the layer walk */
+.stages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 16px; align-items: start; }
+@media (max-width: 560px) { .stages { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stage { min-width: 0; }
+.stage canvas { display: block; width: 100%; aspect-ratio: 1; }
+#wk-0 { max-width: 128px; }
+#wk-1, #wk-2 { aspect-ratio: 2 / 1.03; }
+.stage .sh { font: 600 12px/1.25 var(--font-display); color: var(--ink); margin: 0 0 4px; }
+.stage .sd { font: 12px/1.35 var(--font-body); color: var(--ink-3); margin: 4px 0 0; }
+/* stencils learning */
+.learn { display: grid; gap: 10px; }
+.lrow { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 12px; align-items: center; }
+.lrow .lh { font: 600 12px/1.3 var(--font-display); color: var(--ink); }
+.lrow .lh small { display: block; font: 11.5px/1.35 var(--font-mono); color: var(--ink-3); font-weight: 400; }
+.lrow canvas { display: block; width: 100%; aspect-ratio: 8 / 1.06; }
+@media (max-width: 520px) { .lrow { grid-template-columns: minmax(0, 1fr); gap: 4px; } .lrow .lh small { display: inline; margin-left: 6px; } }
+/* curves */
+#tp-chart { display: block; width: 100%; height: 200px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font: 13px/1.3 var(--font-display); color: var(--ink-2); margin-top: 8px; }
+.legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.ln { display: inline-block; width: 20px; height: 0; border-top: 2.5px solid var(--ink); }
+.ln.dash { border-top: 2.5px dashed var(--ink-3); }
+.ln.blue { border-top-color: var(--pos); } .ln.orange { border-top-color: var(--neg); }
+/* separation */
+.sep-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 18px; align-items: start; }
+@media (max-width: 640px) { .sep-grid { grid-template-columns: minmax(0, 1fr); } }
+#sp-canvas { display: block; width: 100%; aspect-ratio: 126 / 120; border-radius: 8px; border: 1px solid var(--rule); touch-action: none; cursor: crosshair; }
+.plays { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+/* playground */
+.pg-grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 24px; padding-top: 18px; }
+@media (max-width: 899px) { .pg-grid { grid-template-columns: minmax(0, 1fr); } }
+.pl-right { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px 14px; }
+.box { min-width: 0; }
+.box h4 { font: 600 14px/1.2 var(--font-display); color: var(--ink); margin: 0 0 8px; }
+.span2 { grid-column: 1 / -1; }
+.sep { border-top: 1px solid var(--rule); padding-top: 14px; }
+.row-gap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.small-pic { display: block; width: 150px; height: 150px; max-width: 40vw; max-height: 40vw; border-radius: 8px; border: 1px solid var(--rule); }
+.maps1 { display: block; width: 100%; aspect-ratio: 8 / 1.06; }
+.filt8 { display: block; width: 100%; aspect-ratio: 8 / 1.05; }
+#pl-rec.on { background: var(--neg); border-color: var(--neg); color: var(--sheet); }
+</style>
+</head>
+<body>
+<div class="page">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Inside the Network</a><span aria-hidden="true">›</span><span>Chapter 5′</span></nav>
+  <header class="col">
+    <div class="eyebrow">Chapter 5′ · a branch of chapter 5</div>
+    <h1>Listening: spectrograms and sound</h1>
+    <p class="dek">Turn a sound into a picture, and chapter 5's network can listen. Here it learns to recognize spoken digits from thousands of voices, shows what it listens for, and the same picture lets you pull one sound out of a mix.</p>
+    <nav class="jump" aria-label="Page shortcuts">
+      <a class="btn primary" href="#playground">Skip to the playground ↓</a>
+      <span class="jump-note">or read the introduction below</span>
+    </nav>
+  </header>
+
+  <main class="col intro">
+    <h2>The problem: getting a computer to hear</h2>
+    <p>Someone says "seven" and you understand it at once, whoever says it. A computer gets only what the microphone measures: 16,000 numbers every second. Turning those numbers into "seven" is <b>speech recognition</b>, one part of audio recognition. Recognizing a few chosen words, the job here, is called <b>keyword spotting</b>.</p>
+
+    <h3>Why recognize sound?</h3>
+    <p>Because people talk, and many sounds matter. Phones and speakers listen for a wake word, such as "Hey Siri", with a small network that runs all the time and wakes the rest of the system only when it hears that word. Speech recognition writes captions for people who cannot hear, lets you control devices with your hands busy, and transcribes meetings. Sound recognition identifies birds from their songs and warns when a machine starts to sound wrong. The recordings in this chapter come from Speech Commands, a collection Google first released in 2017, made to train exactly this kind of small keyword spotter.</p>
+
+    <h3>Why is it hard?</h3>
+    <p>A spoken word is never the same twice. Voices are high or low, people speak fast or slowly, with different accents, close to the microphone or far away, in quiet rooms or noisy ones. These are real recordings of single spoken digits from Speech Commands, each by a different person. Each square is a <b>spectrogram</b>, a picture of the sound that the rest of this chapter explains: time runs from left to right, pitch from bottom to top, and darker means louder. Click one of the first three in a row to hear it.</p>
+
+    <figure class="card" id="variety" aria-label="Many speakers saying one digit, and their average">
+      <div class="seg" role="group" aria-label="Digit" id="va-digits"></div>
+      <div class="va-grid" style="margin-top:12px">
+        <div><div class="ptitle" id="va-many-t">24 of the 800 training recordings</div><canvas class="va-many" id="va-many" aria-label="Spectrograms of 24 speakers saying the chosen digit; click one of the first three in a row to hear it" data-tip="va-many"></canvas></div>
+        <div><div class="ptitle">Their average</div><canvas class="cv va-avg" id="va-avg" aria-label="The average spectrogram of all 800 training recordings of the chosen digit"></canvas></div>
+      </div>
+      <p class="readout" id="va-read">Loading 9,000 recordings…</p>
+    </figure>
+
+    <p>As with handwriting in chapter 5, the simplest idea is to compare: keep the average picture of each digit and call a new recording by the average it is closest to. For speech this reads only 31% of our 1,000 test recordings correctly, against 77% for handwritten digits. The same word starts at different moments and lasts different lengths, so the averages blur into smudges.</p>
+
+    <h3>Why neural networks do so well</h3>
+    <ul class="tries">
+      <li><b>A spectrogram turns sound into a picture.</b> Once sound is a picture, the tools of chapter 5 apply: this chapter's network is chapter 5's code, unchanged except for the size of its last layer.</li>
+      <li><b>Convolution fits time.</b> A sound pattern means the same thing whenever it happens, so the same stencil can look for it at every moment, and a word that starts a little later is still recognized.</li>
+      <li><b>They learn from their mistakes.</b> The network is trained to tell the ten words apart, by gradient descent, on 8,000 recordings by 1,296 different people.</li>
+    </ul>
+
+    <figure class="card" aria-label="Three methods on the same 1,000 test recordings">
+      <div class="ladder" id="ladder"></div>
+      <p class="cap2">Share of the 1,000 test recordings recognized correctly, measured in your browser. The test speakers are not among the training speakers.</p>
+    </figure>
+
+    <h2>What this is</h2>
+    <p>This film follows one spoken "seven" from the microphone's numbers to the network's answer, then shows where it listens and the one thing it cannot shrug off.</p>
+
+    <figure class="film" id="film" aria-label="Animation: from a sound wave to a spectrogram to the network's answer">
+      <div class="film-stage">
+        <div class="pair">
+          <div class="panel"><div class="ptitle" id="f-lt"></div><canvas id="f-left" aria-label="Left panel of the film"></canvas></div>
+          <div class="panel"><div class="ptitle" id="f-rt"></div><canvas id="f-right" aria-label="Right panel of the film"></canvas></div>
+        </div>
+      </div>
+      <div class="film-ticker" id="f-ticker" aria-hidden="true"></div>
+      <div class="film-progress"><i id="f-fill"></i></div>
+      <div class="film-bar">
+        <button type="button" class="btn primary" id="f-play">Play</button>
+        <button type="button" class="btn" id="f-hear" data-tip="f-hear">Hear the seven</button>
+        <div class="chips" id="f-chips" role="group" aria-label="Jump to a scene">
+          <button type="button" data-i="0" data-tip="film-0">A wave</button><button type="button" data-i="1" data-tip="film-1">Pitches</button><button type="button" data-i="2" data-tip="film-2">A picture</button><button type="button" data-i="3" data-tip="film-3">A stencil</button><button type="button" data-i="4" data-tip="film-4">Where it listens</button><button type="button" data-i="5" data-tip="film-5">Time and pitch</button><button type="button" data-i="6" data-tip="film-6">In short</button>
+        </div>
+      </div>
+      <p class="film-cap" id="f-cap" aria-live="polite"></p>
+    </figure>
+
+    <h2>The question</h2>
+    <p>In chapter 5, the convolutional network coped far better than a plain one when a digit was moved. A spectrogram can be moved in two directions: to the right, which means the word starts later, or up, which means every pitch in it is higher. Move this recording either way, and watch both networks.</p>
+
+    <figure class="card" id="question" aria-label="Moving a recording later in time or up in pitch">
+      <div class="picker" id="qt-pick" role="group" aria-label="Pick a test recording"></div>
+      <div class="ctl-row" style="margin-top:12px">
+        <label>Later in time <input type="range" id="qt-time" min="-6" max="6" value="0" data-tip="qt-time"><b id="qt-time-v">0 ms</b></label>
+        <label>Higher in pitch <input type="range" id="qt-pitch" min="-3" max="3" value="0" data-tip="qt-pitch"><b id="qt-pitch-v">0 bands</b></label>
+      </div>
+      <div class="tri">
+        <div><canvas class="cv" id="qt-img" aria-label="The recording's spectrogram, moved"></canvas></div>
+        <div><p class="guess" id="qt-plain-g"></p><div class="bars" id="qt-plain"></div><p class="cap2">Plain network · 8,290 parameters</p></div>
+        <div><p class="guess" id="qt-cnn-g"></p><div class="bars" id="qt-cnn"></div><p class="cap2">Convolutional network · 7,434 parameters</p></div>
+      </div>
+      <p class="readout" id="qt-read">Loading 9,000 recordings…</p>
+    </figure>
+
+    <p>Moved two columns later (62 ms), the convolutional network still recognizes 88% of the test recordings. Moved two bands up, about 20 to 40% higher in pitch, it drops to 73%, and three bands up to 50%. The plain network suffers from both. Before explaining why, here is what a spectrogram is.</p>
+
+    <h2>Tool 1: sound is a wave</h2>
+    <p>A microphone measures how the air pressure rises and falls, thousands of times a second; a loudspeaker pushes the air back the same way. A pure tone is a smooth wave that repeats: the faster it repeats, the higher the pitch. Real sounds are many waves added together. A <b>spectrogram</b> asks, moment by moment, which pitches are in the sound and how strong each one is. Pick a sound, listen, and compare its wave with its spectrogram.</p>
+
+    <figure class="card" id="tool1" aria-label="Sounds as waves and as spectrograms">
+      <div class="sounds" id="t1-sounds" role="group" aria-label="Sounds">
+        <button type="button" class="btn small" data-s="tone" data-tip="t1-tone">A pure tone</button><button type="button" class="btn small" data-s="chord" data-tip="t1-chord">A chord</button><button type="button" class="btn small" data-s="glide" data-tip="t1-glide">A siren</button><button type="button" class="btn small" data-s="click" data-tip="t1-click">Clicks</button><button type="button" class="btn small" data-s="seven" data-tip="t1-seven">A spoken "seven"</button>
+      </div>
+      <div class="ptitle" style="margin-top:12px" id="t1-wave-t">The wave</div>
+      <canvas class="wave" id="t1-wave" aria-label="The sound's wave over one second, and a 20-millisecond close-up"></canvas>
+      <div class="ptitle" style="margin-top:12px">Its spectrogram · 0 to 8,000 Hz</div>
+      <canvas class="wave" id="t1-spec" style="height:150px" aria-label="The sound's spectrogram"></canvas>
+      <p class="readout" id="t1-read"></p>
+    </figure>
+
+    <h2>Tool 2: from a wave to the network's picture</h2>
+    <p>The network's spectrogram is made in four steps, repeated for 32 moments of the second. Each moment takes a <b>window</b> of 512 numbers (32 ms) and fades its edges. The <b>Fourier transform</b> finds how strong each of 257 frequencies is in that window. Those are added up into 32 <b>mel bands</b>, narrow at low pitches and wide at high ones, because that is roughly how we hear. Finally each band's strength is put on a <b>logarithmic</b> scale, in decibels, which is also how we hear loudness. Drag the slider to choose the moment.</p>
+
+    <figure class="card" id="tool2" aria-label="The four steps from a sound wave to the network's picture">
+      <label class="ptitle" for="t2-frame" style="display:block">Moment <span id="t2-frame-v">10</span> of 32</label>
+      <input type="range" id="t2-frame" min="0" max="31" value="10" data-tip="t2-frame">
+      <div class="t2" style="margin-top:10px">
+        <div><div class="ptitle">1 · The window, faded at its edges</div><canvas id="t2-win" aria-label="The 512 samples of the chosen moment, with the fade"></canvas></div>
+        <div><div class="ptitle">2 · Its 257 frequencies</div><canvas id="t2-fft" aria-label="How strong each frequency is in the window"></canvas></div>
+        <div><div class="ptitle">3 · 32 mel bands, in decibels</div><canvas id="t2-mel" aria-label="The strength of each of the 32 bands, in decibels"></canvas></div>
+        <div><div class="ptitle">4 · The picture: 32 moments × 32 bands</div><canvas class="pic" id="t2-pic" aria-label="The spectrogram the network reads, with the chosen moment marked"></canvas></div>
+      </div>
+      <p class="readout" id="t2-read"></p>
+    </figure>
+
+    <h2>Tool 3: the same network as chapter 5</h2>
+    <p>The network is chapter 5's convolutional network, with the same code: 8 stencils of 5 × 5, pooling, 16 stencils, pooling, and a dense layer that weighs everything into 10 probabilities. The only change is the size of the last layer, because a 32 × 32 picture leaves 400 numbers at the end instead of 256. It reads each spectrogram value minus 0.5, so quiet and loud parts push in opposite directions; that helps it train.</p>
+
+    <figure class="card" id="walk" aria-label="A recording passing through every layer of the network">
+      <div class="picker" id="wk-pick" role="group" aria-label="Pick a test recording"></div>
+      <div class="stages" style="margin-top:14px">
+        <div class="stage"><p class="sh">The spectrogram</p><canvas id="wk-0" aria-label="The spectrogram"></canvas><p class="sd">32 × 32</p></div>
+        <div class="stage"><p class="sh">→ Layer 1 · 8 stencils</p><canvas id="wk-1" aria-label="Layer 1's 8 feature maps"></canvas><p class="sd">8 maps of 28 × 28, after ReLU<br>208 parameters</p></div>
+        <div class="stage"><p class="sh">→ Pooling</p><canvas id="wk-2" aria-label="The 8 maps after pooling"></canvas><p class="sd">8 maps of 14 × 14</p></div>
+        <div class="stage"><p class="sh">→ Layer 2 · 16 stencils</p><canvas id="wk-3" aria-label="Layer 2's 16 feature maps"></canvas><p class="sd">16 maps of 10 × 10, after ReLU<br>3,216 parameters</p></div>
+        <div class="stage"><p class="sh">→ Pooling</p><canvas id="wk-4" aria-label="The 16 maps after pooling"></canvas><p class="sd">16 × 5 × 5 = 400 numbers</p></div>
+        <div class="stage"><p class="sh">→ 10 probabilities</p><div class="bars" id="wk-5"></div><p class="sd">dense layer, then softmax<br>4,010 parameters</p></div>
+      </div>
+      <p class="readout" id="wk-read"></p>
+    </figure>
+
+    <h2>Secret 1: what it listens for</h2>
+    <p>As in chapter 5, nobody chose the stencils: training started them as tiny random numbers. Each row below is one moment of training; the first five rows are a fresh copy of the network training in your browser right now, and the last is the finished network.</p>
+
+    <figure class="card" id="learn" aria-label="Layer 1's stencils at several moments of training">
+      <div class="learn" id="ln-rows"></div>
+      <p class="readout" id="ln-read">Loading 9,000 recordings…</p>
+    </figure>
+
+    <p>On a spectrogram a stencil's left-to-right is time and its bottom-to-top is pitch, so its patterns mean something about sound. A stencil that is orange on the left and blue on the right fires where quiet turns into loud: the moment a sound starts. One that is blue above and orange below fires where high bands are loud and low ones quiet, as in the hiss of an "s". Another fires where loud turns into quiet: where a sound ends. As in chapter 5, layer 1's starting weights are 50 times smaller than usual, which keeps these patterns visible; with a normal start the network learns as well, but its stencils keep much of their starting noise.</p>
+
+    <h2>Secret 2: where it listens</h2>
+    <p>The backward pass can be carried down to the spectrogram itself, as in chapter 5: for every spot of the picture it says how much a little more sound there would raise or lower the network's confidence in its answer. That shows where it listens.</p>
+
+    <figure class="card" id="where" aria-label="Which parts of a spectrogram the network's answer depends on">
+      <div class="picker" id="wh-pick" role="group" aria-label="Pick a test recording"></div>
+      <div class="ctl-row" style="margin-top:12px"><button type="button" class="btn small" id="wh-play" data-tip="wh-play">Hear it</button></div>
+      <div class="pair" style="max-width:560px">
+        <div><div class="ptitle">The spectrogram</div><canvas class="cv" id="wh-spec" aria-label="The spectrogram"></canvas></div>
+        <div><div class="ptitle">Where it listens</div><canvas class="cv" id="wh-sal" aria-label="Blue where more sound would raise the network's confidence, orange where less would"></canvas></div>
+      </div>
+      <p class="readout" id="wh-read"></p>
+    </figure>
+
+    <p>It listens to the word and ignores the silence around it, and within the word it attends to particular bands and moments: the vowel's strongest bands, the hiss of an "s" or the burst of a "t".</p>
+
+    <h2>Secret 3: time is not pitch</h2>
+    <p>Here is the answer to the question. Both networks were measured on all 1,000 test recordings, moved later or earlier by up to 6 columns (186 ms) and up or down by up to 3 bands.</p>
+
+    <figure class="card" id="tp" aria-label="Accuracy when recordings are moved in time or in pitch">
+      <canvas id="tp-chart" aria-label="Accuracy of both networks against how far the recordings are moved"></canvas>
+      <div class="legend"><span><i class="ln blue"></i>convolutional, moved in time</span><span><i class="ln orange"></i>convolutional, moved in pitch</span><span><i class="ln dash"></i>plain network (both)</span></div>
+      <p class="readout" id="tp-read">Measuring…</p>
+    </figure>
+
+    <p>In a picture, a stroke looks the same wherever it is. In a spectrogram, a pattern means the same thing at any <em>time</em>: a "seven" said a moment later is still a "seven", and the network has heard words start at many moments. But a pattern does not mean the same thing at any <em>pitch</em>: which bands light up is part of what makes an "ee" different from an "oo", and why a high voice and a low voice saying the same vowel still share their pattern only roughly. So the network learned to ignore when, but not where in pitch. Speech systems handle different voices by training on many speakers, as this one did.</p>
+
+    <h2>Secret 4: noise</h2>
+    <p>Real rooms are noisy. Add hiss to a recording, at a level measured in decibels below the word, and listen to what the networks still recognize.</p>
+
+    <figure class="card" id="noise" aria-label="A recording with hiss added">
+      <div class="picker" id="no-pick" role="group" aria-label="Pick a test recording"></div>
+      <div class="ctl-row" style="margin-top:12px">
+        <label>Hiss <select id="no-level" data-tip="no-level"><option value="99">none</option><option value="20">20 dB below the word</option><option value="10" selected>10 dB below</option><option value="5">5 dB below</option><option value="0">as loud as the word</option></select></label>
+        <button type="button" class="btn small" id="no-play" data-tip="no-play">Hear it</button>
+      </div>
+      <div class="tri">
+        <div><canvas class="cv" id="no-img" aria-label="The spectrogram with hiss added"></canvas></div>
+        <div><p class="guess" id="no-plain-g"></p><div class="bars" id="no-plain"></div><p class="cap2">Plain network</p></div>
+        <div><p class="guess" id="no-cnn-g"></p><div class="bars" id="no-cnn"></div><p class="cap2">Convolutional network</p></div>
+      </div>
+      <p class="readout" id="no-read"></p>
+    </figure>
+
+    <p>On all 1,000 test recordings, with hiss 20 dB below the word the convolutional network still recognizes 87%, at 10 dB below 78%, at 5 dB below 71%, and with the hiss as loud as the word 56%. The plain network falls much faster. Training on recordings with noise added, as real systems do, makes networks far more robust.</p>
+
+    <h2>Pulling sounds apart</h2>
+    <p>The spectrogram is also where sounds can be separated. In a mix, each spot of the spectrogram mostly belongs to one sound or the other. A <b>mask</b> says which spots to keep: multiply the mix's spectrogram by it, turn the result back into a wave, and you hear only what you kept. Here a spoken "seven" is mixed, equally loud, with a hum or with another person saying "three". Paint on the spectrogram to remove or keep parts, then listen.</p>
+
+    <figure class="card" id="separate" aria-label="Painting a mask on a spectrogram to separate two sounds">
+      <div class="ctl-row">
+        <div class="seg" role="group" aria-label="The mix" id="sp-mix"><button type="button" data-v="hum" data-tip="sp-hum" aria-pressed="true">Seven + a hum</button><button type="button" data-v="voice" data-tip="sp-voice" aria-pressed="false">Seven + another voice</button></div>
+        <div class="seg" role="group" aria-label="Brush" id="sp-brush"><button type="button" data-v="0" data-tip="sp-remove" aria-pressed="true">Remove</button><button type="button" data-v="1" data-tip="sp-keep" aria-pressed="false">Keep</button></div>
+      </div>
+      <div class="sep-grid">
+        <div><div class="ptitle">The mix · 0 to 8,000 Hz, painted parts dimmed</div><canvas id="sp-canvas" aria-label="The mix's spectrogram: paint to remove or keep parts" data-tip="sp-canvas"></canvas></div>
+        <div>
+          <div class="plays">
+            <button type="button" class="btn small" data-play="mix" data-tip="sp-p-mix">Hear the mix</button><button type="button" class="btn small" data-play="kept" data-tip="sp-p-kept">Hear what is kept</button>
+            <button type="button" class="btn small" data-play="removed" data-tip="sp-p-removed">Hear what is removed</button><button type="button" class="btn small" data-play="word" data-tip="sp-p-word">Hear the seven alone</button>
+          </div>
+          <div class="row-gap"><button type="button" class="btn small" id="sp-ideal" data-tip="sp-ideal">The ideal mask</button><button type="button" class="btn small" id="sp-clear" data-tip="sp-clear">Keep everything</button></div>
+          <p class="readout" id="sp-read"></p>
+        </div>
+      </div>
+    </figure>
+
+    <p>The ideal mask is made with knowledge you never have in practice: the two sounds before they were mixed. That is exactly what a separation network learns to produce. It is trained on mixes made from known sounds, it looks at a mix's spectrogram and predicts the mask, and it gets better by gradient descent on the difference from the ideal one. Networks that pull voices out of songs, or one speaker out of a crowded room, work in this space.</p>
+
+    <h2>The algorithm: making the picture</h2>
+    <p>The network's code is chapter 5's, unchanged. What is new is the code that turns a recording into its 32 × 32 picture, here in four parts. It is the JavaScript this page actually runs, on the recordings and on your microphone, or the same program in Python.</p>
+    <div class="lens" data-lens-ctl data-label="Explain with"></div>
+    <div class="annot" id="algo" data-reps></div>
+
+    <h2>The playground</h2>
+    <p>Say a digit into your microphone and see what both networks hear. Or pick a recording. The sound never leaves your browser.</p>
+  </main>
+
+  <section class="bench" id="playground" aria-label="Listening playground">
+    <div class="fig">
+      <div class="pg-grid">
+        <div>
+          <div class="row-gap" style="margin-top:0">
+            <button type="button" class="btn primary" id="pl-rec" data-tip="pl-rec">Record 1.5 seconds</button>
+            <button type="button" class="btn" id="pl-play" data-tip="pl-play">Hear it</button>
+          </div>
+          <p class="status" id="pl-mic">Say one digit, zero to nine, right after you press Record.</p>
+          <div class="ptitle" style="margin-top:12px">Or pick a test recording</div>
+          <div class="picker" id="pl-pick" role="group" aria-label="Pick a test recording"></div>
+          <div class="ptitle" style="margin-top:14px">The second it hears</div>
+          <canvas class="wave" id="pl-wave" style="height:70px" aria-label="The sound's wave"></canvas>
+          <div class="row-gap" style="align-items:flex-start;margin-top:14px">
+            <div><canvas class="small-pic" id="pl-spec" aria-label="The spectrogram the network reads"></canvas><p class="cap2">what it reads</p></div>
+            <div><canvas class="small-pic" id="pl-sal" aria-label="Where it listens" data-tip="pl-sal"></canvas><p class="cap2">where it listens</p></div>
+          </div>
+        </div>
+        <div>
+          <div class="pl-right">
+            <div class="box"><h4>Convolutional network</h4><p class="guess" id="pl-cnn-g"></p><div class="bars" id="pl-cnn"></div>
+              <div class="seg" role="group" aria-label="Which convolutional network" id="pl-net" style="margin-top:10px"><button type="button" data-v="ref" data-tip="net-ref" aria-pressed="true">Trained</button><button type="button" data-v="own" data-tip="net-own" aria-pressed="false">Your own</button></div>
+            </div>
+            <div class="box"><h4>Plain network</h4><p class="guess" id="pl-plain-g"></p><div class="bars" id="pl-plain"></div><p class="cap2">1,024 → 8 → 10, trained on the same recordings</p></div>
+            <div class="box span2 sep"><h4>Layer 1's feature maps</h4><canvas class="maps1" id="pl-l1" aria-label="Layer 1's 8 feature maps"></canvas></div>
+            <div class="box span2 sep">
+              <h4>Train your own</h4>
+              <div class="row-gap" style="margin-top:0"><button type="button" class="btn primary small" id="pl-train" data-tip="pl-train">Train</button><button type="button" class="btn small" id="pl-reset" data-tip="pl-reset">Reset</button><span class="status" id="pl-status" style="margin:0"></span></div>
+              <p class="cap2" style="margin-top:10px">Its 8 layer-1 stencils</p>
+              <canvas class="filt8" id="pl-filters" aria-label="Your network's 8 layer-1 stencils"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="col">
+    <h2>How to read the figures</h2>
+    <dl class="read">
+      <dt>Spectrograms</dt>
+      <dd>Time runs from left to right, pitch from bottom (low) to top (high). Darker squares are louder, measured from the loudest point of the recording: the darkest is the loudest, paper color is 80 dB or more below it. The network's pictures have 32 moments of 31 ms and 32 mel bands from 0 to 8,000 Hz.</dd>
+      <dt>Waves</dt>
+      <dd>The microphone's numbers over time; up and down are the air pressure rising and falling. In Tool 1 the right part is a 20 ms close-up.</dd>
+      <dt>Stencils and maps</dt>
+      <dd>Blue is positive, orange negative, paper-colored zero. Each stencil square is stretched to its own strongest weight; the "largest" number beside each row is the largest weight among that row's 8 stencils.</dd>
+      <dt>Where it listens</dt>
+      <dd>Blue where more sound would make the network more sure of its answer, orange where less sound would.</dd>
+      <dt>The mask</dt>
+      <dd>In the separation figure, painted parts are dimmed. What is dimmed is removed when you listen to what is kept.</dd>
+    </dl>
+
+    <h2>Things to try</h2>
+    <ul class="tries">
+      <li>In the question, move a recording 4 columns later, then 2 bands up. Which hurts more?</li>
+      <li>In Tool 1, compare the chord with the pure tone, and the siren with the clicks. Which way does each one run in the spectrogram?</li>
+      <li>In the separation figure, choose the hum and paint out its horizontal lines at the bottom. Then try the ideal mask, and listen to what it removes.</li>
+      <li>Record yourself saying "seven" normally, then in a very high or very low voice. Does the network still understand you?</li>
+      <li>Record a digit in a quiet room and then with music playing in the background.</li>
+      <li>Train your own network and watch its stencils form.</li>
+    </ul>
+
+    <h2>What runs where</h2>
+    <p>Everything runs in your browser, with no machine-learning library. The recordings are 9,000 one-second clips of spoken digits from the <a href="https://www.tensorflow.org/datasets/catalog/speech_commands">Speech Commands dataset</a> by Pete Warden at Google, shared under the <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> license: 800 of each digit for training and 100 of each for testing, each digit's recordings by different people (1,296 speakers in training and 168 in testing), with no test speaker among the training speakers. The page carries their spectrograms, made with the code above, and 51 of the recordings themselves for listening. The trained convolutional and plain networks were trained in advance with exactly this page's code: 10 passes over the 8,000 training recordings in batches of 20, with learning rate 0.1 and then 0.03 for the last two passes, about a minute on a laptop. Their weights load from a file. Everything else runs live: the training in Secret 1 and in the playground, the measurements, the separation, and your microphone. When this page loaded it checked the backward pass the slow way: <span id="gc-check">the check is running…</span> Browsers round a few math functions very slightly differently, so live training can come out a little differently from one browser to another.</p>
+
+    <h2>Where this is going</h2>
+    <ol class="road">
+      <li><span class="n">1</span><span><a href="../">A network you can touch</a></span><span></span></li>
+      <li><span class="n">2</span><span><a href="../loss-and-gradients/">Loss and gradients: walking downhill</a></span><span></span></li>
+      <li><span class="n">3</span><span><a href="../backprop/">Backprop, one operation at a time</a></span><span></span></li>
+      <li><span class="n">4</span><span><a href="../going-deeper/">Going deeper: why layers help</a></span><span></span></li>
+      <li><span class="n">5</span><span><a href="../seeing/">Seeing: convolutional networks</a></span><span></span></li>
+      <li class="branch here"><span class="n">5′</span><span>Listening: spectrograms and sound</span><span class="tag">This page</span></li>
+      <li><span class="n">6</span><span>Words as vectors: tokens and embeddings</span><span></span></li>
+      <li><span class="n">7</span><span>Attention</span><span></span></li>
+      <li><span class="n">8</span><span>A tiny GPT, trained in your browser</span><span></span></li>
+    </ol>
+    <nav class="chapnav" aria-label="Chapters"><a href="../seeing/">← Chapter 5: Seeing</a><span>Chapter 6: Words as vectors, coming next</span></nav>
+    <p class="foot">Working prototype, October 2026. Every figure on this page is a live computation.<br><a href="https://github.com/taoyiran/inside-the-network">Source on GitHub</a> · code under MIT, text and figures under CC BY 4.0, Speech Commands recordings under CC BY 4.0 (Pete Warden, Google).</p>
+  </section>
+  <a class="jump-pill" id="jump-pill" href="#playground" hidden>Playground ↓</a>
+</div>
+
+<script src="../assets/common.js"></script>
+<script src="sounds.js"></script>
+<script src="weights.js"></script>
+<script id="cnn">
+// A small convolutional network, written out by hand. An image is a stack of grids of numbers:
+// c channels, each h × w, stored in one flat array. Channel ch, row y, column x is at (ch·h + y)·w + x.
+const grid = (c, h, w) => ({ c, h, w, d: new Float64Array(c * h * w) });
+
+// A convolution layer: each filter is a small k × k stencil of weights (one per input channel).
+// It slides over every position of the input; at each one it multiplies and adds, giving one output number.
+// The same weights are used at every position, so a filter finds its pattern wherever it appears.
+function convForward(L, input) {
+  const { c, h, w } = input, k = L.k, oh = h - k + 1, ow = w - k + 1, out = grid(L.n, oh, ow);
+  for (let f = 0; f < L.n; f++) for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) {
+    let sum = L.b[f];
+    for (let ch = 0; ch < c; ch++) for (let i = 0; i < k; i++) for (let j = 0; j < k; j++)
+      sum += L.W[((f * c + ch) * k + i) * k + j] * input.d[(ch * h + y + i) * w + x + j];
+    out.d[(f * oh + y) * ow + x] = sum;
+  }
+  return out;
+}
+
+// ReLU keeps positive numbers and turns negative ones into 0. Max pooling keeps the largest number
+// in each 2 × 2 block, so the grid halves in size and a pattern can shift a pixel without changing much.
+function reluForward(input) {
+  const out = grid(input.c, input.h, input.w);
+  input.d.forEach((v, i) => { out.d[i] = v > 0 ? v : 0; });
+  return out;
+}
+function poolForward(input) {
+  const { c, h, w } = input, out = grid(c, h / 2, w / 2);
+  out.from = new Int32Array(out.d.length); // where each maximum came from, for the backward pass
+  for (let ch = 0; ch < c; ch++) for (let y = 0; y < h / 2; y++) for (let x = 0; x < w / 2; x++) {
+    let best = -Infinity, at = 0;
+    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+      const p = (ch * h + 2 * y + i) * w + 2 * x + j;
+      if (input.d[p] > best) { best = input.d[p]; at = p; }
+    }
+    const o = (ch * (h / 2) + y) * (w / 2) + x;
+    out.d[o] = best; out.from[o] = at;
+  }
+  return out;
+}
+
+// The last layer is an ordinary dense layer: every number in the final stack votes for each of the
+// 10 digits. Softmax turns the 10 scores into probabilities that add up to 1.
+function denseForward(L, input) {
+  const out = grid(L.n, 1, 1), m = input.d.length;
+  for (let j = 0; j < L.n; j++) { let sum = L.b[j]; for (let i = 0; i < m; i++) sum += L.W[j * m + i] * input.d[i]; out.d[j] = sum; }
+  return out;
+}
+function softmax(scores) {
+  const top = Math.max(...scores), e = Array.from(scores, (s) => Math.exp(s - top)), total = e.reduce((a, b) => a + b, 0);
+  return e.map((v) => v / total);
+}
+const LAYER = { conv: convForward, relu: (L, x) => reluForward(x), pool: (L, x) => poolForward(x), dense: denseForward };
+// The forward pass keeps every layer's output: the backward pass needs them.
+function forward(net, image) {
+  const values = [image];
+  for (const L of net) values.push(LAYER[L.type](L, values[values.length - 1]));
+  return values;
+}
+
+// The backward pass for one image walks back through the layers with the chain rule. Each layer gets the
+// gradient of the loss with respect to its output (g), adds up the gradients of its own weights, and hands
+// back the gradient with respect to its input. A filter's weight gradient sums over every position it visited.
+function backward(net, values, label, grads) {
+  const p = softmax(values[values.length - 1].d);
+  let g = Float64Array.from(p, (v, j) => v - (j === label ? 1 : 0)); // softmax with cross-entropy: p − y
+  for (let l = net.length - 1; l >= 0; l--) {
+    const L = net[l], input = values[l], out = values[l + 1], gIn = new Float64Array(input.d.length);
+    if (L.type === "dense") {
+      const m = input.d.length;
+      for (let j = 0; j < L.n; j++) { grads[l].b[j] += g[j]; for (let i = 0; i < m; i++) { grads[l].W[j * m + i] += g[j] * input.d[i]; gIn[i] += L.W[j * m + i] * g[j]; } }
+    } else if (L.type === "relu") {
+      for (let i = 0; i < gIn.length; i++) gIn[i] = input.d[i] > 0 ? g[i] : 0;
+    } else if (L.type === "pool") {
+      for (let o = 0; o < g.length; o++) gIn[out.from[o]] += g[o];
+    } else {
+      const { c, h, w } = input, k = L.k, oh = out.h, ow = out.w;
+      for (let f = 0; f < L.n; f++) for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) {
+        const go = g[(f * oh + y) * ow + x];
+        if (go === 0) continue;
+        grads[l].b[f] += go;
+        for (let ch = 0; ch < c; ch++) for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) {
+          const wi = ((f * c + ch) * k + i) * k + j, xi = (ch * h + y + i) * w + x + j;
+          grads[l].W[wi] += go * input.d[xi];
+          gIn[xi] += L.W[wi] * go;
+        }
+      }
+    }
+    g = gIn;
+  }
+  return g; // the gradient with respect to the image's pixels
+}
+
+// One step of training on a small batch of images: add up their gradients, average, and step against them.
+// With thousands of images, a step on a random batch of 20 is far cheaper than a step on all of them.
+function trainStep(net, batch, lr) {
+  const grads = net.map((L) => (L.W ? { W: new Float64Array(L.W.length), b: new Float64Array(L.b.length) } : null));
+  let loss = 0, right = 0;
+  for (const { image, label } of batch) {
+    const values = forward(net, image), p = softmax(values[values.length - 1].d);
+    loss -= Math.log(Math.max(p[label], 1e-300));
+    if (p.indexOf(Math.max(...p)) === label) right++;
+    backward(net, values, label, grads);
+  }
+  net.forEach((L, l) => { if (!L.W) return; const n = batch.length; L.W.forEach((v, i) => { L.W[i] -= (lr * grads[l].W[i]) / n; }); L.b.forEach((v, i) => { L.b[i] -= (lr * grads[l].b[i]) / n; }); });
+  return { loss: loss / batch.length, accuracy: right / batch.length };
+}
+</script>
+<script id="audio">
+// Sound, as a computer gets it: a list of numbers between −1 and 1, here 16,000 of them per second.
+// A spectrogram turns that list into a picture: time runs from left to right, pitch from bottom to top.
+const RATE = 16000, WIN = 512, HOP = 500, FRAMES = 32, BANDS = 32;
+// QUIET: the quietest level that still counts as sound, in decibels. Every real clip here is louder; a quiet room is not.
+const QUIET = -20;
+
+// The Fourier transform of one short window says how strongly each frequency (pitch) is present in it.
+// This is the fast version, the FFT: it reorders the samples, then combines pairs, then pairs of pairs.
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; }
+  }
+  for (let size = 2; size <= n; size *= 2) {
+    const half = size / 2, step = (-2 * Math.PI) / size;
+    for (let start = 0; start < n; start += size) for (let k = 0; k < half; k++) {
+      const c = Math.cos(step * k), s = Math.sin(step * k), a = start + k, b = a + half;
+      const tr = re[b] * c - im[b] * s, ti = re[b] * s + im[b] * c;
+      re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+    }
+  }
+}
+
+// Each window fades in and out (a Hann window), so its sudden edges do not add frequencies that are not there.
+// We hear pitch roughly on a log scale, so the 32 bands are narrow at low frequencies and wide at high ones
+// (the mel scale). Each band adds up the power of the frequencies under a triangle.
+const HANN = Float64Array.from({ length: WIN }, (_, n) => 0.5 - 0.5 * Math.cos((2 * Math.PI * n) / WIN));
+const toMel = (f) => 2595 * Math.log10(1 + f / 700), fromMel = (m) => 700 * (10 ** (m / 2595) - 1);
+const MEL = Array.from({ length: BANDS }, (_, b) => {
+  const top = toMel(RATE / 2), lo = fromMel((b * top) / (BANDS + 1)), mid = fromMel(((b + 1) * top) / (BANDS + 1)), hi = fromMel(((b + 2) * top) / (BANDS + 1));
+  return Float64Array.from({ length: WIN / 2 + 1 }, (_, k) => { const f = (k * RATE) / WIN; return f <= lo || f >= hi ? 0 : f < mid ? (f - lo) / (mid - lo) : (hi - f) / (hi - mid); });
+});
+
+// The spectrogram of one second: for each of 32 moments, window the sound, find the power of every frequency,
+// add it up in the 32 bands, and take the logarithm in decibels (we hear loudness on a log scale too).
+// Each value is then measured from the loudest point of the clip, so a quiet and a loud "seven" look alike:
+// 0 dB below the loudest point becomes 1, 80 dB or more below becomes 0, in 16 steps. The top row is the highest band.
+function spectrogram(samples) {
+  const out = grid(1, BANDS, FRAMES), re = new Float64Array(WIN), im = new Float64Array(WIN), db = new Float64Array(BANDS * FRAMES);
+  for (let t = 0; t < FRAMES; t++) {
+    for (let n = 0; n < WIN; n++) { const i = t * HOP + n; re[n] = (i < samples.length ? samples[i] : 0) * HANN[n]; im[n] = 0; }
+    fft(re, im);
+    for (let b = 0; b < BANDS; b++) {
+      let power = 0;
+      MEL[b].forEach((w, k) => { if (w) power += w * (re[k] * re[k] + im[k] * im[k]); });
+      db[(BANDS - 1 - b) * FRAMES + t] = 10 * Math.log10(power + 1e-10);
+    }
+  }
+  const loudest = Math.max(QUIET, ...db);
+  db.forEach((v, i) => { out.d[i] = Math.round(15 * Math.max(0, 1 + (v - loudest) / 80)) / 15; });
+  return out;
+}
+</script>
+<script type="text/plain" id="audio-py">
+# Sound, as a computer gets it: a list of numbers between −1 and 1, here 16,000 of them per second.
+# A spectrogram turns that list into a picture: time runs from left to right, pitch from bottom to top.
+import math
+RATE, WIN, HOP, FRAMES, BANDS = 16000, 512, 500, 32, 32
+# QUIET: the quietest level that still counts as sound, in decibels. Every real clip here is louder; a quiet room is not.
+QUIET = -20
+
+# The Fourier transform of one short window says how strongly each frequency (pitch) is present in it.
+# This is the fast version, the FFT: it reorders the samples, then combines pairs, then pairs of pairs.
+def fft(re, im):
+    n, j = len(re), 0
+    for i in range(1, n):
+        bit = n >> 1
+        while j & bit:
+            j ^= bit
+            bit >>= 1
+        j ^= bit
+        if i < j:
+            re[i], re[j] = re[j], re[i]
+            im[i], im[j] = im[j], im[i]
+    size = 2
+    while size <= n:
+        half, step = size // 2, -2 * math.pi / size
+        for start in range(0, n, size):
+            for k in range(half):
+                c, s, a = math.cos(step * k), math.sin(step * k), start + k
+                b = a + half
+                tr, ti = re[b] * c - im[b] * s, re[b] * s + im[b] * c
+                re[b], im[b] = re[a] - tr, im[a] - ti
+                re[a], im[a] = re[a] + tr, im[a] + ti
+        size *= 2
+
+# Each window fades in and out (a Hann window), so its sudden edges do not add frequencies that are not there.
+# We hear pitch roughly on a log scale, so the 32 bands are narrow at low frequencies and wide at high ones
+# (the mel scale). Each band adds up the power of the frequencies under a triangle.
+HANN = [0.5 - 0.5 * math.cos(2 * math.pi * n / WIN) for n in range(WIN)]
+def to_mel(f): return 2595 * math.log10(1 + f / 700)
+def from_mel(m): return 700 * (10 ** (m / 2595) - 1)
+def triangle(b):
+    top = to_mel(RATE / 2)
+    lo, mid, hi = (from_mel(i * top / (BANDS + 1)) for i in (b, b + 1, b + 2))
+    def w(f): return 0.0 if f <= lo or f >= hi else (f - lo) / (mid - lo) if f < mid else (hi - f) / (hi - mid)
+    return [w(k * RATE / WIN) for k in range(WIN // 2 + 1)]
+MEL = [triangle(b) for b in range(BANDS)]
+
+# The spectrogram of one second: for each of 32 moments, window the sound, find the power of every frequency,
+# add it up in the 32 bands, and take the logarithm in decibels (we hear loudness on a log scale too).
+# Each value is then measured from the loudest point of the clip, so a quiet and a loud "seven" look alike:
+# 0 dB below the loudest point becomes 1, 80 dB or more below becomes 0, in 16 steps. The top row is the highest band.
+def spectrogram(samples):
+    db = [0.0] * (BANDS * FRAMES)
+    for t in range(FRAMES):
+        re = [(samples[t * HOP + n] if t * HOP + n < len(samples) else 0.0) * HANN[n] for n in range(WIN)]
+        im = [0.0] * WIN
+        fft(re, im)
+        for b in range(BANDS):
+            power = sum(w * (re[k] * re[k] + im[k] * im[k]) for k, w in enumerate(MEL[b]) if w)
+            db[(BANDS - 1 - b) * FRAMES + t] = 10 * math.log10(power + 1e-10)
+    loudest = max(QUIET, *db)
+    return [round(15 * max(0.0, 1 + (v - loudest) / 80)) / 15 for v in db]
+</script>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const pct = (v) => Math.round(v * 100) + "%";
+  const sure = (p) => (p >= 0.995 ? "over 99%" : pct(p)); // never "100%": the network is never certain
+  const reduceMotion = ITN.reduceMotion;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+
+  // ---------- theme ----------
+  const C = {};
+  function hexRGB(s) {
+    s = s.trim();
+    if (s[0] === "#") { if (s.length === 4) s = "#" + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]; const n = parseInt(s.slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+    const m = s.match(/[\d.]+/g); return m ? m.slice(0, 3).map(Number) : [128, 128, 128];
+  }
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement);
+    for (const k of ["sheet", "ink", "ink-2", "ink-3", "rule", "pos", "neg"]) C[k] = hexRGB(cs.getPropertyValue("--" + k));
+    C.div = new Uint8ClampedArray(256 * 3); C.inkL = new Uint8ClampedArray(256 * 3);
+    for (let k = 0; k < 256; k++) {
+      const t = (k / 255) * 2 - 1, tg = t >= 0 ? C.pos : C.neg, a = Math.pow(Math.abs(t), 0.8), v = k / 255;
+      for (let c = 0; c < 3; c++) { C.div[k * 3 + c] = C.sheet[c] + (tg[c] - C.sheet[c]) * a; C.inkL[k * 3 + c] = C.sheet[c] + (C.ink[c] - C.sheet[c]) * v; }
+    }
+  }
+  const rgba = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  function sizeCanvas(cv) {
+    const cw = cv.clientWidth, ch = cv.clientHeight, w = Math.max(1, Math.round(cw * dpr)), h = Math.max(1, Math.round(ch * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    return [cw, ch];
+  }
+
+  // ---------- drawing grids of numbers as crisp squares ----------
+  // A tile is { data, n (side length), kind: "ink" (0 = paper … 1 = ink) or "div" (blue +, orange −), scale (for "div") }.
+  const offs = {};
+  function tileCanvas(t) {
+    const o = offs[t.n] || (offs[t.n] = Object.assign(document.createElement("canvas"), { width: t.n, height: t.n }));
+    const octx = o.getContext("2d"), img = octx.createImageData(t.n, t.n), d = img.data, ink = t.kind === "ink", L = ink ? C.inkL : C.div;
+    let m = 1;
+    if (!ink) { m = t.scale || 0; if (!m) for (let i = 0; i < t.n * t.n; i++) m = Math.max(m, Math.abs(t.data[i])); m = m || 1; }
+    for (let i = 0; i < t.n * t.n; i++) {
+      const v = t.data[i], k = ink ? Math.round(Math.max(0, Math.min(1, v)) * 255) : Math.round((Math.max(-1, Math.min(1, v / m)) + 1) * 127.5);
+      d[i * 4] = L[k * 3]; d[i * 4 + 1] = L[k * 3 + 1]; d[i * 4 + 2] = L[k * 3 + 2]; d[i * 4 + 3] = 255;
+    }
+    octx.putImageData(img, 0, 0);
+    return o;
+  }
+  // tiles laid out in a grid with `cols` columns, as large as fit; returns the layout
+  function drawTiles(cv, tiles, cols, gap = 6, frame = true) {
+    const [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    const rows = Math.ceil(tiles.length / cols), s = Math.max(1, Math.min((W - gap * (cols - 1)) / cols, (H - gap * (rows - 1)) / rows));
+    const ox = (W - (cols * s + (cols - 1) * gap)) / 2, oy = (H - (rows * s + (rows - 1) * gap)) / 2;
+    ctx.imageSmoothingEnabled = false;
+    tiles.forEach((t, k) => {
+      const x = ox + (k % cols) * (s + gap), y = oy + Math.floor(k / cols) * (s + gap);
+      ctx.drawImage(tileCanvas(t), x, y, s, s);
+      if (frame) { ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, s - 1, s - 1); }
+    });
+    return { s, ox, oy, gap, cols, ctx, W, H };
+  }
+  const drawOne = (cv, t) => drawTiles(cv, [t], 1, 0, false);
+  function label(ctx, text, x, y, align = "left", size = 13) {
+    ctx.font = `600 ${size}px ${MONO}`; ctx.textAlign = align; ctx.textBaseline = "top";
+    const w = ctx.measureText(text).width, px = align === "left" ? x : x - w, pad = Math.round(size * 0.3);
+    ctx.fillStyle = rgba(C.sheet, 0.85); ctx.fillRect(px - pad, y - pad + 1, w + 2 * pad, size + 2 * pad);
+    ctx.fillStyle = rgba(C.ink); ctx.fillText(text, x, y);
+  }
+
+  // ---------- probability bars ----------
+  function bars(host, p) {
+    const top = Math.max(...p) > 0 ? p.indexOf(Math.max(...p)) : -1;
+    if (host.childElementCount !== 30) host.innerHTML = p.map((_, j) => `<span>${j}</span><span class="bar"><i></i></span><span></span>`).join("");
+    p.forEach((v, j) => {
+      const [n, b, t] = [host.children[j * 3], host.children[j * 3 + 1], host.children[j * 3 + 2]];
+      b.firstChild.style.width = (100 * v).toFixed(1) + "%"; t.textContent = v >= 0.995 ? ">99%" : v < 0.005 ? "0%" : pct(v);
+      for (const el of [n, b, t]) el.classList.toggle("top", j === top);
+    });
+  }
+  const guessText = (p) => { const k = p.indexOf(Math.max(...p)); return `${k} <small>· ${p[k] >= 0.995 ? "over 99" : Math.round(100 * p[k])}% sure</small>`; };
+
+
+  // ---------- the recordings and the trained networks ----------
+  const bytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  async function gunzip(b64) {
+    const stream = new Blob([bytes(b64)]).stream().pipeThrough(new DecompressionStream("gzip"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  const HAVE_FILES = typeof ITN_SOUNDS !== "undefined" && typeof ITN_WEIGHTS !== "undefined";
+  const DATA = { ready: false, train: null, test: null, clips: [], firstOf: [] };
+  let FAILED = ""; // why the recordings could not be loaded, if they could not
+  // spectrograms are stored as 16 levels, two per byte, then the labels
+  function unpack(buf) {
+    const n = buf.length / 513, q = new Uint8Array(n * 1024);
+    for (let i = 0; i < n * 512; i++) { q[2 * i] = buf[i] >> 4; q[2 * i + 1] = buf[i] & 15; }
+    return { q, labels: buf.slice(n * 512), n };
+  }
+  const specOf = (set, k) => { const g = grid(1, BANDS, FRAMES); for (let i = 0; i < 1024; i++) g.d[i] = set.q[k * 1024 + i] / 15; return g; };
+  // 8-bit μ-law back to a number between −1 and 1
+  const MU = Float64Array.from({ length: 256 }, (_, b) => { const y = (b - 128) / 127; return (Math.sign(y) * (256 ** Math.abs(y) - 1)) / 255; });
+  async function loadData() {
+    const [tr, te, cl] = await Promise.all([gunzip(ITN_SOUNDS.train), gunzip(ITN_SOUNDS.test), gunzip(ITN_SOUNDS.clips)]);
+    DATA.train = unpack(tr); DATA.test = unpack(te);
+    ITN_SOUNDS.clipIndex.forEach(([set, k, label], i) => DATA.clips.push({ set, k, label, audio: Float64Array.from(cl.subarray(i * RATE, (i + 1) * RATE), (b) => MU[b]) }));
+    for (let d = 0; d < 10; d++) DATA.firstOf[d] = Array.prototype.findIndex.call(DATA.test.labels, (y) => y === d);
+    DATA.ready = true;
+  }
+  const clipFor = (set, k) => DATA.clips.find((c) => c.set === set && c.k === k);
+  // weights: little-endian 64-bit numbers, layer by layer, weights then biases
+  function decodeNet(b64, shape) {
+    const dv = new DataView(bytes(b64).buffer); let o = 0;
+    const take = (n) => { const a = new Float64Array(n); for (let i = 0; i < n; i++, o += 8) a[i] = dv.getFloat64(o, true); return a; };
+    return shape.map((L) => (L.size ? { type: L.type, n: L.n, k: L.k, W: take(L.size), b: take(L.n) } : { type: L.type }));
+  }
+  const NET = HAVE_FILES ? decodeNet(ITN_WEIGHTS.cnn, [{ type: "conv", n: 8, k: 5, size: 200 }, { type: "relu" }, { type: "pool" }, { type: "conv", n: 16, k: 5, size: 3200 }, { type: "relu" }, { type: "pool" }, { type: "dense", n: 10, size: 4000 }]) : null;
+  const PLAIN = HAVE_FILES ? decodeNet(ITN_WEIGHTS.plain, [{ type: "dense", n: 8, size: 8192 }, { type: "relu" }, { type: "dense", n: 10, size: 80 }]) : null;
+  // ---------- training (the same settings as the trained networks) ----------
+  function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function gaussian(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+  // the network reads each spectrogram value minus 0.5: most of a spectrogram is mid-level background,
+  // and centering it helps training a great deal
+  const toInput = (spec) => { const g = grid(1, BANDS, FRAMES); for (let i = 0; i < g.d.length; i++) g.d[i] = spec.d[i] - 0.5; return g; };
+  // weights scaled by √(2 / inputs) (√(1 / inputs) for the last layer); layer 1's start 50 times smaller, with biases of 0.1,
+  // as in chapter 5, so its stencils begin as almost-blank noise and every one of them starts switched on
+  function makeCNN(seed) {
+    const r = mulberry32(seed);
+    const conv = (n, c) => ({ type: "conv", n, k: 5, W: Float64Array.from({ length: n * c * 25 }, () => gaussian(r) * Math.sqrt(2 / (c * 25))), b: new Float64Array(n) });
+    const net = [conv(8, 1), { type: "relu" }, { type: "pool" }, conv(16, 8), { type: "relu" }, { type: "pool" }, { type: "dense", n: 10, W: Float64Array.from({ length: 4000 }, () => gaussian(r) * Math.sqrt(1 / 400)), b: new Float64Array(10) }];
+    net[0].W.forEach((v, i) => { net[0].W[i] = v * 0.02; }); net[0].b.fill(0.1);
+    return net;
+  }
+  function makePlain(seed) {
+    const r = mulberry32(seed);
+    return [{ type: "dense", n: 8, W: Float64Array.from({ length: 8192 }, () => gaussian(r) * Math.sqrt(2 / 1024)), b: new Float64Array(8) }, { type: "relu" }, { type: "dense", n: 10, W: Float64Array.from({ length: 80 }, () => gaussian(r) * Math.sqrt(1 / 8)), b: new Float64Array(10) }];
+  }
+  function shuffled(n, r) { const a = Array.from({ length: n }, (_, i) => i); for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  // a trainer: passes over the training clips in a fresh random order each time, batches of 20,
+  // learning rate 0.1 for the first 8 passes and 0.03 after
+  function trainer(seed, make = makeCNN) {
+    const T = { net: make(seed), r: mulberry32(6 + seed), step: 0, order: null, pos: 0, pass: 0 };
+    T.next = () => {
+      if (!T.order || T.pos >= T.order.length) { T.order = shuffled(DATA.train.n, T.r); T.pos = 0; T.pass++; }
+      const batch = T.order.slice(T.pos, T.pos + 20).map((k) => ({ image: toInput(specOf(DATA.train, k)), label: DATA.train.labels[k] }));
+      T.pos += 20; T.step++;
+      return trainStep(T.net, batch, T.pass <= 8 ? 0.1 : 0.03);
+    };
+    return T;
+  }
+
+  const probsOf = (net, spec) => softmax(forward(net, toInput(spec)).at(-1).d);
+  const argmax = (p) => p.indexOf(Math.max(...p));
+  const zeroGrads = (net) => net.map((L) => (L.W ? { W: new Float64Array(L.W.length), b: new Float64Array(L.b.length) } : null));
+  // the gradient of −log p(label) with respect to every spot of the spectrogram
+  const specGrad = (net, spec, label) => backward(net, forward(net, toInput(spec)), label, zeroGrads(net));
+  const copyNet = (net) => net.map((L) => (L.W ? { ...L, W: Float64Array.from(L.W), b: Float64Array.from(L.b) } : { ...L }));
+  const maxAbs = (a) => { let m = 0; for (const v of a) m = Math.max(m, Math.abs(v)); return m; };
+  const stencilTiles = (net) => Array.from({ length: 8 }, (_, f) => ({ data: net[0].W.subarray(f * 25, f * 25 + 25), n: 5, kind: "div" }));
+  // move a spectrogram right by dt columns (later) and up by dp bands (higher); new spots are silence (0)
+  function moved(spec, dt, dp) {
+    const o = grid(1, BANDS, FRAMES);
+    for (let r = 0; r < BANDS; r++) for (let c = 0; c < FRAMES; c++) { const sr = r + dp, sc = c - dt; o.d[r * FRAMES + c] = sr >= 0 && sr < BANDS && sc >= 0 && sc < FRAMES ? spec.d[sr * FRAMES + sc] : 0; }
+    return o;
+  }
+  const specTile = (spec) => ({ data: spec.d, n: 32, kind: "ink" });
+
+  // ---------- sound in, sound out ----------
+  let AC = null, playingSrc = null;
+  function audioCtx() {
+    if (!AC) { const Ctx = window.AudioContext || window.webkitAudioContext; if (!Ctx) return null; AC = new Ctx(); }
+    if (AC.state === "suspended") AC.resume();
+    return AC;
+  }
+  // linear interpolation going up; the average over each output step going down (a simple guard against aliasing)
+  function resample(x, from, to) {
+    const ratio = from / to, n = Math.floor(x.length / ratio), out = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      const a = i * ratio;
+      if (ratio > 1) { let s = 0, c = 0; for (let j = Math.floor(a); j < Math.ceil(a + ratio) && j < x.length; j++) { s += x[j]; c++; } out[i] = c ? s / c : 0; }
+      else { const j = Math.floor(a), t = a - j; out[i] = (x[j] || 0) * (1 - t) + (x[j + 1] || 0) * t; }
+    }
+    return out;
+  }
+  // play a sound, louder if it is quiet, never clipping
+  function play(samples, rate = RATE) {
+    const ac = audioCtx(); if (!ac) return;
+    if (playingSrc) { try { playingSrc.stop(); } catch (e) { /* already stopped */ } }
+    let peak = 0; for (const v of samples) peak = Math.max(peak, Math.abs(v));
+    const g = peak > 0 ? Math.min(6, 0.8 / peak) : 1;
+    let x = samples, r = rate, buf;
+    try { buf = ac.createBuffer(1, x.length, r); } catch (e) { x = resample(samples, rate, ac.sampleRate); r = ac.sampleRate; buf = ac.createBuffer(1, x.length, r); }
+    const ch = buf.getChannelData(0); for (let i = 0; i < x.length; i++) ch[i] = x[i] * g;
+    const src = ac.createBufferSource(); src.buffer = buf; src.connect(ac.destination); src.start(); playingSrc = src;
+  }
+  const rms = (s) => { let e = 0; for (const v of s) e += v * v; return Math.sqrt(e / s.length); };
+
+  // ---------- a finer spectrogram that keeps phase, for listening and separating ----------
+  // windows of 512 samples every 128, so they overlap and the sound can be put back together exactly
+  const FW = 512, FHOP = 128, FBINS = FW / 2 + 1, FFR = Math.floor((RATE - FW) / FHOP) + 5, FROWS = 120;
+  function stft(s) {
+    const re = [], im = [];
+    for (let t = 0; t < FFR; t++) { const r = new Float64Array(FW), i = new Float64Array(FW); for (let n = 0; n < FW; n++) { const k = t * FHOP + n - FW / 2; r[n] = (k >= 0 && k < s.length ? s[k] : 0) * HANN[n]; } fft(r, i); re.push(r); im.push(i); }
+    return { re, im };
+  }
+  // back to a wave: inverse FFT (by conjugating), fade again, overlap and add, divide by the overlapping fades
+  function istft(S, mask) {
+    const out = new Float64Array(RATE), norm = new Float64Array(RATE);
+    for (let t = 0; t < FFR; t++) {
+      const r = new Float64Array(FW), i = new Float64Array(FW);
+      for (let k = 0; k < FW; k++) { const b = k <= FW / 2 ? k : FW - k, m = mask ? mask[t * FBINS + b] : 1; r[k] = S.re[t][k] * m; i[k] = -S.im[t][k] * m; }
+      fft(r, i);
+      for (let n = 0; n < FW; n++) { const k = t * FHOP + n - FW / 2; if (k >= 0 && k < RATE) { out[k] += (r[n] / FW) * HANN[n]; norm[k] += HANN[n] * HANN[n]; } }
+    }
+    return out.map((v, k) => (norm[k] > 1e-8 ? v / norm[k] : 0));
+  }
+  // display rows on the mel scale (more room for low pitches): each row covers a range of FFT bins
+  const ROWBINS = Array.from({ length: FROWS }, (_, r) => {
+    const top = toMel(RATE / 2), i = FROWS - 1 - r, f0 = fromMel((i * top) / FROWS), f1 = fromMel(((i + 1) * top) / FROWS);
+    const b0 = Math.min(FBINS - 1, Math.floor((f0 * FW) / RATE)); return [b0, Math.min(FBINS, Math.max(b0 + 1, Math.ceil((f1 * FW) / RATE)))];
+  });
+  // the fine spectrogram as rows × frames of values from 0 (70 dB or more below the loudest) to 1 (the loudest)
+  function fineImage(S) {
+    const img = new Float64Array(FROWS * FFR); let top = -Infinity;
+    for (let t = 0; t < FFR; t++) for (let r = 0; r < FROWS; r++) { let p = 0; for (let b = ROWBINS[r][0]; b < ROWBINS[r][1]; b++) p = Math.max(p, S.re[t][b] ** 2 + S.im[t][b] ** 2); const db = 10 * Math.log10(p + 1e-12); img[r * FFR + t] = db; top = Math.max(top, db); }
+    return img.map((db) => Math.max(0, 1 + (db - top) / 70));
+  }
+  // draw a rows × cols grid of values (0 = paper, 1 = ink) stretched over a canvas; dim marks cells drawn faint
+  const rectOff = document.createElement("canvas");
+  function drawGrid(cv, img, rows, cols, dim) {
+    const [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d");
+    rectOff.width = cols; rectOff.height = rows;
+    const octx = rectOff.getContext("2d"), id = octx.createImageData(cols, rows), d = id.data;
+    for (let i = 0; i < rows * cols; i++) {
+      const k = Math.round(Math.max(0, Math.min(1, img[i])) * 255) * 3, fade = dim && dim[i] ? 0.22 : 1;
+      for (let c = 0; c < 3; c++) d[i * 4 + c] = C.sheet[c] + (C.inkL[k + c] - C.sheet[c]) * fade;
+      d[i * 4 + 3] = 255;
+    }
+    octx.putImageData(id, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, W, H); ctx.drawImage(rectOff, 0, 0, W, H);
+    return { ctx, W, H };
+  }
+  function drawWave(cv, s, opts = {}) {
+    const [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    const peak = maxAbs(s) || 1, split = opts.zoom ? Math.round(W * 0.68) : W, mid = H / 2;
+    ctx.strokeStyle = rgba(C.rule); ctx.beginPath(); ctx.moveTo(0, mid + 0.5); ctx.lineTo(W, mid + 0.5); ctx.stroke();
+    ctx.fillStyle = rgba(C.ink, 0.85);
+    for (let x = 0; x < split; x++) { const a = Math.floor((x / split) * s.length), b = Math.max(a + 1, Math.floor(((x + 1) / split) * s.length)); let lo = 0, hi = 0; for (let i = a; i < b; i++) { lo = Math.min(lo, s[i]); hi = Math.max(hi, s[i]); } ctx.fillRect(x, mid - (hi / peak) * (H / 2 - 4), 1, Math.max(1, ((hi - lo) / peak) * (H / 2 - 4))); }
+    if (opts.mark) { const [a, b] = opts.mark; ctx.strokeStyle = rgba(C.pos); ctx.lineWidth = 2; ctx.strokeRect((a / s.length) * split, 2, Math.max(2, ((b - a) / s.length) * split), H - 4); }
+    if (opts.zoom) {
+      const n = Math.round(0.02 * RATE), at = Math.max(0, Math.min(s.length - n, opts.zoom - n / 2)), x0 = split + 10, w = W - x0;
+      ctx.strokeStyle = rgba(C.rule); ctx.strokeRect(x0 + 0.5, 0.5, w - 1, H - 1);
+      ctx.strokeStyle = rgba(C.ink); ctx.lineWidth = 1.5; ctx.beginPath();
+      for (let i = 0; i < n; i++) { const x = x0 + (i / (n - 1)) * w, y = mid - (s[at + i] / peak) * (H / 2 - 6); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+      ctx.stroke();
+      ctx.fillStyle = rgba(C["ink-3"]); ctx.font = `11px ${MONO}`; ctx.textAlign = "right"; ctx.textBaseline = "top"; ctx.fillText("20 ms close-up", W - 6, 4);
+      ctx.strokeStyle = rgba(C.pos, 0.7); ctx.lineWidth = 1; ctx.strokeRect((at / s.length) * split, 1, Math.max(2, (n / s.length) * split), H - 2);
+    }
+  }
+
+  // ---------- a picker of recordings: one small spectrogram per test recording ----------
+  const pickers = [];
+  function makePicker(host, list, initial, onPick) {
+    const P = { host, list, k: initial, onPick };
+    host.innerHTML = list.map((k) => `<button type="button" data-k="${k}" aria-label="Test recording of the digit ${DATA.test.labels[k]}" aria-pressed="${k === initial}"><canvas></canvas><span class="d">${DATA.test.labels[k]}</span></button>`).join("");
+    host.addEventListener("click", (e) => { const b = e.target.closest("button[data-k]"); if (!b) return; P.k = Number(b.dataset.k); host.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); onPick(P.k); });
+    P.paint = () => host.querySelectorAll("button").forEach((b) => drawOne(b.firstChild, specTile(specOf(DATA.test, Number(b.dataset.k)))));
+    pickers.push(P); P.paint();
+    return P;
+  }
+  const playableTests = () => DATA.clips.filter((c) => c.set === "test").map((c) => c.k);
+
+  // ---------- accuracy on all 1,000 test recordings, moved by (dt, dp), measured a little at a time ----------
+  const ACC = {}, queue = [];
+  const key = (dt, dp) => dt + "," + dp;
+  function* measureMoved(dt, dp) {
+    let c = 0, m = 0;
+    for (let k = 0; k < DATA.test.n; k++) {
+      const s = dt || dp ? moved(specOf(DATA.test, k), dt, dp) : specOf(DATA.test, k), y = DATA.test.labels[k];
+      if (argmax(forward(NET, toInput(s)).at(-1).d) === y) c++; if (argmax(forward(PLAIN, toInput(s)).at(-1).d) === y) m++;
+      if (k % 40 === 39) yield;
+    }
+    ACC[key(dt, dp)] = [c / DATA.test.n, m / DATA.test.n];
+  }
+  let running = null;
+  const want = (dt, dp, first) => { const k = key(dt, dp); if (ACC[k] || (running && running.key === k) || queue.includes(k)) return; if (first) queue.unshift(k); else queue.push(k); };
+  function stepMeasure() {
+    if (!running) { const k = queue.shift(); if (!k) return; const [dt, dp] = k.split(",").map(Number); running = { key: k, gen: measureMoved(dt, dp) }; }
+    const t0 = performance.now();
+    while (performance.now() - t0 < 6) if (running.gen.next().done) { const k = running.key; running = null; onMeasured(k); return; }
+  }
+  function onMeasured(k) { if (k === "0,0") drawLadder(); if (k === key(QT.dt, QT.dp)) drawQuestion(); drawTP(); }
+
+  // ---------- the problem: many voices, and the closest-average method ----------
+  const VA = { d: 7, avgs: null, nearAcc: null, idx: [] };
+  function drawVariety() {
+    document.querySelectorAll("#va-digits button").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.v) === VA.d)));
+    if (!DATA.ready) { $("va-read").textContent = FAILED || "Loading 9,000 recordings…"; return; }
+    if (!VA.avgs) {
+      VA.avgs = Array.from({ length: 10 }, (_, d) => { const a = new Float64Array(1024); let n = 0; for (let k = 0; k < DATA.train.n; k++) if (DATA.train.labels[k] === d) { n++; for (let i = 0; i < 1024; i++) a[i] += DATA.train.q[k * 1024 + i] / 15; } return a.map((v) => v / n); });
+      let ok = 0;
+      for (let k = 0; k < DATA.test.n; k++) { let best = 0, bd = Infinity; VA.avgs.forEach((a, d) => { let e = 0; for (let i = 0; i < 1024; i++) { const t = DATA.test.q[k * 1024 + i] / 15 - a[i]; e += t * t; } if (e < bd) { bd = e; best = d; } }); if (best === DATA.test.labels[k]) ok++; }
+      VA.nearAcc = ok / DATA.test.n;
+    }
+    const all = []; for (let k = 0; k < DATA.train.n; k++) if (DATA.train.labels[k] === VA.d) all.push(k);
+    const step = Math.floor(all.length / 24); VA.idx = Array.from({ length: 24 }, (_, i) => all[i * step]);
+    VA.layout = drawTiles($("va-many"), VA.idx.map((k) => specTile(specOf(DATA.train, k))), 8, 4);
+    VA.idx.forEach((k, i) => { if (i % 8 < 3 && clipFor("train", k)) { const L = VA.layout, x = L.ox + (i % 8) * (L.s + L.gap), y = L.oy + Math.floor(i / 8) * (L.s + L.gap); label(L.ctx, "▶", x + 2, y + 2, "left", Math.round(Math.max(9, Math.min(12, L.s * 0.2)))); } });
+    $("va-many-t").textContent = `24 of the 800 training recordings of "${WORDS[VA.d]}"`;
+    drawOne($("va-avg"), { data: VA.avgs[VA.d], n: 32, kind: "ink" });
+    $("va-read").innerHTML = `Each square is a different speaker saying "${WORDS[VA.d]}". Their average is a smudge: picking the closest of the 10 averages recognizes <b>${pct(VA.nearAcc)}</b> of the 1,000 test recordings.`;
+    drawLadder();
+  }
+  const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+  const wordGuess = (p) => `${WORDS[argmax(p)]} <small>· ${sure(Math.max(...p))} sure</small>`;
+  $("va-digits").innerHTML = WORDS.map((w, d) => `<button type="button" data-v="${d}" data-tip="va-digit" aria-pressed="${d === 7}">${d}</button>`).join("");
+  $("va-digits").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; VA.d = Number(b.dataset.v); drawVariety(); });
+  $("va-many").addEventListener("click", (e) => {
+    if (!DATA.ready || !VA.layout) return;
+    const r = $("va-many").getBoundingClientRect(), L = VA.layout, x = e.clientX - r.left - L.ox, y = e.clientY - r.top - L.oy, col = Math.floor(x / (L.s + L.gap)), row = Math.floor(y / (L.s + L.gap));
+    if (col < 0 || col > 7 || row < 0 || row > 2) return;
+    const c = clipFor("train", VA.idx[row * 8 + col]); if (c) play(c.audio);
+  });
+  function drawLadder() {
+    const both = ACC["0,0"], rows = [["Closest average", "no learning beyond averaging", VA.nearAcc], ["Plain network", "1,024 → 8 → 10, 8,290 parameters", both ? both[1] : null], ["Convolutional network", "chapter 5's code, 7,434 parameters", both ? both[0] : null]];
+    $("ladder").innerHTML = rows.map(([a, b, v], i) => `<div class="lr${i === 2 ? " best" : ""}"><span>${a}<small>${b}</small></span><span class="bar"><i style="width:${v == null ? 0 : (100 * v).toFixed(1)}%"></i></span><b>${v == null ? "…" : pct(v)}</b></div>`).join("");
+  }
+
+  // ---------- the question: later in time or higher in pitch ----------
+  const QT = { k: 0, dt: 0, dp: 0 };
+  function drawQuestion() {
+    $("qt-time-v").textContent = `${Math.round(QT.dt * 31.25)} ms`; $("qt-pitch-v").textContent = `${QT.dp > 0 ? "+" : ""}${QT.dp} band${Math.abs(QT.dp) === 1 ? "" : "s"}`;
+    if (!DATA.ready) { $("qt-read").textContent = FAILED || "Loading 9,000 recordings…"; return; }
+    const s = moved(specOf(DATA.test, QT.k), QT.dt, QT.dp), pc = probsOf(NET, s), pp = probsOf(PLAIN, s);
+    drawOne($("qt-img"), specTile(s));
+    bars($("qt-cnn"), pc); bars($("qt-plain"), pp); $("qt-cnn-g").innerHTML = wordGuess(pc); $("qt-plain-g").innerHTML = wordGuess(pp);
+    const a = ACC[key(QT.dt, QT.dp)], what = QT.dt || QT.dp ? `moved the same way` : "as recorded";
+    $("qt-read").innerHTML = a ? `On all 1,000 test recordings ${what}, the convolutional network recognizes <b>${pct(a[0])}</b> and the plain network <b>${pct(a[1])}</b>.` : `Measuring all 1,000 test recordings ${what}…`;
+    if (!a) want(QT.dt, QT.dp, true);
+  }
+  $("qt-time").addEventListener("input", (e) => { QT.dt = Number(e.target.value); drawQuestion(); });
+  $("qt-pitch").addEventListener("input", (e) => { QT.dp = Number(e.target.value); drawQuestion(); });
+
+  // ---------- Tool 1: waves and spectrograms ----------
+  const SOUNDS = {
+    tone: () => Float64Array.from({ length: RATE }, (_, i) => 0.5 * Math.sin((2 * Math.PI * 440 * i) / RATE)),
+    chord: () => Float64Array.from({ length: RATE }, (_, i) => (0.5 / 3) * [440, 554.37, 659.25].reduce((a, f) => a + Math.sin((2 * Math.PI * f * i) / RATE), 0)),
+    glide: () => Float64Array.from({ length: RATE }, (_, i) => 0.5 * Math.sin(((2 * Math.PI * 300) / Math.log(8)) * (8 ** (i / RATE) - 1))),
+    click: () => { const r = mulberry32(3); return Float64Array.from({ length: RATE }, (_, i) => { const t = i / RATE, c = [0.1, 0.35, 0.6, 0.85].find((x) => t >= x && t < x + 0.004); return c != null ? (r() - 0.5) * 1.6 * Math.exp(-(t - c) / 0.001) : 0; }); },
+    seven: () => clipFor("test", DATA.firstOf[7]).audio,
+  };
+  const SOUND_TEXT = {
+    tone: "A pure tone at 440 Hz, the A that orchestras tune to: one smooth wave, 440 times a second, so one steady line in the spectrogram.",
+    chord: "Three tones together (A, C♯ and E, an A major chord): the wave looks tangled, but the spectrogram shows three steady lines, one per note.",
+    glide: "A siren: a tone rising from 300 Hz to 2,400 Hz in one second. Its waves get closer together, and its line climbs.",
+    click: "Four clicks: each lasts a few thousandths of a second and contains almost every pitch at once, so each is a thin vertical line.",
+    seven: 'A spoken "seven". The hiss of the "s" is spread over high pitches; the vowels are stacks of evenly spaced lines (the voice\'s harmonics) that bend as the voice changes.',
+  };
+  const T1 = { s: "seven" };
+  function fade(s) { const n = 160, o = Float64Array.from(s); for (let i = 0; i < n; i++) { o[i] *= i / n; o[o.length - 1 - i] *= i / n; } return o; }
+  function drawTool1() {
+    document.querySelectorAll("#t1-sounds button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.s === T1.s)));
+    if (T1.s === "seven" && !DATA.ready) { $("t1-read").textContent = FAILED || "Loading 9,000 recordings…"; return; }
+    const s = T1.s === "seven" ? SOUNDS.seven() : fade(SOUNDS[T1.s]());
+    let loud = 0, at = RATE / 2; for (let i = 0; i < s.length; i += 80) { let e = 0; for (let j = i; j < Math.min(s.length, i + 320); j++) e += s[j] * s[j]; if (e > loud) { loud = e; at = i + 160; } }
+    drawWave($("t1-wave"), s, { zoom: at });
+    drawGrid($("t1-spec"), fineImage(stft(s)), FROWS, FFR);
+    $("t1-read").innerHTML = SOUND_TEXT[T1.s];
+    T1.audio = s;
+  }
+  $("t1-sounds").addEventListener("click", (e) => { const b = e.target.closest("button[data-s]"); if (!b) return; T1.s = b.dataset.s; drawTool1(); if (T1.audio) play(T1.audio); });
+
+  // ---------- Tool 2: the four steps ----------
+  const T2 = { t: 10 };
+  function drawTool2() {
+    $("t2-frame-v").textContent = T2.t + 1;
+    if (!DATA.ready) { $("t2-read").textContent = FAILED || "Loading 9,000 recordings…"; return; }
+    const s = SOUNDS.seven(), start = T2.t * HOP, raw = Float64Array.from({ length: WIN }, (_, n) => s[start + n] || 0), win = raw.map((v, n) => v * HANN[n]);
+    const peak = maxAbs(raw) || 1;
+    // 1. the window
+    { const cv = $("t2-win"), [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      const line = (arr, color, wdt, dash) => { ctx.setLineDash(dash || []); ctx.strokeStyle = color; ctx.lineWidth = wdt; ctx.beginPath(); arr.forEach((v, n) => { const x = (n / (WIN - 1)) * W, y = H / 2 - (v / peak) * (H / 2 - 6); if (n) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.stroke(); ctx.setLineDash([]); };
+      line(raw, rgba(C["ink-3"], 0.6), 1); line(win, rgba(C.ink), 1.6); line(HANN.map((h) => h * peak), rgba(C.pos, 0.8), 1.2, [4, 3]); }
+    // 2. the frequencies
+    const re = Float64Array.from(win), im = new Float64Array(WIN); fft(re, im);
+    const power = Float64Array.from({ length: WIN / 2 + 1 }, (_, k) => re[k] * re[k] + im[k] * im[k]), pdb = power.map((p) => 10 * Math.log10(p + 1e-10)), ptop = Math.max(...pdb);
+    { const cv = $("t2-fft"), [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = rgba(C.ink, 0.8); pdb.forEach((v, k) => { const h = Math.max(0, 1 + (v - ptop) / 70) * (H - 16); ctx.fillRect((k / pdb.length) * W, H - 14 - h, Math.max(1, W / pdb.length), h); });
+      ctx.fillStyle = rgba(C["ink-3"]); ctx.font = `11px ${MONO}`; ctx.textBaseline = "bottom"; ctx.textAlign = "left"; ctx.fillText("0 Hz", 2, H); ctx.textAlign = "right"; ctx.fillText("8,000 Hz", W - 2, H); }
+    // 3. the mel bands in decibels
+    const band = MEL.map((w) => { let p = 0; w.forEach((v, k) => { if (v) p += v * power[k]; }); return 10 * Math.log10(p + 1e-10); });
+    const spec = spectrogram(s), loud = Math.max(QUIET, ...band);
+    { const cv = $("t2-mel"), [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      const bw = W / BANDS; band.forEach((v, b) => { const h = Math.max(0, 1 + (v - loud) / 80) * (H - 16); ctx.fillStyle = rgba(C.ink, 0.85); ctx.fillRect(b * bw + 1, H - 14 - h, bw - 2, h); });
+      ctx.fillStyle = rgba(C["ink-3"]); ctx.font = `11px ${MONO}`; ctx.textBaseline = "bottom"; ctx.textAlign = "left"; ctx.fillText("low", 2, H); ctx.textAlign = "right"; ctx.fillText("high", W - 2, H); }
+    // 4. the picture, with this moment marked
+    const L = drawOne($("t2-pic"), specTile(spec)), c = L.s / 32; L.ctx.strokeStyle = rgba(C.pos); L.ctx.lineWidth = 2; L.ctx.strokeRect(T2.t * c + 1, 1, c - 2, L.s - 2);
+    let best = 0; band.forEach((v, b) => { if (v > band[best]) best = b; });
+    const ctr = MEL[best].reduce((a, w, k) => a + w * k, 0) / MEL[best].reduce((a, w) => a + w, 0) * (RATE / WIN);
+    $("t2-read").innerHTML = `Moment ${T2.t + 1} covers ${Math.round((start / RATE) * 1000)} to ${Math.round(((start + WIN) / RATE) * 1000)} ms. Its strongest band is centered near <b>${Math.round(ctr).toLocaleString("en-US")} Hz</b>, and it becomes column ${T2.t + 1} of the picture.`;
+  }
+  $("t2-frame").addEventListener("input", (e) => { T2.t = Number(e.target.value); drawTool2(); });
+
+  // ---------- Tool 3: the layer walk ----------
+  const WK = { k: 0 };
+  function drawWalk() {
+    if (!DATA.ready) return;
+    const spec = specOf(DATA.test, WK.k), v = forward(NET, toInput(spec)), p = softmax(v.at(-1).d);
+    const maps = (g) => { const scale = maxAbs(g.d) || 1, per = g.h * g.w; return Array.from({ length: g.c }, (_, f) => ({ data: g.d.subarray(f * per, f * per + per), n: g.h, kind: "div", scale })); };
+    drawOne($("wk-0"), specTile(spec));
+    drawTiles($("wk-1"), maps(v[2]), 4, 3); drawTiles($("wk-2"), maps(v[3]), 4, 3); drawTiles($("wk-3"), maps(v[5]), 4, 3); drawTiles($("wk-4"), maps(v[6]), 4, 3);
+    bars($("wk-5"), p);
+    $("wk-read").innerHTML = `The network's answer: <b>${WORDS[argmax(p)]}</b>, ${sure(Math.max(...p))} sure (the recording is "${WORDS[DATA.test.labels[WK.k]]}"). In all, 208 + 3,216 + 4,010 = <b>7,434</b> weights and biases.`;
+  }
+
+  // ---------- work done once at load: a fresh training run ----------
+  const JOB = { ready: false, at: [0, 10, 40, 100, 400], snaps: [], step: 0, trained: false, accs: [], refAcc: null };
+  const onReady = [], progress = [];
+  const whenReady = (f) => (JOB.ready ? f() : onReady.push(f));
+  function* measure(net, out) {
+    let right = 0;
+    for (let k = 0; k < DATA.test.n; k++) { if (argmax(forward(net, toInput(specOf(DATA.test, k))).at(-1).d) === DATA.test.labels[k]) right++; if (k % 50 === 49) yield; }
+    out(right / DATA.test.n);
+  }
+  function* loadWork() {
+    const T = trainer(1);
+    JOB.snaps.push(copyNet(T.net));
+    JOB.ready = true; onReady.forEach((f) => f());
+    while (T.step < 400) { T.next(); JOB.step = T.step; if (JOB.at.includes(T.step)) JOB.snaps.push(copyNet(T.net)); if (T.step % 10 === 0) progress.forEach((f) => f()); yield; }
+    JOB.trained = true;
+    for (const net of JOB.snaps) { yield* measure(net, (a) => JOB.accs.push(a)); progress.forEach((f) => f()); }
+    yield* measure(NET, (a) => { JOB.refAcc = a; });
+    progress.forEach((f) => f());
+  }
+  function runLoad(gen) { const t0 = performance.now(); while (performance.now() - t0 < 12) { if (gen.next().done) return; } setTimeout(() => runLoad(gen), 0); }
+
+  // ---------- Secret 1: stencils learning ----------
+  function drawLearn() {
+    const host = $("ln-rows"), rows = JOB.at.map((s, i) => ({ head: `Step ${s}`, net: JOB.snaps[i], acc: JOB.accs[i] })).concat([{ head: "Finished, step 4,000", net: NET, acc: JOB.refAcc }]);
+    if (host.childElementCount !== rows.length) host.innerHTML = rows.map(() => '<div class="lrow"><div class="lh"></div><canvas aria-label="Layer 1\'s eight stencils at this moment"></canvas></div>').join("");
+    rows.forEach((row, i) => {
+      const el = host.children[i];
+      el.firstChild.innerHTML = `${row.head}<small>${row.acc != null ? `test ${pct(row.acc)}` : row.net ? "test …" : "training…"}</small><small>${row.net ? `largest ${ITN.fmt(maxAbs(row.net[0].W), 2)}` : ""}</small>`;
+      if (row.net) drawTiles(el.lastChild, stencilTiles(row.net), 8, 6); else el.lastChild.getContext("2d").clearRect(0, 0, el.lastChild.width, el.lastChild.height);
+    });
+    $("ln-read").innerHTML = FAILED ? FAILED : !DATA.ready ? "Loading 9,000 recordings…" : !JOB.trained ? `Training a fresh network in your browser: step ${JOB.step} of 400…`
+      : JOB.accs.length < JOB.snaps.length || JOB.refAcc == null ? "Measuring each moment on the 1,000 test recordings…"
+      : `After 400 steps of 20 recordings each (one pass over the training recordings), this fresh network already recognizes <b>${pct(JOB.accs.at(-1))}</b> of the test recordings. The finished network, after 4,000 steps, recognizes <b>${pct(JOB.refAcc)}</b>.`;
+  }
+
+  // ---------- Secret 2: where it listens ----------
+  const WH = { k: 0 };
+  function drawWhere() {
+    if (!DATA.ready) { $("wh-read").textContent = FAILED || "Loading 9,000 recordings…"; return; }
+    const spec = specOf(DATA.test, WH.k), p = probsOf(NET, spec), g = specGrad(NET, spec, argmax(p));
+    drawOne($("wh-spec"), specTile(spec)); drawOne($("wh-sal"), { data: g.map((x) => -x), n: 32, kind: "div" });
+    $("wh-read").innerHTML = `The network hears <b>${WORDS[argmax(p)]}</b>, ${sure(Math.max(...p))} sure; the recording is "${WORDS[DATA.test.labels[WH.k]]}".`;
+  }
+  $("wh-play").addEventListener("click", () => { const c = DATA.ready && clipFor("test", WH.k); if (c) play(c.audio); });
+
+  // ---------- Secret 3: time against pitch, on all test recordings ----------
+  const TP_T = [-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6], TP_P = [-3, -2, -1, 0, 1, 2, 3];
+  function drawTP() {
+    const cv = $("tp-chart"), [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    const padL = 40, padB = 30, padT = 8, iw = W - padL - 10, ih = H - padT - padB, X = (s) => padL + ((s + 6) / 12) * iw, Y = (a) => padT + ih - a * ih;
+    ctx.font = `11px ${MONO}`; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (const a of [0, 0.25, 0.5, 0.75, 1]) { const y = Math.round(Y(a)) + 0.5; ctx.strokeStyle = rgba(C.rule); ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - 10, y); ctx.stroke(); ctx.fillStyle = rgba(C["ink-3"]); ctx.fillText(pct(a), padL - 6, y); }
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (const s of [-6, -4, -2, 0, 2, 4, 6]) ctx.fillText(String(s), X(s), padT + ih + 4);
+    ctx.fillText("moved by: columns of 31 ms (time) or bands (pitch); negative = earlier or lower", padL + iw / 2, H - 12);
+    const series = (pts, axis, which, color, dash, wdt) => {
+      const got = pts.map((s) => [s, ACC[axis === "t" ? key(s, 0) : key(0, s)]]).filter((x) => x[1]);
+      if (got.length < 2) return;
+      ctx.setLineDash(dash); ctx.strokeStyle = color; ctx.lineWidth = wdt; ctx.beginPath();
+      got.forEach(([s, a], i) => { const x = X(s), y = Y(a[which]); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = color; got.forEach(([s, a]) => { ctx.beginPath(); ctx.arc(X(s), Y(a[which]), 3, 0, Math.PI * 2); ctx.fill(); });
+    };
+    series(TP_T, "t", 1, rgba(C["ink-3"], 0.7), [5, 4], 1.5); series(TP_P, "p", 1, rgba(C["ink-3"], 0.7), [2, 3], 1.5);
+    series(TP_T, "t", 0, rgba(C.pos), [], 2.2); series(TP_P, "p", 0, rgba(C.neg), [], 2.2);
+    const done = TP_T.every((s) => ACC[key(s, 0)]) && TP_P.every((s) => ACC[key(0, s)]);
+    if (done) { const a = (k) => pct(ACC[k][0]); $("tp-read").innerHTML = `Two columns later: <b>${a("2,0")}</b>; six columns later (186 ms): <b>${a("6,0")}</b>. Two bands higher: <b>${a("0,2")}</b>; three bands higher: <b>${a("0,3")}</b>. Unmoved: ${a("0,0")}.`; }
+    else if (DATA.ready) $("tp-read").textContent = "Measuring all 1,000 test recordings at each position…";
+  }
+
+  // ---------- Secret 4: noise ----------
+  const NO = { k: 0, level: 10, audio: null };
+  function drawNoise() {
+    if (!DATA.ready) { $("no-read").textContent = FAILED || "Loading 9,000 recordings…"; return; }
+    const c = clipFor("test", NO.k), r = mulberry32(7 + NO.k), sd = NO.level >= 99 ? 0 : rms(c.audio) / 10 ** (NO.level / 20);
+    NO.audio = c.audio.map((v) => v + sd * gaussian(r));
+    const spec = spectrogram(NO.audio), pc = probsOf(NET, spec), pp = probsOf(PLAIN, spec);
+    drawOne($("no-img"), specTile(spec)); bars($("no-cnn"), pc); bars($("no-plain"), pp); $("no-cnn-g").innerHTML = wordGuess(pc); $("no-plain-g").innerHTML = wordGuess(pp);
+    $("no-read").innerHTML = `The recording is "${WORDS[c.label]}". ${NO.level >= 99 ? "No hiss added." : NO.level === 0 ? "The hiss is as loud as the word." : `The hiss is ${NO.level} dB below the word.`} The convolutional network hears <b>${WORDS[argmax(pc)]}</b>, the plain network <b>${WORDS[argmax(pp)]}</b>.`;
+  }
+  $("no-level").addEventListener("change", (e) => { NO.level = Number(e.target.value); drawNoise(); });
+  $("no-play").addEventListener("click", () => { if (NO.audio) play(NO.audio); });
+
+  // ---------- separation: painting a mask ----------
+  const SP = { mix: "hum", brush: 0, mask: null, painting: false };
+  function prepareSeparation() {
+    const word = clipFor("test", DATA.firstOf[7]).audio, threes = DATA.clips.filter((c) => c.set === "test" && c.label === 3), three = threes.reduce((a, c) => (rms(c.audio) > rms(a.audio) ? c : a));
+    const hum = Float64Array.from({ length: RATE }, (_, i) => [1, 0.6, 0.45, 0.3, 0.2].reduce((a, w, h) => a + w * Math.sin((2 * Math.PI * 140 * (h + 1) * i) / RATE), 0));
+    // the other voice is moved in time so that the middle of its sound lines up with the middle of the seven's
+    const middle = (s) => { let e = 0, m = 0; s.forEach((v, i) => { e += v * v; m += i * v * v; }); return m / e; };
+    const lag = Math.round(middle(word) - middle(three.audio)), voice = Float64Array.from({ length: RATE }, (_, i) => three.audio[i - lag] || 0);
+    const other = SP.mix === "hum" ? hum : voice, k = rms(word) / rms(other);
+    SP.word = word; SP.other = other.map((v) => v * k); SP.mixAudio = word.map((v, i) => v + SP.other[i]);
+    SP.S = stft(SP.mixAudio); SP.img = fineImage(SP.S);
+    const Sw = stft(word), So = stft(SP.other); SP.ideal = new Float64Array(FFR * FBINS);
+    for (let t = 0; t < FFR; t++) for (let b = 0; b < FBINS; b++) SP.ideal[t * FBINS + b] = Sw.re[t][b] ** 2 + Sw.im[t][b] ** 2 > So.re[t][b] ** 2 + So.im[t][b] ** 2 ? 1 : 0;
+    SP.mask = new Float64Array(FFR * FBINS).fill(1); SP.kept = null;
+  }
+  // a display cell is dimmed when most of its bins are removed
+  function drawSeparation() {
+    if (!DATA.ready) { $("sp-read").textContent = FAILED || "Loading 9,000 recordings…"; return; }
+    if (!SP.S) prepareSeparation();
+    const dim = new Uint8Array(FROWS * FFR);
+    for (let r = 0; r < FROWS; r++) for (let t = 0; t < FFR; t++) { let s = 0; const [b0, b1] = ROWBINS[r]; for (let b = b0; b < b1; b++) s += SP.mask[t * FBINS + b]; dim[r * FFR + t] = s / (b1 - b0) < 0.5 ? 1 : 0; }
+    drawGrid($("sp-canvas"), SP.img, FROWS, FFR, dim);
+    if (!SP.kept) SP.kept = istft(SP.S, SP.mask);
+    let a = 0, e = 0; for (let i = 0; i < RATE; i++) { a += SP.word[i] ** 2; e += (SP.word[i] - SP.kept[i]) ** 2; }
+    const q = 10 * Math.log10(a / e), removed = SP.mask.reduce((s, v) => s + (1 - v), 0) / SP.mask.length;
+    $("sp-read").innerHTML = `Mask: ${pct(removed)} of the spectrogram removed. Separation quality: <b>${ITN.fmt(q, 1)} dB</b>. This compares what is kept with the seven alone; the mix itself scores 0 dB, and higher is closer to the seven alone.`;
+    document.querySelectorAll("#sp-mix button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === SP.mix)));
+    document.querySelectorAll("#sp-brush button").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.v) === SP.brush)));
+  }
+  function paintAt(e) {
+    const r = $("sp-canvas").getBoundingClientRect(), t = Math.floor(((e.clientX - r.left) / r.width) * FFR), row = Math.floor(((e.clientY - r.top) / r.height) * FROWS);
+    for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
+      const rr = row + dr, tt = t + dc; if (rr < 0 || rr >= FROWS || tt < 0 || tt >= FFR) continue;
+      const [b0, b1] = ROWBINS[rr]; for (let b = b0; b < b1; b++) SP.mask[tt * FBINS + b] = SP.brush;
+    }
+    SP.kept = null; SP.dirty = true;
+  }
+  let spPointer = null;
+  $("sp-canvas").addEventListener("pointerdown", (e) => { if (!SP.S || spPointer !== null) return; spPointer = e.pointerId; $("sp-canvas").setPointerCapture(e.pointerId); paintAt(e); e.preventDefault(); });
+  $("sp-canvas").addEventListener("pointermove", (e) => { if (e.pointerId === spPointer) paintAt(e); });
+  const spEnd = (e) => { if (e.pointerId === spPointer) { spPointer = null; SP.dirty = true; } };
+  $("sp-canvas").addEventListener("pointerup", spEnd); $("sp-canvas").addEventListener("pointercancel", spEnd);
+  $("sp-mix").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b || !DATA.ready) return; SP.mix = b.dataset.v; SP.S = null; drawSeparation(); });
+  $("sp-brush").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; SP.brush = Number(b.dataset.v); drawSeparation(); });
+  $("sp-ideal").addEventListener("click", () => { if (!SP.S) return; SP.mask = Float64Array.from(SP.ideal); SP.kept = null; drawSeparation(); });
+  $("sp-clear").addEventListener("click", () => { if (!SP.S) return; SP.mask.fill(1); SP.kept = null; drawSeparation(); });
+  document.querySelectorAll("#separate [data-play]").forEach((b) => b.addEventListener("click", () => {
+    if (!SP.S) return; if (!SP.kept) SP.kept = istft(SP.S, SP.mask);
+    const w = b.dataset.play; play(w === "mix" ? SP.mixAudio : w === "kept" ? SP.kept : w === "word" ? SP.word : SP.mixAudio.map((v, i) => v - SP.kept[i]));
+  }));
+
+  // ---------- the algorithm in words, math or code ----------
+  const mi = (s) => `<i>${s}</i>`, sub = (s) => `<sub>${s}</sub>`;
+  const ALGO = [
+    { title: "Sound as numbers", words: "A recording is a list of numbers, the microphone's readings, 16,000 every second, each between −1 and 1. The picture will have 32 moments (columns) and 32 bands (rows). QUIET is the level below which a recording counts as silence, so a quiet room does not turn into a bright picture.",
+      math: [`16,000 samples per second, so 1 second = 16,000 numbers`, `a window: ${mi("N")} = 512 samples = 32 ms; a new window every 500 samples (31.25 ms), 32 windows in all`] },
+    { title: "The Fourier transform, quickly", words: "The Fourier transform measures how much of each frequency a window contains, by comparing the window with waves of every frequency. Done directly that takes 512 × 512 multiplications; the fast Fourier transform (FFT) gets the same answer by splitting the window into halves, then halves of halves, and combining the pieces.",
+      math: [`${mi("X")}(${mi("k")}) = Σ${sub(mi("n"))} ${mi("x")}(${mi("n")}) · e<sup>−2π${mi("i")}·${mi("k")}${mi("n")}/${mi("N")}</sup>,&emsp;${mi("k")} = 0, …, ${mi("N")} − 1`, `the power at frequency ${mi("k")} · 16,000/512 Hz is |${mi("X")}(${mi("k")})|² = re² + im²`, `257 frequencies from 0 to 8,000 Hz, 31.25 Hz apart`] },
+    { title: "Fading the window, and the mel bands", words: "Each window fades in and out (the Hann window), so its cut edges do not add frequencies that are not in the sound. The mel scale spaces pitch the way we hear it, so the 32 bands are narrow at low frequencies and wide at high ones; each band adds up the power under a triangle.",
+      math: [`${mi("w")}(${mi("n")}) = 0.5 − 0.5 · cos(2π${mi("n")}/${mi("N")})`, `mel(${mi("f")}) = 2595 · log${sub("10")}(1 + ${mi("f")}/700)`, `band power${sub(mi("b"))} = Σ${sub(mi("k"))} triangle${sub(mi("b"))}(${mi("k")}) · |${mi("X")}(${mi("k")})|²`] },
+    { title: "The spectrogram", words: "For each of the 32 moments: window, Fourier transform, mel bands, and then decibels, a logarithm, because we hear loudness on a log scale too. Every value is measured from the loudest point of the recording, so quiet and loud recordings of the same word look alike, and rounded to 16 steps. The network then reads each value minus 0.5.",
+      math: [`dB = 10 · log${sub("10")}(power + 10<sup>−10</sup>)`, `value = max(0, 1 + (dB − loudest) / 80), rounded to 16 steps,&emsp;loudest = max(QUIET, the recording's largest dB)`, `the network's input: value − 0.5`] },
+  ];
+  let AUDIO_SRC = "";
+  function renderAlgo() {
+    if (!AUDIO_SRC) return;
+    const js = AUDIO_SRC.split(/\n\s*\n/), py = $("audio-py").textContent.trim().split(/\n\s*\n/), ok = js.length === ALGO.length && py.length === ALGO.length;
+    if (!ok) console.warn(`renderAlgo: expected ${ALGO.length} sections, got ${js.length} (JS) and ${py.length} (Python)`);
+    $("algo").innerHTML = ALGO.map((a, i) => `<div class="ablock"><div class="atitle"><span class="n">${i + 1}</span>${a.title}</div>${ITN.view.reps({ words: a.words, math: a.math, js: ok ? js[i] : js.join("\n\n"), py: ok ? py[i] : py.join("\n\n") })}</div>`).join("");
+  }
+  ITN.source("audio").then((t) => { AUDIO_SRC = t; renderAlgo(); });
+  ITN.view.onChange(renderAlgo);
+
+  // ---------- the film ----------
+  const FILM_F = 4; // a layer-1 stencil of the trained network: orange on the left, blue on the right, so it fires where a sound starts
+  const film = (() => {
+    const SC = [{ k: "wave", d: 7000 }, { k: "pitches", d: 8500 }, { k: "picture", d: 8500 }, { k: "stencil", d: 8500 }, { k: "listens", d: 8000 }, { k: "timepitch", d: 9000 }, { k: "short", d: 6500 }];
+    const TOTAL = SC.reduce((a, x) => a + x.d, 0), startOf = (i) => SC.slice(0, i).reduce((a, x) => a + x.d, 0);
+    const at = (t) => { let i = 0; while (i < SC.length - 1 && t >= SC[i].d) { t -= SC[i].d; i++; } return { i, u: Math.min(1, t / SC[i].d) }; };
+    let t = 0, playing = false, last = 0, started = false, autoPaused = false, capKey = "", drawn = "", loop = 0, visible = false, autoQueued = false, A = null;
+    const chips = [...$("f-chips").querySelectorAll("button")];
+    const setLabel = () => { $("f-play").textContent = playing ? "Pause" : t >= TOTAL ? "Replay" : t > 0 ? "Resume" : "Play"; };
+    // the film's seven: its wave, its picture, the answers
+    function assets() {
+      if (A) return A;
+      const s = SOUNDS.seven(), spec = spectrogram(s), p = probsOf(NET, spec);
+      const later = moved(spec, 4, 0), higher = moved(spec, 0, 3);
+      A = { s, spec, p, g: specGrad(NET, spec, argmax(p)), later, higher, pl: probsOf(NET, later), ph: probsOf(NET, higher) };
+      return A;
+    }
+    const tag = (p) => `${WORDS[argmax(p)]} · ${sure(Math.max(...p))}`;
+    function caption(k) {
+      const a = assets();
+      switch (k) {
+        case "wave": return "<b>A sound is numbers.</b> A microphone measures the air pressure 16,000 times a second. This is someone saying \"seven\": one second, 16,000 numbers. On the right, 20 ms of it, close up.";
+        case "pitches": return "<b>Which pitches, when.</b> Take 32 ms of the sound (the blue box), fade its edges, and the Fourier transform tells how strong each pitch is in it, from low on the left to high on the right.";
+        case "picture": return "<b>A picture of the sound.</b> Add the pitches up into 32 bands and stack the moments side by side: time runs left to right, pitch bottom to top. This 32 × 32 picture is all the network gets.";
+        case "stencil": return "<b>Chapter 5's stencils, on sound.</b> The same convolution slides a 5 × 5 stencil over the picture. This one learned to fire where quiet turns into loud: the moment a sound starts.";
+        case "listens": return `<b>Where it listens.</b> The network hears "${WORDS[argmax(a.p)]}", ${sure(Math.max(...a.p))} sure. On the right, the spots of the picture its answer depends on most: the word itself, not the silence around it.`;
+        case "timepitch": { const all = ACC["4,0"] && ACC["0,3"] ? ` Over all 1,000 test recordings, moving them 125 ms later leaves ${pct(ACC["4,0"][0])} recognized, and moving them three bands higher only ${pct(ACC["0,3"][0])}.` : "";
+          return `<b>Time is not pitch.</b> Moved 125 ms later (left), the network hears "${WORDS[argmax(a.pl)]}" (${sure(Math.max(...a.pl))}). Moved three bands higher in pitch (right), it hears "${WORDS[argmax(a.ph)]}" (${sure(Math.max(...a.ph))}).${all} When a sound happens matters little; which pitches it has matters a lot.`; }
+        case "short": return "<b>In short.</b> A spectrogram turns sound into a picture, so a convolutional network can listen. It learns to ignore when a word starts, but not which pitches it contains.";
+      }
+      return "";
+    }
+    function render(force) {
+      const { i, u } = at(t), k = SC[i].k;
+      chips.forEach((c, n) => c.classList.toggle("on", n === i));
+      $("f-fill").style.width = (100 * t) / TOTAL + "%";
+      if (!JOB.ready) {
+        $("f-ticker").textContent = FAILED || (DATA.ready ? "preparing the film…" : "loading 9,000 recordings…");
+        if (force || drawn !== "wait") { drawn = "wait"; for (const id of ["f-left", "f-right"]) { const [W, H] = sizeCanvas($(id)), ctx = $(id).getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = rgba(C.sheet); ctx.fillRect(0, 0, W, H); } }
+        return;
+      }
+      const a = assets();
+      const sub2 = k === "wave" ? Math.floor(u * 60) : k === "pitches" || k === "picture" ? Math.min(31, Math.floor((u / 0.9) * 32)) : k === "stencil" ? Math.min(784, Math.floor((u / 0.85) * 784)) : 0;
+      const key2 = `${k}|${sub2}`;
+      if (!force && key2 === drawn) return;
+      drawn = key2;
+      let lt = "", rt = "", ticker = "";
+      if (k === "wave") {
+        const pos = Math.floor((sub2 / 60) * RATE);
+        drawWave($("f-left"), a.s, { mark: [pos, pos + 320] });
+        drawWave($("f-right"), a.s.subarray(pos, pos + 320));
+        lt = "One second of sound"; rt = "20 ms, close up"; ticker = `${Math.round((pos / RATE) * 1000)} ms: 320 numbers in the close-up`;
+      } else if (k === "pitches" || k === "picture") {
+        const start = sub2 * HOP, win = Float64Array.from({ length: WIN }, (_, n) => (a.s[start + n] || 0) * HANN[n]), re = Float64Array.from(win), im = new Float64Array(WIN); fft(re, im);
+        if (k === "pitches") {
+          drawWave($("f-left"), a.s, { mark: [start, start + WIN] });
+          const cv = $("f-right"), [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+          const pdb = Array.from({ length: WIN / 2 + 1 }, (_, q) => 10 * Math.log10(re[q] * re[q] + im[q] * im[q] + 1e-10)), top = Math.max(...pdb);
+          ctx.fillStyle = rgba(C.ink, 0.8); pdb.forEach((v, q) => { const h = Math.max(0, 1 + (v - top) / 70) * (H - 20); ctx.fillRect((q / pdb.length) * W, H - 16 - h, Math.max(1, W / pdb.length), h); });
+          ctx.fillStyle = rgba(C["ink-3"]); ctx.font = `11px ${MONO}`; ctx.textBaseline = "bottom"; ctx.textAlign = "left"; ctx.fillText("low", 4, H - 2); ctx.textAlign = "right"; ctx.fillText("high pitch", W - 4, H - 2);
+          lt = "The window"; rt = "Its pitches"; ticker = `moment ${sub2 + 1} of 32: ${Math.round((start / RATE) * 1000)} to ${Math.round(((start + WIN) / RATE) * 1000)} ms`;
+        } else {
+          const power = Array.from({ length: WIN / 2 + 1 }, (_, q) => re[q] * re[q] + im[q] * im[q]), band = MEL.map((w) => 10 * Math.log10(w.reduce((s, v, q) => s + v * power[q], 0) + 1e-10)), loud = Math.max(QUIET, ...band);
+          const cv = $("f-left"), [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+          const bh = H / BANDS; band.forEach((v, b) => { const w = Math.max(0, 1 + (v - loud) / 80) * (W - 8); ctx.fillStyle = rgba(C.ink, 0.85); ctx.fillRect(4, H - (b + 1) * bh + 1, w, bh - 2); });
+          const shown = a.spec.d.map((v, q) => ((q % 32) <= sub2 ? v : 0));
+          const L = drawOne($("f-right"), { data: shown, n: 32, kind: "ink" }), c = L.s / 32; L.ctx.strokeStyle = rgba(C.pos); L.ctx.lineWidth = 2; L.ctx.strokeRect(sub2 * c + 1, 1, c - 2, L.s - 2);
+          lt = "This moment's 32 bands (low at the bottom)"; rt = "Moment by moment, the picture"; ticker = `column ${sub2 + 1} of 32`;
+        }
+      } else if (k === "stencil") {
+        const L1 = { type: "conv", n: 1, k: 5, W: NET[0].W.subarray(FILM_F * 25, FILM_F * 25 + 25), b: NET[0].b.subarray(FILM_F, FILM_F + 1) };
+        const map = convForward(L1, toInput(a.spec)).d, scale = maxAbs(map);
+        drawOne($("f-right"), { data: map.map((v, q) => (q < sub2 ? v : 0)), n: 28, kind: "div", scale });
+        const L = drawOne($("f-left"), specTile(a.spec)), c = L.s / 32, pos = Math.min(783, sub2), x = pos % 28, y = Math.floor(pos / 28);
+        L.ctx.strokeStyle = rgba(C.pos); L.ctx.lineWidth = 2.5; L.ctx.strokeRect(x * c, y * c, 5 * c, 5 * c);
+        lt = "The stencil sliding over the picture"; rt = "Its feature map: blue where a sound starts"; ticker = `position ${Math.min(784, sub2 + 1)} of 784`;
+      } else if (k === "listens") {
+        drawOne($("f-left"), specTile(a.spec)); drawOne($("f-right"), { data: a.g.map((x) => -x), n: 32, kind: "div" });
+        lt = "The picture"; rt = "Where it listens"; ticker = `it hears: ${tag(a.p)}`;
+      } else if (k === "timepitch") {
+        const Lp = drawOne($("f-left"), specTile(a.later)); label(Lp.ctx, tag(a.pl), 8, 8);
+        const Rp = drawOne($("f-right"), specTile(a.higher)); label(Rp.ctx, tag(a.ph), 8, 8);
+        lt = "Moved 4 columns (125 ms) later"; rt = "Moved 3 bands higher"; ticker = `later: ${tag(a.pl)} · higher: ${tag(a.ph)}`;
+      } else {
+        drawTiles($("f-left"), stencilTiles(NET), 4, 8); drawOne($("f-right"), specTile(a.spec));
+        lt = "Stencils it taught itself"; rt = "The picture it listens to"; ticker = "sound → picture → chapter 5's network";
+      }
+      $("f-lt").textContent = lt; $("f-rt").textContent = rt; $("f-ticker").textContent = ticker;
+      if (k !== capKey) { capKey = k; $("f-cap").innerHTML = caption(k); }
+    }
+    function tick(id, now) {
+      if (!playing || id !== loop) return;
+      if (JOB.ready) t = Math.min(TOTAL, t + Math.min(64, now - last));
+      last = now;
+      if (t >= TOTAL) { playing = false; setLabel(); }
+      render();
+      if (playing) requestAnimationFrame((n) => tick(id, n));
+    }
+    function play2() { if (t >= TOTAL) t = 0; playing = true; started = true; autoPaused = false; last = performance.now(); setLabel(); const id = ++loop; requestAnimationFrame((n) => tick(id, n)); }
+    $("f-play").addEventListener("click", () => { if (playing) { playing = false; setLabel(); render(); } else play2(); });
+    chips.forEach((c, n) => c.addEventListener("click", () => { t = startOf(n); capKey = ""; if (!playing) play2(); else render(); }));
+    $("f-hear").addEventListener("click", () => { if (DATA.ready) play(SOUNDS.seven()); });
+    new IntersectionObserver((en) => {
+      visible = en[0].isIntersecting;
+      if (visible && !started && !reduceMotion) { if (!autoQueued) { autoQueued = true; whenReady(() => { autoQueued = false; if (!started && visible) play2(); }); } }
+      else if (visible && autoPaused) play2();
+      else if (!visible && playing) { playing = false; autoPaused = true; setLabel(); }
+    }, { threshold: 0.5 }).observe($("film"));
+    return { render, setLabel };
+  })();
+
+  // ---------- the playground ----------
+  const PG = { audio: null, spec: null, k: 0, which: "ref", T: null, seed: 1, running: false, evalJob: null, evalAcc: null, evalAt: 0, dirty: true, slowT: 0, preview: null, recording: false };
+  const pgNet = () => (PG.which === "own" ? (PG.T || (PG.T = trainer(PG.seed))).net : NET);
+  function drawPlayground() {
+    if (PG.audio) drawWave($("pl-wave"), PG.audio); else { const [W, H] = sizeCanvas($("pl-wave")); $("pl-wave").getContext("2d").clearRect(0, 0, W * dpr, H * dpr); }
+    const net = pgNet(), blank = new Array(10).fill(0);
+    if (!PG.spec) {
+      for (const id of ["pl-spec", "pl-sal"]) drawOne($(id), { data: new Float64Array(1024), n: 32, kind: "ink" });
+      bars($("pl-cnn"), blank); bars($("pl-plain"), blank); $("pl-cnn-g").innerHTML = $("pl-plain-g").innerHTML = "<small>record or pick a recording</small>";
+    } else {
+      const v = forward(net, toInput(PG.spec)), p = softmax(v.at(-1).d), pp = probsOf(PLAIN, PG.spec), g = specGrad(net, PG.spec, argmax(p));
+      drawOne($("pl-spec"), specTile(PG.spec)); drawOne($("pl-sal"), { data: g.map((x) => -x), n: 32, kind: "div" });
+      bars($("pl-cnn"), p); bars($("pl-plain"), pp);
+      $("pl-cnn-g").innerHTML = wordGuess(p); $("pl-plain-g").innerHTML = wordGuess(pp);
+      const m2 = maxAbs(v[2].d) || 1;
+      drawTiles($("pl-l1"), Array.from({ length: 8 }, (_, f) => ({ data: v[2].d.subarray(f * 784, f * 784 + 784), n: 28, kind: "div", scale: m2 })), 8, 4);
+    }
+    if (!PG.T && (!PG.preview || PG.preview.seed !== PG.seed)) PG.preview = { seed: PG.seed, net: makeCNN(PG.seed) };
+    drawTiles($("pl-filters"), stencilTiles(PG.T ? PG.T.net : PG.preview.net), 8, 6);
+    const T = PG.T;
+    $("pl-status").textContent = !T || !T.step ? `seed ${PG.seed} · not trained yet` : `pass ${T.pass} · step ${T.step.toLocaleString("en-US")} · ` + (PG.evalAcc !== null ? `test accuracy ${pct(PG.evalAcc)} at step ${PG.evalAt.toLocaleString("en-US")}` : PG.evalJob ? "measuring test accuracy…" : "test accuracy is measured every 200 steps") + (T.step >= 4000 ? " · as much training as the trained network" : "");
+    $("pl-train").textContent = PG.running ? "Pause" : T && T.step ? "Resume" : "Train";
+    document.querySelectorAll("#pl-net button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === PG.which)));
+    ITN.tips.refresh();
+  }
+  function useClip(k) { const c = clipFor("test", k); PG.k = k; PG.audio = c ? c.audio : null; PG.spec = c ? spectrogram(c.audio) : specOf(DATA.test, k); PG.dirty = true; }
+  // the loudest second of a recording
+  function loudestSecond(x) {
+    if (x.length <= RATE) { const o = new Float64Array(RATE); o.set(x); return o; }
+    let best = 0, be = -1; for (let s = 0; s + RATE <= x.length; s += 400) { let e = 0; for (let i = s; i < s + RATE; i += 4) e += x[i] * x[i]; if (e > be) { be = e; best = s; } }
+    return x.slice(best, best + RATE);
+  }
+  async function record() {
+    if (PG.recording) return;
+    const say = (m) => { $("pl-mic").textContent = m; };
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === "undefined") { say("This browser or page cannot use the microphone here. Pick a test recording instead."); return; }
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 } }); }
+    catch (e) { say(e && e.name === "NotAllowedError" ? "The microphone was not allowed. You can allow it in the browser's address bar, or pick a test recording." : "No microphone could be opened. Pick a test recording instead."); return; }
+    const ac = audioCtx(), rec = new MediaRecorder(stream), parts = [];
+    PG.recording = true; $("pl-rec").classList.add("on"); $("pl-rec").textContent = "Listening…"; say("Say a digit now.");
+    rec.ondataavailable = (e) => { if (e.data && e.data.size) parts.push(e.data); };
+    rec.onstop = async () => {
+      stream.getTracks().forEach((tr) => tr.stop());
+      PG.recording = false; $("pl-rec").classList.remove("on"); $("pl-rec").textContent = "Record 1.5 seconds";
+      try {
+        const buf = await ac.decodeAudioData(await new Blob(parts, { type: rec.mimeType }).arrayBuffer());
+        const ch = buf.getChannelData(0), x = resample(Float64Array.from(ch), buf.sampleRate, RATE);
+        PG.audio = loudestSecond(x); PG.spec = spectrogram(PG.audio); PG.k = -1;
+        pickerPG && pickerPG.host.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", "false"));
+        say(rms(PG.audio) < 0.003 ? "That was very quiet. Try again, closer to the microphone." : "Here is the loudest second of what was recorded.");
+        PG.dirty = true;
+      } catch (e) { say("The recording could not be read in this browser. Pick a test recording instead."); }
+    };
+    rec.start(); setTimeout(() => { if (rec.state !== "inactive") rec.stop(); }, 1500);
+  }
+  let pickerPG = null;
+  $("pl-rec").addEventListener("click", record);
+  $("pl-play").addEventListener("click", () => { if (PG.audio) play(PG.audio); });
+  $("pl-net").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; PG.which = b.dataset.v; PG.dirty = true; });
+  $("pl-train").addEventListener("click", () => { if (!DATA.ready) return; if (!PG.T) PG.T = trainer(PG.seed); PG.running = !PG.running; if (PG.running) PG.which = "own"; PG.dirty = true; });
+  $("pl-reset").addEventListener("click", () => { PG.running = false; PG.seed++; PG.T = null; PG.evalJob = null; PG.evalAcc = null; PG.evalAt = 0; PG.dirty = true; });
+
+  // ---------- one loop for everything that moves ----------
+  function frame(now) { try { step(now); } finally { requestAnimationFrame(frame); } }
+  function step(now) {
+    if (SP.dirty) { SP.dirty = false; drawSeparation(); }
+    if (PG.running && PG.T) {
+      const t0 = performance.now();
+      do { PG.T.next(); if (PG.T.step % 200 === 0) PG.evalJob = measure(copyNet(PG.T.net), ((s) => (a) => { PG.evalAcc = a; PG.evalAt = s; })(PG.T.step)); } while (performance.now() - t0 < 8);
+      if (now - PG.slowT > 150) { PG.slowT = now; PG.dirty = true; }
+    }
+    if (PG.evalJob) { const t0 = performance.now(); while (performance.now() - t0 < 4) if (PG.evalJob.next().done) { PG.evalJob = null; PG.dirty = true; break; } }
+    if (DATA.ready && NET) stepMeasure();
+    if (PG.dirty) { PG.dirty = false; drawPlayground(); }
+  }
+
+  // ---------- check the backward pass the slow way ----------
+  function gradientCheck() {
+    const r = mulberry32(5), net = copyNet(NET); net.forEach((L) => L.b && L.b.forEach((_, i) => { L.b[i] += gaussian(r) * 0.1; }));
+    const x = toInput(specOf(DATA.test, 0)); x.d.forEach((v, i) => { x.d[i] = v + gaussian(r) * 0.05; });
+    // the loss for a wrong answer (large, well-measured gradients); only gradients of at least 0.001 are checked
+    const wrong = (DATA.test.labels[0] + 3) % 10, grads = zeroGrads(net), gx = backward(net, forward(net, x), wrong, grads);
+    const loss = () => -Math.log(softmax(forward(net, x).at(-1).d)[wrong]);
+    const check = (arr, i, g) => { const v = arr[i], h = 1e-5; arr[i] = v + h; const a = loss(); arr[i] = v - h; const b = loss(); arr[i] = v; const num = (a - b) / (2 * h); return Math.abs(num - g) / (Math.abs(num) + Math.abs(g)); };
+    let worst = 0, n = 0;
+    const pick = (arr, gs, wantN) => { for (let t = 0, got = 0; t < 5000 && got < wantN; t++) { const i = Math.floor(r() * arr.length); if (Math.abs(gs[i]) >= 1e-3) { worst = Math.max(worst, check(arr, i, gs[i])); got++; n++; } } };
+    for (const l of [0, 3, 6]) pick(net[l].W, grads[l].W, 10);
+    pick(x.d, gx, 20);
+    $("gc-check").textContent = worst < 1e-5 ? `across ${n} weights and spectrogram values, the backward pass and the slow way agree, with a largest relative difference of ${worst.toExponential(0)}.` : `the largest relative difference was ${worst.toExponential(1)}, larger than expected.`;
+  }
+
+  // ---------- descriptions on hover, keyboard focus, or after a tap ----------
+  const FILM_TIPS = ["A sound as 16,000 numbers a second.", "The pitches in one 32 ms window.", "The windows side by side: a spectrogram.", "A stencil sliding over the spectrogram.", "Which parts of the picture the answer depends on.", "Moving the word in time, and in pitch.", "The chapter in one sentence."];
+  for (let i = 0; i < 7; i++) ITN.tips.add({ [`film-${i}`]: () => `${FILM_TIPS[i]} <span class="hint">Click to jump here</span>` });
+  ITN.tips.add({
+    "lens-math": () => "<b>Math</b>: the same steps written as formulas.",
+    "f-hear": () => "Play the recording the film follows.",
+    "va-digit": () => "Show 24 speakers saying this digit, and the average of all 800 training recordings.",
+    "va-many": () => "Click one of the first three in a row (marked ▶) to hear it.",
+    "qt-time": () => `Move the picture right (later) or left (earlier), ${Math.round(QT.dt * 31.25)} ms now. New columns are silence.`,
+    "qt-pitch": () => "Move the picture up (every pitch higher) or down. New rows are silence.",
+    "t1-tone": () => "One pure tone at 440 Hz.", "t1-chord": () => "Three tones at once: an A major chord.", "t1-glide": () => "A tone rising from 300 to 2,400 Hz.", "t1-click": () => "Four very short clicks.", "t1-seven": () => 'A real recording of "seven".',
+    "t2-frame": () => "Choose which of the 32 moments to take apart.",
+    "wh-play": () => "Play this recording.",
+    "no-level": () => "How loud the added hiss is, compared with the word.",
+    "no-play": () => "Play the recording with the hiss.",
+    "sp-hum": () => "The seven mixed with a 140 Hz hum, equally loud.", "sp-voice": () => 'The seven mixed with another person saying "three", equally loud.',
+    "sp-remove": () => "Paint to remove parts of the mix.", "sp-keep": () => "Paint to bring removed parts back.",
+    "sp-canvas": () => (SP.brush ? "Paint to keep." : "Paint to remove."),
+    "sp-ideal": () => "Keep every spot where the seven is louder than the other sound: the mask a separation network tries to predict.",
+    "sp-clear": () => "Remove nothing.",
+    "sp-p-mix": () => "Play the mix.", "sp-p-kept": () => "Play what the mask keeps.", "sp-p-removed": () => "Play what the mask removes.", "sp-p-word": () => "Play the seven before it was mixed.",
+    "pl-rec": () => "Record 1.5 seconds from your microphone, then use its loudest second. Nothing is sent anywhere.",
+    "pl-play": () => "Play the second the networks hear.",
+    "pl-sal": () => "Blue where more sound would make the network more sure, orange where less would.",
+    "net-ref": () => "The network trained in advance, used everywhere on this page.", "net-own": () => "The network you train below.",
+    "pl-train": () => (PG.running ? "Pause training." : "Train a convolutional network from scratch on the 8,000 training recordings, in batches of 20."),
+    "pl-reset": () => `Start over from new random weights (seed ${PG.seed} → ${PG.seed + 1}).`,
+  });
+
+  // ---------- resize, theme, boot ----------
+  function redrawAll() { film.render(true); drawVariety(); drawQuestion(); drawTool1(); drawTool2(); drawWalk(); drawLearn(); drawWhere(); drawTP(); drawNoise(); drawSeparation(); pickers.forEach((P) => P.paint()); PG.dirty = true; }
+  // redraw when the page's width changes (not its height, which changes whenever a readout gets longer)
+  let rq = 0, lastW = 0; new ResizeObserver(() => { const w = document.body.clientWidth; if (w === lastW) return; lastW = w; cancelAnimationFrame(rq); rq = requestAnimationFrame(redrawAll); }).observe(document.body);
+  const retheme = () => { readTheme(); redrawAll(); };
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  ITN.pill();
+  readTheme();
+  film.setLabel(); film.render(); drawLadder(); drawQuestion(); drawTool1(); ITN.view.sync();
+  requestAnimationFrame(frame);
+  whenReady(() => { film.render(true); drawLearn(); });
+  progress.push(() => drawLearn());
+  const fail = (msg) => { FAILED = msg; for (const id of ["va-read", "qt-read", "t1-read", "t2-read", "wk-read", "ln-read", "wh-read", "tp-read", "no-read", "sp-read"]) $(id).textContent = msg; $("f-ticker").textContent = msg; };
+  if (!HAVE_FILES) fail("The recordings or the trained weights did not load (sounds.js, weights.js).");
+  else if (typeof DecompressionStream === "undefined") fail("This browser cannot unpack the recordings. A recent Chrome, Edge, Firefox or Safari can.");
+  else loadData().then(() => {
+    const tests = playableTests(), firstPlayable = (d) => tests.find((k) => DATA.test.labels[k] === d);
+    const ten = WORDS.map((_, d) => firstPlayable(d));
+    QT.k = WK.k = WH.k = NO.k = ten[7];
+    makePicker($("qt-pick"), ten, QT.k, (k) => { QT.k = k; drawQuestion(); });
+    makePicker($("wk-pick"), ten, WK.k, (k) => { WK.k = k; drawWalk(); });
+    makePicker($("wh-pick"), ten, WH.k, (k) => { WH.k = k; drawWhere(); });
+    makePicker($("no-pick"), ten, NO.k, (k) => { NO.k = k; drawNoise(); });
+    pickerPG = makePicker($("pl-pick"), tests, ten[7], (k) => useClip(k));
+    useClip(ten[7]);
+    want(0, 0, true); TP_T.forEach((s) => want(s, 0)); TP_P.forEach((s) => want(0, s));
+    drawVariety(); drawQuestion(); drawTool1(); drawTool2(); drawWalk(); drawLearn(); drawWhere(); drawTP(); drawNoise(); drawSeparation();
+    gradientCheck();
+    runLoad(loadWork());
+  }, (err) => fail("The recordings could not be unpacked: " + err.message));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
+})();
+</script>
+</body>
+</html>
