@@ -1,0 +1,1864 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A hands-on first look at how a neural network learns. Watch a tiny network train in your browser and poke every number inside it.">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; font: 14px system-ui, -apple-system, "Segoe UI", sans-serif; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>A Network You Can Touch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&display=swap">
+<style>
+/* Layout: a ~66ch reading column; the live figure breaks out onto a wide bench (plot left, network right), stacking on phones. */
+:root {
+  --paper: #f3f4f6;
+  --sheet: #ffffff;
+  --well: #f5f6f8;
+  --ink: #14171c;
+  --ink-2: #4a515e;
+  --ink-3: #656d7b;
+  --rule: #dcdfe5;
+  --pos: #2a78d6;
+  --neg: #eb6834;
+  --shadow: rgba(20, 23, 28, 0.06);
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: "Newsreader", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e1014; --sheet: #15181e; --well: #1b1f26; --ink: #e8eaee; --ink-2: #b0b6c1; --ink-3: #8b929e;
+    --rule: #2a2f38; --pos: #3987e5; --neg: #d95926; --shadow: rgba(0, 0, 0, 0.35); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0e1014; --sheet: #15181e; --well: #1b1f26; --ink: #e8eaee; --ink-2: #b0b6c1; --ink-3: #8b929e;
+  --rule: #2a2f38; --pos: #3987e5; --neg: #d95926; --shadow: rgba(0, 0, 0, 0.35); color-scheme: dark;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 18px; line-height: 1.6; }
+.page { padding-block: 48px 72px; padding-inline: 20px; }
+.col { max-width: 680px; margin-inline: auto; }
+.bench { max-width: 1180px; margin: 36px auto; }
+@media (max-width: 520px) { .page { padding-inline: 16px; padding-block: 32px 56px; } body { font-size: 17px; } }
+
+.eyebrow { font: 600 12px/1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); }
+h1 { font-family: var(--font-display); font-weight: 650; font-size: clamp(40px, 6.4vw, 64px); line-height: 1; letter-spacing: -0.025em; margin: 14px 0 18px; text-wrap: balance; }
+.dek { font-size: 22px; line-height: 1.42; color: var(--ink-2); margin: 0 0 28px; text-wrap: pretty; }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 24px; line-height: 1.2; letter-spacing: -0.01em; margin: 48px 0 12px; text-wrap: balance; }
+p { margin: 0 0 14px; }
+b, strong { font-weight: 600; }
+kbd { font: 500 0.82em var(--font-display); padding: 1px 6px; border: 1px solid var(--rule); border-radius: 5px; background: var(--sheet); }
+
+/* the five-line definition */
+.eqs { margin: 22px 0 24px; border-top: 1px solid var(--rule); overflow-x: auto; }
+.eqs-title { font: 600 12px/1 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); padding: 14px 0 6px; }
+.eq-row { display: grid; grid-template-columns: minmax(15.5em, auto) 1fr; gap: 4px 20px; padding: 7px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.eq-row code { font: 14.5px/1.5 var(--font-mono); color: var(--ink); white-space: nowrap; }
+.eq-row span { font-size: 16px; color: var(--ink-2); line-height: 1.4; }
+@media (max-width: 600px) { .eq-row { grid-template-columns: minmax(0, 1fr); } }
+
+/* figure */
+.fig { background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; padding: 18px 20px 20px; box-shadow: 0 1px 2px var(--shadow), 0 10px 30px var(--shadow); }
+@media (max-width: 520px) { .fig { padding: 14px 12px 16px; border-radius: 12px; } }
+.controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-end; padding-bottom: 16px; border-bottom: 1px solid var(--rule); }
+.ctl { display: flex; flex-direction: column; gap: 7px; }
+.lab { font: 600 11px/1 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+.lab .nc { text-transform: none; letter-spacing: 0; font-size: 13px; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { font: 560 14px/1 var(--font-display); padding: 10px 14px; border-radius: 9px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.btn:hover { border-color: var(--ink-3); }
+.btn.primary { background: var(--ink); border-color: var(--ink); color: var(--sheet); min-width: 98px; justify-content: center; }
+.btn svg { width: 12px; height: 12px; fill: currentColor; }
+.seg { display: inline-flex; background: var(--well); border: 1px solid var(--rule); border-radius: 9px; padding: 2px; gap: 2px; }
+.seg button { font: 520 13px/1 var(--font-display); border: 0; background: transparent; color: var(--ink-2); padding: 9px 10px; border-radius: 7px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--sheet); color: var(--ink); box-shadow: 0 0 0 1px var(--rule), 0 1px 2px var(--shadow); }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--rule); border-radius: 9px; background: var(--well); }
+.stepper button { width: 34px; height: 33px; border: 0; background: transparent; color: var(--ink); font: 500 17px/1 var(--font-mono); cursor: pointer; border-radius: 8px; }
+.stepper button:disabled { color: var(--ink-3); opacity: 0.45; cursor: default; }
+.stepper output { min-width: 22px; text-align: center; font: 500 14px/1 var(--font-mono); }
+select { font: 500 13px/1.2 var(--font-mono); padding: 8px 8px; border-radius: 8px; border: 1px solid var(--rule); background: var(--well); color: var(--ink); max-width: 100%; }
+.btn:focus-visible, .seg button:focus-visible, .stepper button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.fig-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 28px; padding-top: 18px; }
+@media (max-width: 899px) { .fig-grid { grid-template-columns: minmax(0, 1fr); gap: 22px; } }
+.pane-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; margin-bottom: 10px; min-height: 36px; }
+.pane-title { font: 600 15px/1.2 var(--font-display); color: var(--ink); }
+.legend { display: flex; gap: 14px; font: 13px/1 var(--font-display); color: var(--ink-2); }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--pos); margin-right: 6px; vertical-align: -1px; }
+.sw.neg { background: var(--neg); }
+
+#plot { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; border-radius: 10px; border: 1px solid var(--rule); cursor: crosshair; touch-action: manipulation; }
+.readouts { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 13px/1.3 var(--font-mono); color: var(--ink-3); margin: 12px 0 6px; font-variant-numeric: tabular-nums; }
+.readouts b { color: var(--ink); font-weight: 500; }
+#loss { display: block; width: 100%; height: 88px; cursor: default; }
+
+.net { position: relative; width: 100%; height: 380px; }
+.net svg { position: absolute; left: 0; top: 0; overflow: visible; }
+.edge { fill: none; stroke: var(--pos); stroke-linecap: round; opacity: 0.88; }
+.edge.neg { stroke: var(--neg); }
+.halo { fill: none; stroke: var(--ink); opacity: 0.18; stroke-linecap: round; pointer-events: none; }
+.hit { fill: none; stroke: transparent; stroke-width: 16; cursor: pointer; pointer-events: stroke; }
+.pulse { fill: var(--ink); stroke: var(--sheet); stroke-width: 1.5; pointer-events: none; }
+.vlab { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-2); paint-order: stroke; stroke: var(--sheet); stroke-width: 3.5px; stroke-linejoin: round; pointer-events: none; }
+.vlab.strong { fill: var(--ink); font-weight: 500; }
+.vlab.big { fill: var(--ink); font-weight: 500; font-size: 14px; }
+.colsub { font-family: var(--font-body); font-size: 12.5px; fill: var(--ink-3); pointer-events: none; }
+.collab { font-family: var(--font-display); font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; fill: var(--ink-3); pointer-events: none; }
+.node { position: absolute; padding: 0; border: 0; border-radius: 7px; overflow: hidden; background: var(--sheet); box-shadow: 0 0 0 1px var(--rule); cursor: pointer; }
+.node canvas { display: block; width: 100%; height: 100%; }
+.node .nname { position: absolute; left: 3px; top: 3px; font: 500 10px/1 var(--font-mono); color: var(--ink); background: color-mix(in srgb, var(--sheet) 80%, transparent); padding: 2px 3px; border-radius: 3px; pointer-events: none; }
+.node.sel { box-shadow: 0 0 0 2px var(--ink); }
+.node.dead { box-shadow: 0 0 0 1px var(--ink-3); }
+.node.dead.sel { box-shadow: 0 0 0 2px var(--ink); }
+.node:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.node.ping { animation: ping 0.9s ease-out infinite; }
+@keyframes ping { 0% { box-shadow: 0 0 0 2px var(--ink); } 100% { box-shadow: 0 0 0 12px transparent; } }
+.net-legend { font: 14px/1.45 var(--font-body); color: var(--ink-3); margin: 8px 0 0; }
+
+.story { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--rule); }
+.phases { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.phase { font: 600 11px/1 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); padding: 6px 9px; border-radius: 99px; border: 1px solid var(--rule); }
+.phase.on { color: var(--sheet); background: var(--ink); border-color: var(--ink); }
+.arrow { color: var(--ink-3); font: 12px var(--font-mono); }
+.narr { font: 17px/1.5 var(--font-body); color: var(--ink-2); min-height: 4.5em; margin: 10px 0 0; }
+.narr b { color: var(--ink); }
+
+.insp { margin-top: 14px; padding-top: 16px; border-top: 1px solid var(--rule); }
+.insp-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; }
+.insp h3 { font: 620 21px/1.15 var(--font-display); margin: 6px 0 0; }
+.insp h3 .wire { font-weight: 450; color: var(--ink-3); font-size: 15px; margin-left: 6px; }
+.insp .val { font: 500 15px/1 var(--font-mono); color: var(--ink-2); margin-top: 8px; font-variant-numeric: tabular-nums; }
+.pick { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.slider-row { display: flex; align-items: center; gap: 12px; margin: 14px 0 4px; flex-wrap: wrap; }
+.slider-row label { font: 14px/1.3 var(--font-display); color: var(--ink-2); }
+.slider-row input { flex: 1 1 180px; min-width: 0; accent-color: var(--ink); }
+.ilead { font-size: 16px; color: var(--ink-2); margin: 12px 0 8px; }
+.chain { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; margin: 8px 0 10px; }
+.factor { background: var(--well); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.factor .sym { font: 12px/1.3 var(--font-mono); color: var(--ink-2); white-space: nowrap; }
+.factor .num { font: 500 17px/1.1 var(--font-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.factor .note { font: 13px/1.25 var(--font-body); color: var(--ink-3); max-width: 15ch; }
+.factor.result { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink); }
+.op { align-self: center; font: 16px var(--font-mono); color: var(--ink-3); }
+.check { font: 13px/1.5 var(--font-mono); color: var(--ink-2); margin: 4px 0 8px; }
+.check b, .ifoot b { color: var(--ink); font-weight: 500; }
+.ifoot { font-size: 15.5px; color: var(--ink-2); margin: 6px 0 0; font-variant-numeric: tabular-nums; }
+.eqn { font: 14px/1.75 var(--font-mono); color: var(--ink); margin: 12px 0 6px; background: var(--well); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+.eqn .cont { padding-left: 2.6ch; }
+.eqn b { font-weight: 500; }
+
+/* prose below the figure */
+dl.read { display: grid; grid-template-columns: 7.5em 1fr; gap: 10px 20px; margin: 0; }
+dl.read dt { font: 600 14px/1.6 var(--font-display); color: var(--ink); padding-top: 2px; }
+dl.read dd { margin: 0; }
+@media (max-width: 520px) { dl.read { grid-template-columns: minmax(0, 1fr); gap: 2px; } dl.read dd { margin-bottom: 10px; } }
+ul.tries { padding-left: 1.1em; margin: 0; }
+ul.tries li { margin-bottom: 10px; padding-left: 4px; }
+details { margin: 16px 0 0; }
+summary { cursor: pointer; font: 560 15px/1.4 var(--font-display); color: var(--ink); }
+pre.code { margin: 12px 0 0; background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font: 13px/1.55 var(--font-mono); color: var(--ink); }
+ol.road { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--rule); }
+ol.road li { display: grid; grid-template-columns: 2.4em minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--rule); font: 16px/1.35 var(--font-display); color: var(--ink-2); }
+ol.road .n { font: 500 13px var(--font-mono); color: var(--ink-3); }
+ol.road .tag { font: 600 10.5px/1 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--rule); border-radius: 99px; padding: 5px 8px; }
+ol.road li.here { color: var(--ink); font-weight: 600; }
+ol.road li.here .tag { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+ol.road li.branch { padding-left: 1.2em; }
+.foot { margin-top: 40px; font: 14px/1.5 var(--font-display); color: var(--ink-3); }
+
+/* beginner introduction */
+header.col .dek { margin-bottom: 8px; }
+.intro h2:first-child { margin-top: 28px; }
+.puzzle { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 18px 24px; align-items: center; margin: 20px 0 24px; padding: 16px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; }
+#puz { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; border-radius: 8px; border: 1px solid var(--rule); touch-action: none; cursor: grab; }
+#puz.dragging { cursor: grabbing; }
+.puzzle figcaption { font-size: 16px; line-height: 1.45; color: var(--ink-2); }
+.puzzle figcaption p { margin: 10px 0 0; }
+.puz-score { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.puz-score b { font: 500 30px/1 var(--font-mono); color: var(--ink); }
+.puz-score span { font: 500 18px/1 var(--font-mono); color: var(--ink-3); }
+.puz-best b { color: var(--ink); font-weight: 600; }
+@media (max-width: 600px) { .puzzle { grid-template-columns: minmax(0, 1fr); } }
+ol.seq { list-style: none; counter-reset: seq; padding: 0; margin: 4px 0 18px; }
+ol.seq > li { counter-increment: seq; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 0 10px; margin-bottom: 10px; }
+ol.seq > li::before { content: counter(seq); width: 22px; height: 22px; margin-top: 4px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--sheet); font: 500 12px/1 var(--font-mono); }
+.live { font-family: var(--font-mono); font-size: 0.86em; background: var(--sheet); border: 1px solid var(--rule); border-radius: 5px; padding: 0 5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+details.math { margin: 4px 0 18px; }
+details.math .eqs { margin-top: 10px; }
+
+/* playground layout: data | network, then progress | story, then the inspector across */
+.fig-grid { grid-template-areas: "plot net" "stats story" "insp insp"; row-gap: 22px; }
+.area-plot { grid-area: plot; min-width: 0; }
+.area-net { grid-area: net; min-width: 0; }
+.area-stats { grid-area: stats; min-width: 0; padding-top: 16px; border-top: 1px solid var(--rule); }
+.area-story { grid-area: story; min-width: 0; padding-top: 16px; border-top: 1px solid var(--rule); }
+.area-insp { grid-area: insp; min-width: 0; margin-top: 0; }
+@media (max-width: 899px) { .fig-grid { grid-template-areas: "plot" "stats" "net" "story" "insp"; } }
+.hint { font: 13px/1.3 var(--font-display); color: var(--ink-3); }
+.count { font: 500 12px/1 var(--font-mono); color: var(--ink-3); margin-left: 8px; }
+.plot-wrap { position: relative; }
+.tip { position: absolute; z-index: 2; pointer-events: none; background: var(--ink); color: var(--sheet); font: 12px/1.4 var(--font-mono); padding: 6px 9px; border-radius: 7px; white-space: nowrap; transform: translate(-50%, calc(-100% - 12px)); box-shadow: 0 2px 8px var(--shadow); }
+.plot-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 12px 0 0; font: 13px/1.3 var(--font-display); color: var(--ink-2); align-items: center; }
+.plot-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--pos); }
+.dot.neg { background: var(--neg); }
+.dot.hollow { background: var(--sheet); box-shadow: inset 0 0 0 2px var(--ink-3); }
+.bline { display: inline-block; width: 18px; height: 2px; background: var(--ink); border-radius: 1px; }
+.ramp-item { flex-wrap: wrap; }
+.ramp { display: inline-block; width: 64px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, color-mix(in srgb, var(--neg) 60%, var(--sheet)), var(--sheet), color-mix(in srgb, var(--pos) 60%, var(--sheet))); box-shadow: inset 0 0 0 1px var(--rule); }
+.ramp-ends { font-size: 12px; color: var(--ink-3); }
+.probe-card { margin: 12px 0 0; padding: 10px 12px; background: var(--well); border-radius: 9px; font: 15.5px/1.45 var(--font-body); color: var(--ink-2); }
+.probe-card b { color: var(--ink); font-weight: 600; }
+.probe-card .ring { display: inline-block; width: 11px; height: 11px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--ink); vertical-align: -1px; margin-right: 6px; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.stat { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.stat b { font: 500 24px/1 var(--font-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.cap { font: 13px/1.3 var(--font-body); color: var(--ink-3); }
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 18px 0 6px; flex-wrap: wrap; }
+.chart-head .cap { font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+#loss { height: 124px; }
+.area-story .narr { min-height: 5.5em; }
+.net-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font: 13px/1.35 var(--font-display); color: var(--ink-2); margin: 10px 0 0; }
+.net-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.ln { display: inline-block; width: 20px; height: 3px; border-radius: 2px; background: var(--pos); }
+.ln.neg { background: var(--neg); }
+.ln.thick { height: 6px; background: var(--ink-3); }
+.sq { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: linear-gradient(135deg, color-mix(in srgb, var(--neg) 70%, var(--sheet)), color-mix(in srgb, var(--pos) 70%, var(--sheet))); box-shadow: inset 0 0 0 1px var(--rule); }
+.insp { padding-top: 18px; border-top: 1px solid var(--rule); }
+.insp-grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 14px 36px; }
+@media (max-width: 899px) { .insp-grid { grid-template-columns: minmax(0, 1fr); } }
+.iplain { font: 17px/1.5 var(--font-body); color: var(--ink); margin: 14px 0 0; }
+.insp-detail .ilead:first-child, .insp-detail .eqn:first-child { margin-top: 2px; }
+
+/* shortcuts */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+#playground, #film { scroll-margin-top: 16px; }
+.jump { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 20px 0 4px; }
+a.btn { text-decoration: none; }
+.jump-note { font: 15px/1.4 var(--font-body); color: var(--ink-3); }
+.jump-pill { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 10; font: 600 14px/1 var(--font-display); background: var(--ink); color: var(--sheet); padding: 12px 16px; border-radius: 99px; text-decoration: none; box-shadow: 0 4px 18px var(--shadow); }
+.jump-pill:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.tog { display: inline-flex; align-items: center; gap: 7px; font: 13px/1.2 var(--font-display); color: var(--ink-2); cursor: pointer; }
+.tog input { accent-color: var(--ink); width: 15px; height: 15px; margin: 0; }
+.dline { display: inline-block; width: 18px; height: 0; border-top: 1.5px dashed var(--ink-2); }
+
+/* the training film */
+.film { margin: 18px 0 22px; padding: 16px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; }
+.film-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 14px; align-items: center; }
+#film-plane { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; border-radius: 8px; border: 1px solid var(--rule); }
+#film-net { display: block; width: 100%; max-width: 100%; aspect-ratio: 1.15; }
+@media (max-width: 560px) { .film-stage { grid-template-columns: minmax(0, 1fr); } #film-net { aspect-ratio: 1.3; } }
+.film-progress { height: 3px; background: var(--rule); border-radius: 2px; margin-top: 14px; overflow: hidden; }
+.film-progress i { display: block; height: 100%; width: 0; background: var(--ink); }
+.film-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 12px; }
+.film-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.film-chips button { font: 600 10.5px/1 var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); background: transparent; border: 1px solid var(--rule); border-radius: 99px; padding: 6px 8px; cursor: pointer; }
+.film-chips button.on { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.film-chips button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.film-meta { margin-left: auto; font: 12px/1.2 var(--font-mono); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.film-cap { font: 17px/1.5 var(--font-body); color: var(--ink-2); margin: 12px 0 0; min-height: 4.5em; }
+.film-cap b { color: var(--ink); }
+.intro a { color: var(--ink); text-underline-offset: 3px; }
+.foot a { color: var(--ink-2); text-underline-offset: 3px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="col">
+    <div class="eyebrow">Chapter 1 · Prototype</div>
+    <h1>A network you can touch</h1>
+    <p class="dek">A hands-on first look at how a neural network learns. You will watch a real one learn, and you can poke every number inside it.</p>
+    <nav class="jump" aria-label="Page shortcuts">
+      <a class="btn primary" href="#playground">Skip to the playground ↓</a>
+      <span class="jump-note">or read the five-minute introduction below</span>
+    </nav>
+  </header>
+
+  <main class="col intro">
+    <h2>What this is</h2>
+    <p>In under a minute, this film shows a small neural network teaching itself to tell blue dots from orange ones. The rest of the page explains every part of it, then hands you the controls.</p>
+
+    <figure class="film" id="film" aria-label="Animation of the network training on the puzzle's dots">
+      <div class="film-stage">
+        <canvas id="film-plane" aria-label="The dots, the network's guess, and each hidden neuron's line"></canvas>
+        <canvas id="film-net" aria-label="The network, with signals flowing through it"></canvas>
+      </div>
+      <div class="film-progress"><i id="film-fill"></i></div>
+      <div class="film-bar">
+        <button type="button" class="btn primary" id="film-play">Play</button>
+        <div class="film-chips" id="film-chips" role="group" aria-label="Jump to a scene">
+          <button type="button" data-i="0">Start</button><button type="button" data-i="1">Forward</button><button type="button" data-i="2">Compare</button><button type="button" data-i="3">Backward</button><button type="button" data-i="4">Update</button><button type="button" data-i="5">Repeat</button><button type="button" data-i="6">Result</button>
+        </div>
+        <span class="film-meta" id="film-meta"></span>
+      </div>
+      <p class="film-cap" id="film-cap" aria-live="polite"></p>
+    </figure>
+
+    <p>This page is the first chapter of an interactive guide to neural networks. You don't need to install anything, write code or own a graphics card. Everything runs in your browser.</p>
+    <p>The network on this page is tiny, but it learns the same way as the large ones behind image recognition and chatbots. It makes a guess, measures how wrong the guess was, and adjusts itself a little. After a few hundred rounds of that, it gets good. You need no math beyond multiplying and adding. Where formulas appear, plain words come with them.</p>
+
+    <h2>The puzzle</h2>
+    <p>Here are 160 dots. Each dot has a position, given by two numbers: <b>x₁</b>, how far right it is, and <b>x₂</b>, how far up. Each dot also has a color, blue or orange.</p>
+    <p>The puzzle: build a machine that looks only at a dot's position and tells you its color. It should also work for new dots it has never seen.</p>
+    <p>The obvious first attempt is a straight line, with blue on one side and orange on the other. Try it.</p>
+
+    <figure class="puzzle">
+      <canvas id="puz" aria-label="The 160 dots with a straight line you can drag to separate blue from orange"></canvas>
+      <figcaption>
+        <div class="lab">Your line gets</div>
+        <div class="puz-score"><b id="puz-score">–</b><span id="puz-pct"></span></div>
+        <p>Drag either round handle to move the line. The side with more blue dots is shaded blue. Hollow dots are on the wrong side.</p>
+        <p class="puz-best">The best any single straight line can do on these dots is <b id="puz-best">–</b>.</p>
+      </figcaption>
+    </figure>
+
+    <p>One line is not enough, because the blue dots sit in two opposite corners. We need a machine that can draw a more complicated boundary, and we want it to find that boundary by itself, from the examples.</p>
+    <p>This is the simplest kind of classification problem. Replace the two coordinates with the thousands of pixel values in a photo, and blue and orange with “cat” and “dog”, and you have image recognition. The machine is the same kind of thing, only much larger.</p>
+
+    <h2>The tool: a neural network</h2>
+    <p>A neural network is a calculation with adjustable knobs. Numbers go in, a number comes out, and the knobs decide what happens in between. The knobs are called <b>parameters</b>, and they come in two kinds: <b>weights</b> and <b>biases</b>.</p>
+    <p>The building block is the <b>neuron</b>. It does three small things:</p>
+    <ol class="seq">
+      <li><div>Multiply each input by its own weight.</div></li>
+      <li><div>Add the results together, plus a bias.</div></li>
+      <li><div>Pass the sum through an <b>activation function</b>, a fixed curve. Here it is tanh, which squashes any number into the range −1 to 1.</div></li>
+    </ol>
+    <p>The first two steps describe a straight line across the plane: the places where the sum equals zero. The line you dragged in the puzzle is exactly one neuron. Right now it has w₁ = <span class="live" id="nl-w1">–</span>, w₂ = <span class="live" id="nl-w2">–</span> and b = <span class="live" id="nl-b">–</span>. Its sum is positive on the blue side, zero on the line and negative on the orange side. The activation turns that hard line into a soft edge.</p>
+    <p>One neuron can only draw one line, which is why it cannot solve the puzzle. So we use several. Our network has a <b>hidden layer</b> of four neurons, each drawing its own line. One <b>output neuron</b> combines their answers into a single number called <b>ŷ</b> (“y-hat”), between 0 and 1. ŷ is the network's estimate of the probability that the dot is blue.</p>
+    <p>With four hidden neurons the network has 17 parameters. Each hidden neuron has 2 weights and 1 bias, which makes 12. The output neuron has 4 weights and 1 bias, which makes 5 more. They start as random numbers, so at first the network's answers are random too. Data and training fix that.</p>
+    <details class="math">
+      <summary>The same network in five lines of math</summary>
+      <div class="eqs" aria-label="The network's equations">
+        <div class="eq-row"><code>z<sub>j</sub> = w<sub>j1</sub>·x₁ + w<sub>j2</sub>·x₂ + b<sub>j</sub></code><span>each hidden neuron weighs the two inputs</span></div>
+        <div class="eq-row"><code id="eq-act">h<sub>j</sub> = tanh(z<sub>j</sub>)</code><span>and bends the result</span></div>
+        <div class="eq-row"><code>z<sub>out</sub> = Σ<sub>j</sub> v<sub>j</sub>·h<sub>j</sub> + c</code><span>the output weighs the hidden neurons</span></div>
+        <div class="eq-row"><code>ŷ = σ(z<sub>out</sub>)</code><span>and squashes the sum into a probability</span></div>
+        <div class="eq-row"><code>L = −[y·log ŷ + (1−y)·log(1−ŷ)]</code><span>the loss, small when ŷ agrees with the color (y = 1 for blue)</span></div>
+      </div>
+    </details>
+
+    <h2>Data: learning from examples</h2>
+    <p>The 160 dots are the <b>training data</b>: examples where we already know the right answer. Each example is a pair. The <b>input</b> is the position (x₁, x₂), and the <b>label</b> is the color, written y = 1 for blue and y = 0 for orange.</p>
+    <p>The network is never told a rule such as “blue when both numbers have the same sign”. It only sees the examples, and everything it learns comes from them. That is why the quality of the data matters so much in machine learning.</p>
+    <p>The playground has four sets of dots, from easy to hard: <b>Clusters</b>, <b>XOR</b> (the puzzle above), <b>Circle</b> and <b>Spiral</b>.</p>
+
+    <h2>Training: guess, measure, adjust</h2>
+    <p>Training means adjusting the 17 parameters until the network's answers match the labels. It is a loop of four stages:</p>
+    <ol class="seq">
+      <li><div><b>Forward pass.</b> Feed every dot through the network and collect its answers, ŷ.</div></li>
+      <li><div><b>Loss.</b> Score how wrong each answer is. The loss is near 0 for a confident right answer and grows quickly for a confident wrong one. Averaged over all dots, it becomes one number that says how badly the network is doing.</div></li>
+      <li><div><b>Backward pass.</b> For every parameter, work out which way to nudge it to lower the loss, and how strongly. That number is the parameter's <b>gradient</b>. Backpropagation computes all of them in one sweep, from the output back toward the inputs, using the chain rule from calculus.</div></li>
+      <li><div><b>Update.</b> Move every parameter a small step against its gradient. The size of the step is the <b>learning rate</b>, written η (“eta”).</div></li>
+    </ol>
+    <p>Then repeat. Each round is one <b>training step</b>. The film at the top of the page shows this loop on the puzzle's dots, following the one dot the untrained network gets most wrong. <a href="#film">Watch it again ↑</a></p>
+    <p>In the playground, <kbd>Step</kbd> walks through the four stages one click at a time, and <kbd>Train</kbd> runs them continuously.</p>
+
+    <h2>The playground</h2>
+    <p>The playground shows the data and the network, then the training progress and a step-by-step story of what the network is doing. At the bottom, the inspector opens up whatever you tap.</p>
+    <p>Pick a set of dots and press <kbd>Train</kbd>. Tap any dot to make it the <b>probe</b> (the ringed dot): the numbers in the network then describe that one dot. Tap any wire or neuron to look inside it.</p>
+  </main>
+
+  <section class="bench" id="playground" aria-label="Interactive network">
+    <div class="fig">
+      <div class="controls">
+        <div class="ctl">
+          <span class="lab">Training</span>
+          <div class="btns">
+            <button type="button" class="btn primary" id="b-train"></button>
+            <button type="button" class="btn" id="b-step">Step</button>
+            <button type="button" class="btn" id="b-reset">Reset</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <span class="lab" id="lab-data">Data</span>
+          <div class="seg" role="group" aria-labelledby="lab-data" id="seg-data">
+            <button type="button" data-v="clusters" aria-pressed="false">Clusters</button>
+            <button type="button" data-v="xor" aria-pressed="true">XOR</button>
+            <button type="button" data-v="circle" aria-pressed="false">Circle</button>
+            <button type="button" data-v="spiral" aria-pressed="false">Spiral</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <span class="lab">Hidden neurons</span>
+          <div class="stepper">
+            <button type="button" id="h-minus" aria-label="Fewer hidden neurons">−</button>
+            <output id="h-val" aria-live="polite">4</output>
+            <button type="button" id="h-plus" aria-label="More hidden neurons">+</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <span class="lab" id="lab-act">Activation</span>
+          <div class="seg" role="group" aria-labelledby="lab-act" id="seg-act">
+            <button type="button" data-v="tanh" aria-pressed="true">tanh</button>
+            <button type="button" data-v="relu" aria-pressed="false">ReLU</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <label class="lab" for="lr">Learning rate <span class="nc">η</span></label>
+          <select id="lr">
+            <option value="0.03">0.03</option>
+            <option value="0.1">0.1</option>
+            <option value="0.3" selected>0.3</option>
+            <option value="1">1</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+        <div class="ctl">
+          <span class="lab" id="lab-speed">Speed</span>
+          <div class="seg" role="group" aria-labelledby="lab-speed" id="seg-speed">
+            <button type="button" data-v="1" aria-pressed="true">Slow</button>
+            <button type="button" data-v="12" aria-pressed="false">Fast</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="fig-grid">
+        <div class="area-plot">
+          <div class="pane-head">
+            <span class="pane-title">The data</span>
+            <label class="tog" for="show-lines"><input type="checkbox" id="show-lines">Show neuron lines</label>
+          </div>
+          <div class="plot-wrap">
+            <canvas id="plot" role="img" aria-label="The dots, shaded by the network's current guess, with the decision boundary drawn as a dark line"></canvas>
+            <div class="tip" id="tip" hidden></div>
+          </div>
+          <div class="plot-legend" aria-label="Legend">
+            <span><i class="dot"></i>blue dot (y = 1)</span>
+            <span><i class="dot neg"></i>orange dot (y = 0)</span>
+            <span><i class="dot hollow"></i>wrong right now</span>
+            <span><i class="bline"></i>boundary, 50%</span>
+            <span><i class="dline"></i>a hidden neuron's line</span>
+            <span class="ramp-item">background is the network's guess: <span class="ramp-ends">orange</span><i class="ramp"></i><span class="ramp-ends">blue</span></span>
+          </div>
+          <p class="probe-card" id="probe-card"></p>
+        </div>
+
+        <div class="area-net">
+          <div class="pane-head">
+            <span class="pane-title">The network <span class="count" id="r-params">17 parameters</span></span>
+            <div class="seg" role="group" aria-label="Network view" id="seg-view">
+              <button type="button" data-v="fwd" aria-pressed="true">Forward</button>
+              <button type="button" data-v="bwd" aria-pressed="false">Backward</button>
+            </div>
+          </div>
+          <div class="net" id="net"><svg id="netsvg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg></div>
+          <div class="net-legend" id="net-legend"></div>
+        </div>
+
+        <div class="area-stats">
+          <div class="stats">
+            <div class="stat"><span class="lab">Step</span><b id="r-step">0</b><span class="cap">training rounds so far</span></div>
+            <div class="stat"><span class="lab">Loss</span><b id="r-loss">–</b><span class="cap">average wrongness, lower is better</span></div>
+            <div class="stat"><span class="lab">Accuracy</span><b id="r-acc">–</b><span class="cap">dots on the right side</span></div>
+          </div>
+          <div class="chart-head"><span class="lab">Loss over training</span><span class="cap" id="loss-hover">hover the chart for values</span></div>
+          <canvas id="loss" aria-label="Average loss over training steps"></canvas>
+        </div>
+
+        <div class="area-story">
+          <div class="phases" aria-hidden="true">
+            <span class="phase">Forward</span><span class="arrow">→</span>
+            <span class="phase">Loss</span><span class="arrow">→</span>
+            <span class="phase">Backward</span><span class="arrow">→</span>
+            <span class="phase">Update</span>
+          </div>
+          <p class="narr" id="narr" aria-live="polite"></p>
+        </div>
+
+        <div class="area-insp insp" id="insp">
+          <div class="insp-grid">
+            <div class="insp-main">
+              <div class="insp-top">
+                <div>
+                  <div class="eyebrow" id="i-eyebrow"></div>
+                  <h3 id="i-title"></h3>
+                  <div class="val" id="i-val"></div>
+                </div>
+                <div class="pick">
+                  <label class="lab" for="pick">Inspect</label>
+                  <select id="pick"></select>
+                </div>
+              </div>
+              <p class="iplain" id="i-plain"></p>
+              <div class="slider-row" id="i-sl">
+                <label for="i-slider" id="i-sl-lab"></label>
+                <input type="range" id="i-slider" min="-4" max="4" step="0.01">
+              </div>
+            </div>
+            <div class="insp-detail">
+              <div id="i-body"></div>
+              <p class="ifoot" id="i-foot"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="col">
+    <h2>How to read the figure</h2>
+    <dl class="read">
+      <dt>Color</dt>
+      <dd>Blue means positive and orange means negative, everywhere on this page.</dd>
+      <dt>Background</dt>
+      <dd>The shading behind the dots is the network's guess for every point of the plane. Deeper blue means more sure the point is blue. The dark curve is the boundary, where the guess is exactly 50%.</dd>
+      <dt>Hollow dots</dt>
+      <dd>Dots the network currently gets wrong. Watch them fill in as it trains.</dd>
+      <dt>Squares</dt>
+      <dd>Each square in the network is one neuron's output across the whole plane, on the same axes as the data plot. A hidden neuron's square is split by its line. The output square is the data plot's background in miniature.</dd>
+      <dt>Wires</dt>
+      <dd>In the forward view, a wire's thickness is the size of its weight. In the backward view, it shows how hard the probe dot pushes on that weight, and in which direction.</dd>
+      <dt>Probe</dt>
+      <dd>The ringed dot. Its values appear beside each neuron, as a small dot inside every square, and in the card under the plot.</dd>
+      <dt>Inspector</dt>
+      <dd>The bottom panel. The first sentence says in plain words what the selected part is doing. The panel beside it shows the arithmetic, and the slider lets you change the number yourself.</dd>
+    </dl>
+
+    <h2>Things to try</h2>
+    <ul class="tries">
+      <li>Keep XOR and set hidden neurons to 1. A single line cannot separate XOR, so the loss stalls. Add neurons one at a time and watch it break through.</li>
+      <li>Pause, pick a weight, and drag its slider. The boundary, the loss and every gradient follow your hand.</li>
+      <li>Set the learning rate to 3. Steps that large overshoot, and the loss curve starts to jump.</li>
+      <li>Pick a dot deep inside a region the network already gets right, then switch to the backward view. Its wires go thin: a dot that is already classified well asks for almost nothing.</li>
+      <li>Switch to ReLU and press Reset a few times. Sometimes a neuron's square goes blank. It outputs 0 for every dot, so its gradient is 0 and training can never revive it.</li>
+      <li>Try Spiral with 8 neurons, η = 1 and Fast. It sits on a plateau for a long time, then suddenly finds a way through. Chapter 3 shows why extra layers make this easier.</li>
+    </ul>
+
+    <h2>What runs where</h2>
+    <p>Everything runs in this page's JavaScript on your CPU, with no GPU, no server and no machine-learning library. Numbers are 64-bit floats and the random seed is fixed, so every visitor starts from the same weights and sees the same values. One training step over all 160 dots takes well under a millisecond on a laptop.</p>
+    <p>Gradients come from the small autograd below, which is the exact code this page runs. Every arithmetic operation writes its inputs and its local derivative onto a tape. The backward pass walks the tape in reverse and applies the chain rule at each entry. The inspector computes the same gradients by hand from the forward values and checks them against autograd.</p>
+    <details>
+      <summary>Show the autograd source</summary>
+      <pre class="code"><code id="ag-code"></code></pre>
+    </details>
+
+    <h2>Where this is going</h2>
+    <ol class="road">
+      <li class="here"><span class="n">1</span><span>A network you can touch</span><span class="tag">This page</span></li>
+      <li><span class="n">2</span><span>Backprop, one operation at a time</span><span></span></li>
+      <li><span class="n">3</span><span>Going deeper: why layers help</span><span></span></li>
+      <li><span class="n">4</span><span>Seeing: convolutional networks</span><span></span></li>
+      <li class="branch"><span class="n">4′</span><span>Listening: spectrograms and sound</span><span class="tag">Branch</span></li>
+      <li><span class="n">5</span><span>Words as vectors: tokens and embeddings</span><span></span></li>
+      <li><span class="n">6</span><span>Attention</span><span></span></li>
+      <li><span class="n">7</span><span>A tiny GPT, trained in your browser</span><span></span></li>
+    </ol>
+    <p class="foot">Working prototype, October 2026. Every figure on this page is a live computation.<br><a href="https://github.com/taoyiran/inside-the-network">Source on GitHub</a> · code under MIT, text and figures under CC BY 4.0.</p>
+  </section>
+  <a class="jump-pill" id="jump-pill" href="#playground" hidden>Playground ↓</a>
+</div>
+
+<script id="autograd">
+// A tape-based autograd, small enough to read in one sitting.
+// Every operation creates a Value and records, for each input,
+// the local derivative ∂output/∂input. backward() walks the
+// tape in reverse and applies the chain rule.
+let TAPE = null;
+
+class Value {
+  constructor(data, inputs = null, local = null) {
+    this.data = data;     // the number itself
+    this.grad = 0;        // ∂loss/∂this, filled in by backward()
+    this.inputs = inputs; // the Values this one was computed from
+    this.local = local;   // ∂this/∂input, one entry per input
+    if (TAPE) TAPE.push(this);
+  }
+}
+
+const add  = (a, b) => new Value(a.data + b.data, [a, b], [1, 1]);
+const mul  = (a, b) => new Value(a.data * b.data, [a, b], [b.data, a.data]);
+const mulc = (a, c) => new Value(a.data * c, [a], [c]); // times a constant
+
+function tanh(a) {
+  const t = Math.tanh(a.data);
+  return new Value(t, [a], [1 - t * t]);
+}
+const relu = (a) => new Value(Math.max(0, a.data), [a], [a.data > 0 ? 1 : 0]);
+
+const sigmoid = (z) => (z >= 0 ? 1 / (1 + Math.exp(-z)) : Math.exp(z) / (1 + Math.exp(z)));
+
+// Sigmoid and binary cross-entropy fused into one operation.
+// Its derivative simplifies to ŷ − y.
+function bceWithLogits(z, y) {
+  const loss = Math.max(z.data, 0) - z.data * y + Math.log1p(Math.exp(-Math.abs(z.data)));
+  return new Value(loss, [z], [sigmoid(z.data) - y]);
+}
+
+function backward(loss) {
+  loss.grad = 1;
+  for (let k = TAPE.length - 1; k >= 0; k--) {
+    const v = TAPE[k];
+    if (!v.inputs) continue;
+    for (let i = 0; i < v.inputs.length; i++) {
+      v.inputs[i].grad += v.local[i] * v.grad; // the chain rule
+    }
+  }
+}
+</script>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const SUBS = "₀₁₂₃₄₅₆₇₈₉";
+  const sb = (n) => String(n).replace(/\d/g, (d) => SUBS[d]);
+  function fmt(v, d = 2) {
+    if (!Number.isFinite(v)) return "–";
+    const s = Math.abs(v).toFixed(d);
+    return (v < 0 && Number(s) !== 0 ? "−" : "") + s;
+  }
+  const par = (v, d = 2) => { const s = fmt(v, d); return s[0] === "−" ? "(" + s + ")" : s; };
+  const signed = (v, d = 3) => { const s = fmt(v, d); return s[0] === "−" ? s : "+" + s; };
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+  const UI = '"Bricolage Grotesque", system-ui, -apple-system, sans-serif';
+
+  // ---------- seeded randomness and datasets ----------
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gaussian(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+
+  const N = 160, D = 1.15;
+  const DATA_SEEDS = { clusters: 11, xor: 23, circle: 37, spiral: 51 };
+  const PROBE_TARGET = { clusters: [0.05, 0.15], xor: [0.45, 0.5], circle: [0.5, 0.25], spiral: [0.3, 0.3] };
+
+  function makeData(kind) {
+    const r = mulberry32(DATA_SEEDS[kind]);
+    const pts = [];
+    for (let i = 0; i < N; i++) {
+      let x1, x2, y;
+      if (kind === "clusters") {
+        y = i % 2; x1 = (y ? 0.42 : -0.42) + gaussian(r) * 0.24; x2 = (y ? 0.36 : -0.36) + gaussian(r) * 0.24;
+      } else if (kind === "xor") {
+        const u = r() * 2 - 1, w = r() * 2 - 1;
+        x1 = Math.sign(u) * (0.1 + Math.abs(u) * 0.85); x2 = Math.sign(w) * (0.1 + Math.abs(w) * 0.85);
+        y = x1 * x2 > 0 ? 1 : 0;
+      } else if (kind === "circle") {
+        y = i % 2; const a = r() * Math.PI * 2; const rad = y ? 0.42 * Math.sqrt(r()) : 0.64 + 0.3 * r();
+        x1 = rad * Math.cos(a); x2 = rad * Math.sin(a);
+      } else {
+        y = i % 2; const t = Math.floor(i / 2) / (N / 2); const rad = 0.1 + 0.85 * t; const a = t * 3.1 * Math.PI + y * Math.PI;
+        x1 = rad * Math.cos(a) + gaussian(r) * 0.035; x2 = rad * Math.sin(a) + gaussian(r) * 0.035;
+      }
+      pts.push({ x1: Math.max(-1, Math.min(1, x1)), x2: Math.max(-1, Math.min(1, x2)), y });
+    }
+    return pts;
+  }
+
+  // ---------- state ----------
+  const S = {
+    dataset: "xor", H: 4, act: "tanh", lr: 0.3, speed: 1, view: "fwd", seed: 3,
+    running: false, step: 0, hist: [], probe: 0,
+    sel: { type: "node", layer: 2 },
+    anim: null, viewOverride: null, dirty: true,
+  };
+  let data = [], P = null, PARAMS = [];
+
+  function nearestPoint(x1, x2) {
+    let best = 0, bd = Infinity;
+    data.forEach((p, k) => { const d = (p.x1 - x1) ** 2 + (p.x2 - x2) ** 2; if (d < bd) { bd = d; best = k; } });
+    return best;
+  }
+
+  function initNet() {
+    const r = mulberry32(S.seed * 9973 + S.H * 131);
+    const w1 = [], b1 = [], w2 = [];
+    for (let j = 0; j < S.H; j++) {
+      w1.push([new Value(gaussian(r)), new Value(gaussian(r))]);
+      b1.push(new Value(gaussian(r) * 0.3));
+      w2.push(new Value(gaussian(r) * 0.9));
+    }
+    P = { w1, b1, w2, b2: new Value(0) };
+    PARAMS = [];
+    for (let j = 0; j < S.H; j++) PARAMS.push(w1[j][0], w1[j][1]);
+    PARAMS.push(...b1, ...w2, P.b2);
+    PARAMS.forEach((p, k) => { p.idx = k; });
+    S.step = 0; S.hist = [];
+  }
+
+  // ---------- computation ----------
+  const actF = (z) => (S.act === "tanh" ? Math.tanh(z) : z > 0 ? z : 0);
+  const actD = (z, h) => (S.act === "tanh" ? 1 - h * h : z > 0 ? 1 : 0);
+
+  function forward(x1, x2) {
+    const z = [], h = []; let zo = P.b2.data;
+    for (let j = 0; j < S.H; j++) {
+      const zj = P.w1[j][0].data * x1 + P.w1[j][1].data * x2 + P.b1[j].data;
+      const hj = actF(zj); z.push(zj); h.push(hj); zo += P.w2[j].data * hj;
+    }
+    return { z, h, zo, yh: sigmoid(zo) };
+  }
+
+  // the same network, built from Values so autograd can see every operation
+  function pointLoss(x1, x2, y) {
+    let zo = P.b2;
+    for (let j = 0; j < S.H; j++) {
+      const z = add(add(mulc(P.w1[j][0], x1), mulc(P.w1[j][1], x2)), P.b1[j]);
+      zo = add(zo, mul(P.w2[j], S.act === "tanh" ? tanh(z) : relu(z)));
+    }
+    return bceWithLogits(zo, y);
+  }
+  function evalBatch() {
+    TAPE = []; for (const p of PARAMS) p.grad = 0;
+    let total = null;
+    for (const pt of data) { const L = pointLoss(pt.x1, pt.x2, pt.y); total = total ? add(total, L) : L; }
+    const loss = mulc(total, 1 / data.length);
+    backward(loss); TAPE = null;
+    return loss.data;
+  }
+  function evalProbe() {
+    TAPE = []; for (const p of PARAMS) p.grad = 0;
+    const pt = data[S.probe]; const L = pointLoss(pt.x1, pt.x2, pt.y);
+    backward(L); TAPE = null;
+    return L.data;
+  }
+  function trainStep() {
+    const l = evalBatch();
+    for (const p of PARAMS) p.data -= S.lr * p.grad;
+    S.step++; S.hist.push(l);
+  }
+
+  const M = { loss: 0, g: [], pg: [], pLoss: 0, f: null, acc: 0, dead: [], yh: [], right: [] };
+  function refresh() {
+    M.loss = evalBatch(); M.g = PARAMS.map((p) => p.grad);
+    M.pLoss = evalProbe(); M.pg = PARAMS.map((p) => p.grad);
+    const pt = data[S.probe]; M.f = forward(pt.x1, pt.x2);
+    let c = 0; const alive = new Array(S.H).fill(false);
+    M.yh = []; M.right = [];
+    for (const p of data) {
+      const f = forward(p.x1, p.x2), ok = (f.yh > 0.5 ? 1 : 0) === p.y;
+      M.yh.push(f.yh); M.right.push(ok);
+      if (ok) c++;
+      for (let j = 0; j < S.H; j++) if (f.z[j] > 0) alive[j] = true;
+    }
+    M.acc = c / data.length;
+    M.dead = alive.map((a) => S.act === "relu" && !a);
+  }
+
+  // ---------- theme ----------
+  const C = {};
+  function hexRGB(s) {
+    s = s.trim();
+    if (s[0] === "#") {
+      if (s.length === 4) s = "#" + s[1] + s[1] + s[2] + s[2] + s[3] + s[3];
+      const n = parseInt(s.slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+    const m = s.match(/[\d.]+/g); return m ? m.slice(0, 3).map(Number) : [128, 128, 128];
+  }
+  function makeLUT(strength) {
+    const lut = new Uint8ClampedArray(256 * 3);
+    for (let k = 0; k < 256; k++) {
+      const t = (k / 255) * 2 - 1, tgt = t >= 0 ? C.pos : C.neg, a = Math.pow(Math.abs(t), 0.85) * strength;
+      for (let c = 0; c < 3; c++) lut[k * 3 + c] = C.sheet[c] + (tgt[c] - C.sheet[c]) * a;
+    }
+    return lut;
+  }
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement);
+    for (const k of ["sheet", "ink", "ink-2", "ink-3", "rule", "pos", "neg"]) C[k] = hexRGB(cs.getPropertyValue("--" + k));
+    C.lutPlot = makeLUT(0.58); C.lutNode = makeLUT(0.92);
+  }
+  const rgba = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+
+  // ---------- canvases ----------
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  function sizeCanvas(cv) {
+    const cw = cv.clientWidth, ch = cv.clientHeight;
+    const w = Math.max(1, Math.round(cw * dpr)), h = Math.max(1, Math.round(ch * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    return [cw, ch];
+  }
+  const toPx = (x, W) => ((x + D) / (2 * D)) * W;
+  const toPy = (y, H) => ((D - y) / (2 * D)) * H;
+  function lut(t) { const k = Math.round((Math.max(-1, Math.min(1, t)) + 1) * 127.5) * 3; return k; }
+
+  // the plot
+  const plot = $("plot"), pctx = plot.getContext("2d");
+  const GP = 65, gridP = new Float64Array(GP * GP);
+  const heat = document.createElement("canvas"); heat.width = heat.height = GP;
+  const hctx = heat.getContext("2d"), heatImg = hctx.createImageData(GP, GP);
+
+  function weightsArrays() {
+    const H = S.H, a = new Float64Array(H), b = new Float64Array(H), c = new Float64Array(H), v = new Float64Array(H);
+    for (let j = 0; j < H; j++) { a[j] = P.w1[j][0].data; b[j] = P.w1[j][1].data; c[j] = P.b1[j].data; v[j] = P.w2[j].data; }
+    return { a, b, c, v, c2: P.b2.data, tanh: S.act === "tanh" };
+  }
+  function computePlotGrid() {
+    const w = weightsArrays(), H = S.H;
+    for (let r = 0; r < GP; r++) {
+      const x2 = D - (2 * D * r) / (GP - 1);
+      for (let c = 0; c < GP; c++) {
+        const x1 = -D + (2 * D * c) / (GP - 1);
+        let zo = w.c2;
+        for (let j = 0; j < H; j++) { const z = w.a[j] * x1 + w.b[j] * x2 + w.c[j]; zo += w.v[j] * (w.tanh ? Math.tanh(z) : z > 0 ? z : 0); }
+        gridP[r * GP + c] = sigmoid(zo);
+      }
+    }
+  }
+  function contour(ctx, W, H, grid = gridP, G = GP) {
+    const f = (r, c) => grid[r * G + c] - 0.5, X = (c) => (c / (G - 1)) * W, Y = (r) => (r / (G - 1)) * H;
+    ctx.beginPath();
+    for (let r = 0; r < G - 1; r++) for (let c = 0; c < G - 1; c++) {
+      const a = f(r, c), b = f(r, c + 1), e = f(r + 1, c + 1), d = f(r + 1, c), pts = [];
+      if (a > 0 !== b > 0) pts.push([X(c + a / (a - b)), Y(r)]);
+      if (b > 0 !== e > 0) pts.push([X(c + 1), Y(r + b / (b - e))]);
+      if (d > 0 !== e > 0) pts.push([X(c + d / (d - e)), Y(r + 1)]);
+      if (a > 0 !== d > 0) pts.push([X(c), Y(r + a / (a - d))]);
+      if (pts.length >= 2) { ctx.moveTo(pts[0][0], pts[0][1]); ctx.lineTo(pts[1][0], pts[1][1]); }
+      if (pts.length === 4) { ctx.moveTo(pts[2][0], pts[2][1]); ctx.lineTo(pts[3][0], pts[3][1]); }
+    }
+    ctx.stroke();
+  }
+  // where a·x₁ + b·x₂ + c = 0 crosses the edges of the plotted square
+  function lineEnds(a, b, c) {
+    const pts = [], e = 1e-9;
+    if (Math.abs(b) > e) for (const x of [-D, D]) { const y = -(a * x + c) / b; if (y >= -D - e && y <= D + e) pts.push([x, y]); }
+    if (Math.abs(a) > e) for (const y of [-D, D]) { const x = -(b * y + c) / a; if (x >= -D - e && x <= D + e) pts.push([x, y]); }
+    if (pts.length < 2) return null;
+    let best = null, bd = -1;
+    for (let i = 0; i < pts.length; i++) for (let k = i + 1; k < pts.length; k++) {
+      const d = (pts[i][0] - pts[k][0]) ** 2 + (pts[i][1] - pts[k][1]) ** 2;
+      if (d > bd) { bd = d; best = [pts[i], pts[k]]; }
+    }
+    return bd > 1e-6 ? best : null;
+  }
+  // each hidden neuron's line, dashed; highlighted ones solid
+  function drawNeuronLines(ctx, W, H, n, getLine, hi, onlyHi = false) {
+    ctx.save();
+    const any = hi && hi.size > 0;
+    for (let j = 0; j < n; j++) {
+      const on = any && hi.has(j);
+      if (onlyHi && !on) continue;
+      const [a, b, c] = getLine(j), e = lineEnds(a, b, c);
+      if (!e) continue;
+      ctx.beginPath(); ctx.moveTo(toPx(e[0][0], W), toPy(e[0][1], H)); ctx.lineTo(toPx(e[1][0], W), toPy(e[1][1], H));
+      ctx.setLineDash(on ? [] : [5, 4]); ctx.lineWidth = on ? 2.2 : 1.25;
+      ctx.strokeStyle = rgba(C.ink, on ? 0.95 : any ? 0.28 : 0.55); ctx.stroke();
+      const [top, bot] = e[0][1] >= e[1][1] ? [e[0], e[1]] : [e[1], e[0]];
+      const X = toPx(top[0] + (bot[0] - top[0]) * 0.12, W), Y = toPy(top[1] + (bot[1] - top[1]) * 0.12, H);
+      ctx.setLineDash([]); ctx.font = `500 11px ${MONO}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.lineWidth = 3.5; ctx.strokeStyle = rgba(C.sheet, 0.92); ctx.strokeText(`h${sb(j + 1)}`, X + 11, Y);
+      ctx.fillStyle = rgba(C.ink, on || !any ? 1 : 0.5); ctx.fillText(`h${sb(j + 1)}`, X + 11, Y);
+    }
+    ctx.restore();
+  }
+
+  function drawPlot() {
+    const [W, H] = sizeCanvas(plot), ctx = pctx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    computePlotGrid();
+    const t = C.lutPlot, d = heatImg.data;
+    for (let k = 0; k < GP * GP; k++) { const li = lut(gridP[k] * 2 - 1); d[k * 4] = t[li]; d[k * 4 + 1] = t[li + 1]; d[k * 4 + 2] = t[li + 2]; d[k * 4 + 3] = 255; }
+    hctx.putImageData(heatImg, 0, 0);
+    const cw = W / (GP - 1), ch = H / (GP - 1);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(heat, -cw / 2, -ch / 2, W + cw, H + ch);
+
+    // axes through the origin
+    const ox = toPx(0, W), oy = toPy(0, H);
+    ctx.strokeStyle = rgba(C.ink, 0.22); ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox, H); ctx.moveTo(0, oy); ctx.lineTo(W, oy); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = rgba(C["ink-3"]); ctx.font = `11px ${MONO}`; ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    ctx.fillText("−1", toPx(-1, W), oy + 11); ctx.fillText("1", toPx(1, W), oy + 11);
+    ctx.textAlign = "left";
+    ctx.fillText("1", ox + 6, toPy(1, H)); ctx.fillText("−1", ox + 6, toPy(-1, H));
+    ctx.textAlign = "right"; ctx.fillText("x₁", W - 8, oy - 10);
+    ctx.textAlign = "left"; ctx.fillText("x₂", ox + 8, 12);
+
+    // decision boundary
+    ctx.strokeStyle = rgba(C.ink, 0.8); ctx.lineWidth = 1.6; contour(ctx, W, H);
+    const selHidden = S.sel.type === "node" && S.sel.layer === 1 ? new Set([S.sel.j]) : null;
+    if ($("show-lines").checked || selHidden) drawNeuronLines(ctx, W, H, S.H, (j) => [P.w1[j][0].data, P.w1[j][1].data, P.b1[j].data], selHidden, !$("show-lines").checked);
+
+    // dots
+    const pr = Math.max(3.5, Math.min(5.5, W / 95));
+    data.forEach((p, k) => {
+      const col = p.y ? C.pos : C.neg;
+      ctx.beginPath(); ctx.arc(toPx(p.x1, W), toPy(p.x2, H), pr, 0, Math.PI * 2);
+      if (M.right[k]) { ctx.fillStyle = rgba(col); ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = rgba(C.sheet); ctx.stroke(); }
+      else { ctx.fillStyle = rgba(C.sheet); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = rgba(col); ctx.stroke(); }
+    });
+    // probe
+    const pp = data[S.probe], px = toPx(pp.x1, W), py = toPy(pp.x2, H);
+    ctx.beginPath(); ctx.arc(px, py, pr + 5, 0, Math.PI * 2);
+    ctx.lineWidth = 2; ctx.strokeStyle = rgba(C.ink); ctx.stroke();
+    ctx.font = `600 12px ${UI}`; ctx.fillStyle = rgba(C.ink); ctx.textBaseline = "alphabetic";
+    const right = px < W - 70;
+    ctx.textAlign = right ? "left" : "right";
+    const tx = right ? px + pr + 9 : px - pr - 9, ty = py - pr - 5 < 14 ? py + pr + 18 : py - pr - 5;
+    ctx.lineWidth = 3; ctx.strokeStyle = rgba(C.sheet, 0.85); ctx.strokeText("probe", tx, ty); ctx.fillText("probe", tx, ty);
+  }
+
+  // the loss curve
+  const lossCv = $("loss"), lctx = lossCv.getContext("2d");
+  let lossHover = null;
+  function niceMax(v) { for (const m of [0.05, 0.1, 0.2, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5]) if (v <= m) return m; return Math.ceil(v); }
+  const tick = (v) => String(Number(v.toFixed(3)));
+  function drawLoss() {
+    const [W, H] = sizeCanvas(lossCv), ctx = lctx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    const padL = 36, padR = 6, padT = 8, padB = 20, iw = W - padL - padR, ih = H - padT - padB;
+    const hist = S.hist, n = hist.length;
+    let peak = 0; for (const v of hist) if (v > peak) peak = v;
+    const ymax = niceMax(Math.max(peak, 0.05)), xmax = Math.max(n - 1, 60);
+    const X = (k) => padL + (k / xmax) * iw, Y = (v) => padT + ih - (v / ymax) * ih;
+    ctx.font = `11px ${MONO}`; ctx.lineWidth = 1;
+    for (const v of [0, ymax / 2, ymax]) {
+      const y = Math.round(Y(v)) + 0.5;
+      ctx.strokeStyle = rgba(C.rule, v === 0 ? 1 : 0.7);
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+      ctx.fillStyle = rgba(C["ink-3"]); ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(tick(v), padL - 6, y);
+    }
+    ctx.textBaseline = "alphabetic"; ctx.textAlign = "left"; ctx.fillText("0", padL, H - 4);
+    ctx.textAlign = "right"; ctx.fillText(`${xmax} steps`, W - padR, H - 4);
+    if (n < 2) { ctx.textAlign = "left"; ctx.fillText("The curve appears once training starts.", padL + 8, padT + ih / 2); $("loss-hover").textContent = ""; return; }
+    const stride = Math.max(1, Math.floor(n / iw));
+    const line = new Path2D(); line.moveTo(X(0), Y(hist[0]));
+    for (let k = stride; k < n; k += stride) line.lineTo(X(k), Y(hist[k]));
+    line.lineTo(X(n - 1), Y(hist[n - 1]));
+    const area = new Path2D(line); area.lineTo(X(n - 1), Y(0)); area.lineTo(X(0), Y(0)); area.closePath();
+    ctx.fillStyle = rgba(C.ink, 0.07); ctx.fill(area);
+    ctx.strokeStyle = rgba(C.ink, 0.9); ctx.lineWidth = 1.75; ctx.lineJoin = "round"; ctx.stroke(line);
+    ctx.beginPath(); ctx.arc(X(n - 1), Y(hist[n - 1]), 3, 0, Math.PI * 2); ctx.fillStyle = rgba(C.ink); ctx.fill();
+    let k = n - 1;
+    if (lossHover !== null) {
+      k = Math.max(0, Math.min(n - 1, Math.round(((lossHover - padL) / iw) * xmax)));
+      ctx.strokeStyle = rgba(C.ink, 0.35); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(Math.round(X(k)) + 0.5, padT); ctx.lineTo(Math.round(X(k)) + 0.5, padT + ih); ctx.stroke();
+      ctx.beginPath(); ctx.arc(X(k), Y(hist[k]), 4, 0, Math.PI * 2); ctx.fillStyle = rgba(C.ink); ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = rgba(C.sheet); ctx.stroke();
+    }
+    $("loss-hover").textContent = `step ${k}: loss ${fmt(hist[k], 3)}`;
+  }
+  lossCv.addEventListener("pointermove", (e) => { const r = lossCv.getBoundingClientRect(); lossHover = e.clientX - r.left; drawLoss(); });
+  lossCv.addEventListener("pointerleave", () => { lossHover = null; drawLoss(); });
+
+  // ---------- the network diagram ----------
+  const netWrap = $("net"), svg = $("netsvg"), NS = "http://www.w3.org/2000/svg";
+  let NET = null;
+  function svgEl(tag, attrs, parent) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function layout() {
+    const w = Math.max(280, netWrap.clientWidth), narrow = w < 480;
+    let h = Math.round(Math.min(456, Math.max(350, w * 0.68)));
+    // side by side with the data plot: grow to match its height
+    if (window.innerWidth >= 900) h = Math.round(Math.max(h, Math.min(620, plot.clientWidth + 120)));
+    const top = 46, bot = 10, avail = h - top - bot, sp = avail / S.H;
+    const sh = Math.max(24, Math.min(54, sp - 10)), si = narrow ? 40 : 46, so = narrow ? 48 : 58;
+    const right = narrow ? 52 : 84;
+    const xi = 6 + si / 2, xo = w - right - so / 2, xh = (xi + xo) / 2, ym = top + avail / 2;
+    return {
+      w, h, narrow, si, sh, so, xi, xh, xo, ym,
+      yi: [ym - si / 2 - 24, ym + si / 2 + 24],
+      yh: Array.from({ length: S.H }, (_, j) => top + sp * (j + 0.5)),
+    };
+  }
+  function makeNode(sel, x, y, s, name, aria) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "node";
+    b.style.left = x - s / 2 + "px"; b.style.top = y - s / 2 + "px"; b.style.width = b.style.height = s + "px";
+    b.setAttribute("aria-label", aria);
+    const cv = document.createElement("canvas"); cv.width = cv.height = Math.round(s * dpr); b.appendChild(cv);
+    const nm = document.createElement("span"); nm.className = "nname"; nm.textContent = name; b.appendChild(nm);
+    b.addEventListener("click", () => select(sel));
+    netWrap.appendChild(b);
+    return { sel, el: b, cv, ctx: cv.getContext("2d"), s };
+  }
+  function buildNet() {
+    const L = layout();
+    netWrap.style.height = L.h + "px";
+    svg.setAttribute("viewBox", `0 0 ${L.w} ${L.h}`); svg.setAttribute("width", L.w); svg.setAttribute("height", L.h);
+    svg.replaceChildren(); netWrap.querySelectorAll(".node").forEach((n) => n.remove());
+
+    const gE = svgEl("g", {}, svg), gHit = svgEl("g", {}, svg), gPulse = svgEl("g", {}, svg), gLab = svgEl("g", {}, svg);
+    const halo = svgEl("path", { class: "halo" }, gE);
+    const edges = [];
+    function addEdge(layer, j, i, x1, y1, x2, y2) {
+      const d = `M${x1.toFixed(1)} ${y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)}`;
+      const path = svgEl("path", { class: "edge", d }, gE);
+      const hit = svgEl("path", { class: "hit", d }, gHit);
+      const sel = layer === 1 ? { type: "edge", layer: 1, j, i } : { type: "edge", layer: 2, j };
+      const t = svgEl("title", {}, hit);
+      t.textContent = layer === 1 ? `w${sb(j + 1)}${sb(i + 1)}: x${sb(i + 1)} → h${sb(j + 1)}` : `v${sb(j + 1)}: h${sb(j + 1)} → output`;
+      hit.addEventListener("click", () => select(sel));
+      const pulse = svgEl("circle", { class: "pulse", r: 3.6, cx: x1, cy: y1 }, gPulse);
+      pulse.style.display = "none";
+      edges.push({ layer, j, i, x1, y1, x2, y2, d, path, pulse, w: 1 });
+    }
+    for (let j = 0; j < S.H; j++) for (let i = 0; i < 2; i++) addEdge(1, j, i, L.xi + L.si / 2, L.yi[i], L.xh - L.sh / 2, L.yh[j]);
+    for (let j = 0; j < S.H; j++) addEdge(2, j, null, L.xh + L.sh / 2, L.yh[j], L.xo - L.so / 2, L.ym);
+
+    const col = (x, txt, sub, anchor = "middle") => {
+      const t = svgEl("text", { class: "collab", x, y: 12, "text-anchor": anchor }, gLab); t.textContent = txt;
+      const u = svgEl("text", { class: "colsub", x, y: 27, "text-anchor": anchor }, gLab); u.textContent = sub;
+    };
+    col(L.xi - L.si / 2, "INPUT", L.narrow ? "position" : "dot's position", "start");
+    col(L.xh, L.narrow ? "HIDDEN" : "HIDDEN LAYER", `${S.H} neuron${S.H > 1 ? "s" : ""}, ${S.H > 1 ? "one line each" : "one line"}`);
+    col(L.w - 4, "OUTPUT", L.narrow ? "% blue" : "chance of blue", "end");
+
+    const nodes = [];
+    for (let i = 0; i < 2; i++) nodes.push(makeNode({ type: "node", layer: 0, i }, L.xi, L.yi[i], L.si, `x${sb(i + 1)}`, `Input x${i + 1}`));
+    for (let j = 0; j < S.H; j++) nodes.push(makeNode({ type: "node", layer: 1, j }, L.xh, L.yh[j], L.sh, `h${sb(j + 1)}`, `Hidden neuron h${j + 1}`));
+    const out = makeNode({ type: "node", layer: 2 }, L.xo, L.ym, L.so, "ŷ", "Output neuron");
+    nodes.push(out);
+
+    const labIn = [0, 1].map((i) => svgEl("text", { class: "vlab", x: L.xi, y: L.yi[i] + L.si / 2 + 14, "text-anchor": "middle" }, gLab));
+    const labH = L.yh.map((y) => svgEl("text", { class: "vlab", x: L.xh + L.sh / 2 + 5, y: y - L.sh / 2 + 9, "text-anchor": "start" }, gLab));
+    const labO = [
+      svgEl("text", { class: "vlab big", x: L.xo + L.so / 2 + 8, y: L.ym - 10, "text-anchor": "start" }, gLab),
+      svgEl("text", { class: "vlab", x: L.xo + L.so / 2 + 8, y: L.ym + 7, "text-anchor": "start" }, gLab),
+      svgEl("text", { class: "vlab", x: L.xo + L.so / 2 + 8, y: L.ym + 22, "text-anchor": "start" }, gLab),
+    ];
+    NET = { L, edges, nodes, out, halo, gE, labIn, labH, labO };
+  }
+
+  // per-neuron maps
+  const GN = 36;
+  const tiny = document.createElement("canvas"); tiny.width = tiny.height = GN;
+  const tctx = tiny.getContext("2d"), tinyImg = tctx.createImageData(GN, GN);
+  let gridH = [], gridO = new Float64Array(GN * GN);
+  function computeNodeGrids() {
+    const w = weightsArrays(), H = S.H;
+    if (gridH.length !== H) gridH = Array.from({ length: H }, () => new Float64Array(GN * GN));
+    const maxH = new Float64Array(H);
+    for (let r = 0; r < GN; r++) {
+      const x2 = D - (2 * D * r) / (GN - 1);
+      for (let c = 0; c < GN; c++) {
+        const x1 = -D + (2 * D * c) / (GN - 1), k = r * GN + c;
+        let zo = w.c2;
+        for (let j = 0; j < H; j++) {
+          const z = w.a[j] * x1 + w.b[j] * x2 + w.c[j], h = w.tanh ? Math.tanh(z) : z > 0 ? z : 0;
+          gridH[j][k] = h; if (h > maxH[j]) maxH[j] = h; zo += w.v[j] * h;
+        }
+        gridO[k] = sigmoid(zo) * 2 - 1;
+      }
+    }
+    return maxH;
+  }
+  function paintNode(n, valueAt) {
+    const t = C.lutNode, d = tinyImg.data;
+    for (let k = 0; k < GN * GN; k++) { const li = lut(valueAt(k)); d[k * 4] = t[li]; d[k * 4 + 1] = t[li + 1]; d[k * 4 + 2] = t[li + 2]; d[k * 4 + 3] = 255; }
+    tctx.putImageData(tinyImg, 0, 0);
+    const W = n.cv.width, ctx = n.ctx, cw = W / (GN - 1);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(tiny, -cw / 2, -cw / 2, W + cw, W + cw);
+    const pt = data[S.probe];
+    ctx.beginPath(); ctx.arc(toPx(pt.x1, W), toPy(pt.x2, W), 2.4 * dpr, 0, Math.PI * 2);
+    ctx.fillStyle = rgba(C.ink); ctx.fill(); ctx.lineWidth = 1 * dpr; ctx.strokeStyle = rgba(C.sheet); ctx.stroke();
+  }
+  function drawNodes() {
+    const maxH = computeNodeGrids(), tanhAct = S.act === "tanh";
+    for (const n of NET.nodes) {
+      const s = n.sel;
+      if (s.layer === 0) {
+        paintNode(n, (k) => { const r = Math.floor(k / GN), c = k % GN; return s.i === 0 ? -D + (2 * D * c) / (GN - 1) : D - (2 * D * r) / (GN - 1); });
+      } else if (s.layer === 1) {
+        const g = gridH[s.j], m = Math.max(maxH[s.j], 1e-9);
+        paintNode(n, tanhAct ? (k) => g[k] : (k) => g[k] / m);
+        n.el.classList.toggle("dead", !!M.dead[s.j]);
+      } else {
+        paintNode(n, (k) => gridO[k]);
+      }
+    }
+  }
+
+  function renderNet() {
+    const view = S.viewOverride || S.view, f = M.f, pt = data[S.probe], L = NET.L;
+    for (const e of NET.edges) {
+      const p = e.layer === 1 ? P.w1[e.j][e.i] : P.w2[e.j];
+      let v, w;
+      if (view === "fwd") { v = p.data; w = 0.6 + 4.4 * Math.min(1, Math.abs(v) / 3); }
+      else { v = -M.pg[p.idx]; w = 0.6 + 4.4 * Math.min(1, Math.sqrt(Math.abs(v) / 0.3)); }
+      e.path.classList.toggle("neg", v < 0);
+      e.path.setAttribute("stroke-width", w.toFixed(2)); e.w = w;
+    }
+    const s = S.sel;
+    const se = s.type === "edge" ? NET.edges.find((e) => e.layer === s.layer && e.j === s.j && (s.layer === 2 || e.i === s.i)) : null;
+    if (se) {
+      NET.halo.setAttribute("d", se.d); NET.halo.setAttribute("stroke-width", (se.w + 8).toFixed(1)); NET.halo.style.display = "";
+      if (NET.gE.lastChild !== se.path) { NET.gE.appendChild(NET.halo); NET.gE.appendChild(se.path); }
+    } else NET.halo.style.display = "none";
+    const key = selKey(s);
+    for (const n of NET.nodes) n.el.classList.toggle("sel", selKey(n.sel) === key);
+
+    const err = f.yh - pt.y;
+    if (view === "fwd") {
+      NET.labIn[0].textContent = `x₁ = ${fmt(pt.x1)}`; NET.labIn[1].textContent = `x₂ = ${fmt(pt.x2)}`;
+      NET.labH.forEach((t, j) => { t.textContent = M.dead[j] ? "dead" : fmt(f.h[j]); });
+      const pct = `${Math.round(f.yh * 100)}%`, actual = pt.y ? "blue" : "orange";
+      NET.labO[0].textContent = L.narrow ? pct : `${pct} blue`;
+      NET.labO[1].textContent = L.narrow ? actual : `actual: ${actual}`;
+      NET.labO[2].textContent = L.narrow ? `L ${fmt(M.pLoss)}` : `loss ${fmt(M.pLoss)}`;
+    } else {
+      NET.labIn[0].textContent = ""; NET.labIn[1].textContent = "";
+      NET.labH.forEach((t, j) => { const g = err * P.w2[j].data; t.textContent = L.narrow ? fmt(g) : `∂L/∂h ${fmt(g)}`; });
+      NET.labO[0].textContent = fmt(err); NET.labO[1].textContent = "ŷ − y"; NET.labO[2].textContent = L.narrow ? "" : "output error";
+    }
+    $("net-legend").innerHTML = view === "fwd"
+      ? '<span><i class="ln"></i>positive weight</span><span><i class="ln neg"></i>negative weight</span><span><i class="ln thick"></i>thicker means larger</span><span><i class="sq"></i>square: the neuron\'s output over the whole plane</span>'
+      : '<span><i class="ln"></i>probe wants it larger</span><span><i class="ln neg"></i>probe wants it smaller</span><span><i class="ln thick"></i>thicker means a stronger push</span><span>numbers: ∂L/∂h for the probe</span>';
+  }
+
+  // ---------- selection and inspector ----------
+  function selKey(s) {
+    if (s.type === "edge") return s.layer === 1 ? `e1-${s.j}-${s.i}` : `e2-${s.j}`;
+    return s.layer === 0 ? `n0-${s.i}` : s.layer === 1 ? `n1-${s.j}` : "n2";
+  }
+  function parseKey(k) {
+    const a = k.split("-");
+    if (a[0] === "e1") return { type: "edge", layer: 1, j: +a[1], i: +a[2] };
+    if (a[0] === "e2") return { type: "edge", layer: 2, j: +a[1] };
+    if (a[0] === "n0") return { type: "node", layer: 0, i: +a[1] };
+    if (a[0] === "n1") return { type: "node", layer: 1, j: +a[1] };
+    return { type: "node", layer: 2 };
+  }
+  function paramOf(s) {
+    if (s.type === "edge") return s.layer === 1 ? P.w1[s.j][s.i] : P.w2[s.j];
+    if (s.layer === 1) return P.b1[s.j];
+    if (s.layer === 2) return P.b2;
+    return null;
+  }
+  function buildPick() {
+    let h = '<optgroup label="First-layer weights">';
+    for (let j = 0; j < S.H; j++) for (let i = 0; i < 2; i++) h += `<option value="e1-${j}-${i}">w${sb(j + 1)}${sb(i + 1)}  x${sb(i + 1)} → h${sb(j + 1)}</option>`;
+    h += '</optgroup><optgroup label="Second-layer weights">';
+    for (let j = 0; j < S.H; j++) h += `<option value="e2-${j}">v${sb(j + 1)}  h${sb(j + 1)} → output</option>`;
+    h += '</optgroup><optgroup label="Neurons">';
+    h += '<option value="n0-0">input x₁</option><option value="n0-1">input x₂</option>';
+    for (let j = 0; j < S.H; j++) h += `<option value="n1-${j}">hidden h${sb(j + 1)}</option>`;
+    h += '<option value="n2">output ŷ</option></optgroup>';
+    $("pick").innerHTML = h; $("pick").value = selKey(S.sel);
+  }
+  function select(s) { S.sel = s; $("pick").value = selKey(s); buildInspector(); S.dirty = true; }
+
+  function buildInspector() {
+    const s = S.sel, p = paramOf(s);
+    let eyebrow = "", title = "", sl = "";
+    if (s.type === "edge" && s.layer === 1) {
+      const nm = `w${sb(s.j + 1)}${sb(s.i + 1)}`;
+      eyebrow = "First-layer weight"; title = `${nm}<span class="wire">x${sb(s.i + 1)} → h${sb(s.j + 1)}</span>`; sl = `Set ${nm} by hand`;
+    } else if (s.type === "edge") {
+      const nm = `v${sb(s.j + 1)}`;
+      eyebrow = "Second-layer weight"; title = `${nm}<span class="wire">h${sb(s.j + 1)} → output</span>`; sl = `Set ${nm} by hand`;
+    } else if (s.layer === 0) {
+      eyebrow = "Input"; title = `x${sb(s.i + 1)}`;
+    } else if (s.layer === 1) {
+      eyebrow = "Hidden neuron"; title = `h${sb(s.j + 1)}`; sl = `Set its bias b${sb(s.j + 1)} by hand`;
+    } else {
+      eyebrow = "Output neuron"; title = "ŷ"; sl = "Set its bias c by hand";
+    }
+    $("i-eyebrow").textContent = eyebrow; $("i-title").innerHTML = title;
+    $("i-sl").hidden = !p; $("i-sl-lab").textContent = sl;
+  }
+
+  function updateInspector() {
+    const s = S.sel, p = paramOf(s), f = M.f, pt = data[S.probe], y = pt.y, x = [pt.x1, pt.x2], err = f.yh - y;
+    const slider = $("i-slider");
+    if (p && document.activeElement !== slider) slider.value = p.data;
+    const actName = S.act === "tanh" ? "tanh" : "ReLU";
+    let val = "", body = "", foot = "", plain = "";
+    // a gradient, read aloud: what a small nudge would do to the loss
+    const nudge = (nm, gp, gb) => {
+      const d = Math.abs(gp * 0.1);
+      const first = d < 5e-5
+        ? `Nudging ${nm} up by 0.1 would barely change the probe dot's loss.`
+        : `If ${nm} grew by 0.1, the probe dot's loss would <b>${gp > 0 ? "rise" : "fall"}</b> by about ${fmt(d, 4)}.`;
+      return `${first} Over all ${N} dots the average loss would ${gb > 0 ? "rise" : "fall"}, so the next training step <b>${gb > 0 ? "decreases" : "increases"}</b> ${nm}.`;
+    };
+
+    if (s.type === "edge") {
+      const j = s.j, J = sb(j + 1);
+      const nm = s.layer === 1 ? `w${J}${sb(s.i + 1)}` : `v${J}`;
+      val = `${nm} = ${fmt(p.data, 3)}`;
+      let fac;
+      if (s.layer === 1) {
+        const I = sb(s.i + 1);
+        fac = [
+          ["∂L/∂z<sub>out</sub>", "ŷ − y", err, "how wrong the output is"],
+          [`∂z<sub>out</sub>/∂h${J}`, `v${J}`, P.w2[j].data, `how much h${J} counts at the output`],
+          [`∂h${J}/∂z${J}`, S.act === "tanh" ? `1 − h${J}²` : `z${J} > 0 ? 1 : 0`, actD(f.z[j], f.h[j]), `slope of ${actName} at z${J} = ${fmt(f.z[j])}`],
+          [`∂z${J}/∂${nm}`, `x${I}`, x[s.i], "the input on this wire"],
+        ];
+      } else {
+        fac = [
+          ["∂L/∂z<sub>out</sub>", "ŷ − y", err, "how wrong the output is"],
+          [`∂z<sub>out</sub>/∂${nm}`, `h${J}`, f.h[j], "what this wire carries"],
+        ];
+      }
+      const prod = fac.reduce((acc, F) => acc * F[2], 1);
+      body = `<p class="ilead">How the probe dot's loss responds to ${nm}, by the chain rule:</p><div class="chain">` +
+        fac.map((F) => `<div class="factor"><span class="sym">${F[0]} = ${F[1]}</span><span class="num">${fmt(F[2], 3)}</span><span class="note">${F[3]}</span></div>`).join('<span class="op">×</span>') +
+        `<span class="op">=</span><div class="factor result"><span class="sym">∂L/∂${nm}</span><span class="num">${fmt(prod, 4)}</span><span class="note">for the probe dot</span></div></div>`;
+      const ag = M.pg[p.idx], same = Math.abs(ag - prod) <= 1e-9 * (1 + Math.abs(prod));
+      body += `<p class="check">${same ? "✓" : "≠"} Autograd, walking the tape backward, got <b>${fmt(ag, 4)}</b> for the same dot.</p>`;
+      foot = `Training averages this over all ${N} dots: ∂L/∂${nm} = <b>${fmt(M.g[p.idx], 4)}</b>. The next step moves ${nm} by −η·∂L/∂${nm} = <b>${signed(-S.lr * M.g[p.idx], 4)}</b>.`;
+      plain = `${s.layer === 1 ? `This weight scales x${sb(s.i + 1)} on its way into hidden neuron h${J}.` : `This weight scales h${J}'s answer on its way into the output.`} ${nudge(nm, M.pg[p.idx], M.g[p.idx])}`;
+    } else if (s.layer === 0) {
+      val = `x${sb(s.i + 1)} = ${fmt(x[s.i], 3)} for the probe`;
+      plain = `An input is not learned. It is simply the probe dot's ${s.i === 0 ? "horizontal" : "vertical"} position, ${fmt(x[s.i])}, fed into every hidden neuron.`;
+      body = s.i === 0
+        ? `<p class="ilead">x₁ is a dot's horizontal position, so this square is a plain ramp: orange at the left edge, blue at the right. Inputs have no parameters. Nothing here is learned.</p>`
+        : `<p class="ilead">x₂ is a dot's vertical position, so this square is a plain ramp: orange at the bottom, blue at the top. Inputs have no parameters. Nothing here is learned.</p>`;
+    } else if (s.layer === 1) {
+      const j = s.j, J = sb(j + 1);
+      val = `h${J} = ${fmt(f.h[j], 3)} for the probe`;
+      body = `<div class="eqn"><div>z${J} = w${J}₁·x₁ + w${J}₂·x₂ + b${J}</div>` +
+        `<div class="cont">= ${par(P.w1[j][0].data)}·${par(x[0])} + ${par(P.w1[j][1].data)}·${par(x[1])} + ${par(P.b1[j].data)}</div>` +
+        `<div class="cont">= ${fmt(f.z[j], 3)}</div>` +
+        `<div>h${J} = ${S.act === "tanh" ? `tanh(z${J})` : `max(0, z${J})`} = <b>${fmt(f.h[j], 3)}</b></div></div>`;
+      let note = S.act === "tanh"
+        ? `The square shows h${J} at every point of the plane. The neuron splits the plane along one straight line, where z${J} = 0. The output can only combine lines like this one, which is why XOR needs at least two of them.`
+        : `The square shows h${J} at every point of the plane. It is zero on one side of the line z${J} = 0 and grows on the other. The output combines these bent planes.`;
+      if (M.dead[j]) note = `This neuron is dead: z${J} ≤ 0 for all ${N} dots, so h${J} is always 0 and every gradient through it is 0. Training cannot bring it back. Press Reset for new starting weights.`;
+      body += `<p class="ilead">${note}</p>`;
+      foot = `∂L/∂b${J} for the probe = (ŷ − y)·v${J}·slope = <b>${fmt(M.pg[p.idx], 4)}</b>. Averaged over all dots: <b>${fmt(M.g[p.idx], 4)}</b>.`;
+      plain = M.dead[j]
+        ? `h${J} has stopped working: it outputs 0 for every dot, so it contributes nothing.`
+        : `For the probe dot, h${J} answers <b>${fmt(f.h[j])}</b>: the dot is on the ${f.z[j] >= 0 ? "positive (blue)" : "negative (orange)"} side of this neuron's line${Math.abs(f.h[j]) > 0.9 ? ", far from it" : Math.abs(f.z[j]) < 0.3 ? ", close to it" : ""}. Its bias b${J} slides the line without turning it. ${nudge(`b${J}`, M.pg[p.idx], M.g[p.idx])}`;
+    } else {
+      val = `ŷ = ${fmt(f.yh, 3)} for the probe`;
+      const H = S.H;
+      const sym = H <= 3 ? P.w2.map((_, j) => `v${sb(j + 1)}·h${sb(j + 1)}`).join(" + ") : `v₁·h₁ + v₂·h₂ + … + v${sb(H)}·h${sb(H)}`;
+      const terms = P.w2.map((v, j) => `${par(v.data)}·${par(f.h[j])}`).join(" + ");
+      body = `<div class="eqn"><div>z<sub>out</sub> = ${sym} + c</div>` +
+        `<div class="cont">= ${terms} + ${par(P.b2.data)}</div>` +
+        `<div class="cont">= ${fmt(f.zo, 3)}</div>` +
+        `<div>ŷ = σ(z<sub>out</sub>) = <b>${fmt(f.yh, 3)}</b></div>` +
+        `<div>L = ${y ? "−log ŷ" : "−log(1 − ŷ)"} = <b>${fmt(M.pLoss, 3)}</b></div></div>` +
+        `<p class="ilead">ŷ is the network's probability that the dot is blue. The probe is ${y ? "blue, so y = 1 and the loss is −log ŷ" : "orange, so y = 0 and the loss is −log(1 − ŷ)"}. The loss grows without limit as the network becomes confidently wrong.</p>`;
+      foot = `∂L/∂c for the probe = ŷ − y = <b>${fmt(M.pg[p.idx], 4)}</b>. Averaged over all dots: <b>${fmt(M.g[p.idx], 4)}</b>. Tap any wire to see how its gradient is built.`;
+      const pct = Math.round(f.yh * 100), ok = (f.yh > 0.5 ? 1 : 0) === y;
+      const verdict = !ok ? "a wrong answer, so the loss is large" : M.pLoss < 0.3 ? "a good answer, so the loss is small" : "right, but not confident, so the loss is still noticeable";
+      plain = `The network thinks the probe dot is <b>${pct}% likely to be blue</b>. It is actually ${y ? "blue" : "orange"}: ${verdict} (${fmt(M.pLoss)}).`;
+    }
+    $("i-val").textContent = val; $("i-body").innerHTML = body; $("i-foot").innerHTML = foot; $("i-plain").innerHTML = plain;
+  }
+
+  function updateReadouts() {
+    $("r-step").textContent = S.step;
+    $("r-loss").textContent = fmt(M.loss, 3);
+    $("r-acc").textContent = Math.round(M.acc * 100) + "%";
+    $("r-params").textContent = `${4 * S.H + 1} parameters`;
+    const pt = data[S.probe], pct = Math.round(M.f.yh * 100), ok = M.right[S.probe];
+    $("probe-card").innerHTML = `<span class="ring"></span><b>Probe dot</b> at x₁ = ${fmt(pt.x1)}, x₂ = ${fmt(pt.x2)}. It is actually <b>${pt.y ? "blue" : "orange"}</b>. ` +
+      `The network says <b>${pct}% blue</b>, so right now it is <b>${ok ? "right" : "wrong"}</b>${ok && Math.abs(M.f.yh - 0.5) < 0.15 ? ", but not confident" : ""}. Tap another dot to change the probe.`;
+  }
+
+
+  function render() {
+    drawPlot(); drawNodes(); renderNet(); updateInspector(); drawLoss(); updateReadouts();
+  }
+
+  // ---------- narration and the slow-motion step ----------
+  const narrate = (html) => { $("narr").innerHTML = html; };
+  const REST = "Press <b>Step</b> to walk through one round of training, one stage per click: forward pass, loss, backward pass, update. Press <b>Train</b> to let it run.";
+  function setChip(i) { document.querySelectorAll(".phase").forEach((c, k) => c.classList.toggle("on", k === i)); }
+
+  // One click per stage, like turning a slide. Each stage plays its own short animation.
+  const STAGES = [
+    { chip: 0, next: "Next: loss", parts: [{ k: "fwd1", d: 900 }, { k: "fwd2", d: 900 }] },
+    { chip: 1, next: "Next: backward", parts: [] },
+    { chip: 2, next: "Next: update", parts: [{ k: "bwd2", d: 900 }, { k: "bwd1", d: 900 }] },
+    { chip: 3, next: "Finish step", parts: [{ k: "upd", d: 1300 }] },
+  ];
+  function stageText(i, A) {
+    const pt = data[S.probe], f = M.f, act = S.act === "tanh" ? "tanh" : "ReLU";
+    switch (i) {
+      case 0: return `<b>Forward pass.</b> The probe's coordinates, x₁ = ${fmt(pt.x1)} and x₂ = ${fmt(pt.x2)}, travel along every first-layer wire. Each hidden neuron adds up what arrives, adds its bias and applies ${act}. The output neuron then adds up the hidden values and squashes the sum into a probability: ŷ = ${fmt(f.yh)}.`;
+      case 1: return `<b>Loss.</b> The probe is ${pt.y ? "blue" : "orange"}, so y = ${pt.y}. The network said ŷ = ${fmt(f.yh)}, which costs L = ${fmt(M.pLoss)}. Training uses the average over all ${N} dots: ${fmt(A.before, 3)}.`;
+      case 2: return `<b>Backward pass.</b> The output's error, ŷ − y = ${fmt(f.yh - pt.y)}, flows back along each wire. At every hidden neuron it is multiplied by the slope of ${act} before it reaches the first-layer weights. The wires now show which way each weight should move. Tap a wire to see its chain rule.`;
+      case 3: return `<b>Update.</b> Every weight takes a small step against its gradient averaged over all ${N} dots: w ← w − η·∂L/∂w, with η = ${S.lr}. Watch the boundary shift.`;
+    }
+    return "";
+  }
+  function enterStage(i) {
+    const A = S.anim;
+    A.stage = i; A.t0 = performance.now();
+    setChip(STAGES[i].chip);
+    S.viewOverride = i >= 2 ? "bwd" : null;
+    NET.out.el.classList.toggle("ping", i === 1 && !reduceMotion);
+    narrate(stageText(i, A));
+    $("b-step").textContent = STAGES[i].next;
+    S.dirty = true;
+    if (i === 3 && reduceMotion) finishAnim();
+  }
+  function startStep() {
+    if (S.anim) {
+      if (S.anim.stage < STAGES.length - 1) enterStage(S.anim.stage + 1); else finishAnim();
+      return;
+    }
+    setRunning(false);
+    const before = evalBatch(), g = PARAMS.map((p) => p.grad);
+    const old = PARAMS.map((p) => p.data), nu = old.map((v, k) => v - S.lr * g[k]);
+    S.anim = { stage: 0, t0: 0, old, nu, before };
+    enterStage(0);
+  }
+  function hidePulses() { if (NET) NET.edges.forEach((e) => { e.pulse.style.display = "none"; }); }
+  function clearAnimVisuals() {
+    S.viewOverride = null; setChip(-1); hidePulses();
+    if (NET) NET.out.el.classList.remove("ping");
+    $("b-step").textContent = "Step";
+  }
+  function finishAnim() {
+    const A = S.anim; if (!A) return;
+    PARAMS.forEach((p, k) => { p.data = A.nu[k]; });
+    S.step++; S.hist.push(A.before); S.anim = null;
+    clearAnimVisuals();
+    const after = evalBatch();
+    narrate(`<b>Step ${S.step} done.</b> The average loss over all ${N} dots went from ${fmt(A.before, 3)} to ${fmt(after, 3)}. Press Step again, or Train to keep going.`);
+    S.dirty = true;
+  }
+  function abandonAnim() { if (S.anim) { S.anim = null; clearAnimVisuals(); } }
+  function advanceAnim(now) {
+    const A = S.anim, st = STAGES[A.stage];
+    let t = now - A.t0, k = 0;
+    while (k < st.parts.length && t >= st.parts[k].d) { t -= st.parts[k].d; k++; }
+    if (k >= st.parts.length || reduceMotion) {
+      hidePulses();
+      if (A.stage === 3 && k >= st.parts.length) finishAnim();
+      return;
+    }
+    const u = t / st.parts[k].d, ph = st.parts[k].k;
+    const ease = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+    for (const e of NET.edges) {
+      let show = false, uu = ease;
+      if (ph === "fwd1" && e.layer === 1) show = true;
+      else if (ph === "fwd2" && e.layer === 2) show = true;
+      else if (ph === "bwd2" && e.layer === 2) { show = true; uu = 1 - ease; }
+      else if (ph === "bwd1" && e.layer === 1) { show = true; uu = 1 - ease; }
+      e.pulse.style.display = show ? "" : "none";
+      if (show) { e.pulse.setAttribute("cx", (e.x1 + (e.x2 - e.x1) * uu).toFixed(1)); e.pulse.setAttribute("cy", (e.y1 + (e.y2 - e.y1) * uu).toFixed(1)); }
+    }
+    if (ph === "upd") {
+      const e2 = u * u * (3 - 2 * u);
+      PARAMS.forEach((p, i) => { p.data = A.old[i] + (A.nu[i] - A.old[i]) * e2; });
+      S.dirty = true;
+    }
+  }
+
+  // ---------- controls ----------
+  const ICON_PLAY = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1.2v9.6L10.5 6z"/></svg>';
+  const ICON_PAUSE = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1h3v10H2zM7 1h3v10H7z"/></svg>';
+  function setRunning(on) {
+    if (on && S.anim) finishAnim();
+    S.running = on;
+    $("b-train").innerHTML = on ? `${ICON_PAUSE}Pause` : `${ICON_PLAY}Train`;
+    narrate(on
+      ? `<b>Training.</b> Every step runs the forward and backward pass on all ${N} dots, then updates all ${4 * S.H + 1} parameters at once.`
+      : S.step > 0 ? `<b>Paused at step ${S.step}.</b> Tap a dot, a wire or a neuron to see its numbers. Press Step for a slow-motion round.` : REST);
+  }
+  function restart(msg) {
+    abandonAnim(); setRunning(false); initNet(); buildNet(); buildPick();
+    if ((S.sel.j ?? 0) >= S.H) S.sel = { type: "edge", layer: 1, j: 0, i: 0 };
+    $("pick").value = selKey(S.sel); buildInspector();
+    $("h-val").textContent = S.H; $("h-minus").disabled = S.H <= 1; $("h-plus").disabled = S.H >= 8;
+    if (msg) narrate(msg);
+    S.dirty = true;
+  }
+  function segGroup(id, onChange) {
+    const g = $(id);
+    g.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-v]"); if (!b) return;
+      g.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+      onChange(b.dataset.v);
+    });
+  }
+
+  $("b-train").addEventListener("click", () => setRunning(!S.running));
+  $("b-step").addEventListener("click", startStep);
+  $("b-reset").addEventListener("click", () => { S.seed++; restart(`New random starting weights (seed ${S.seed}). Press Step or Train.`); });
+  segGroup("seg-data", (v) => {
+    S.dataset = v; data = makeData(v); S.probe = nearestPoint(...PROBE_TARGET[v]);
+    restart(`New data: ${v === "xor" ? "XOR" : v[0].toUpperCase() + v.slice(1)}. The network starts again from random weights. Press Step or Train.`);
+  });
+  $("h-minus").addEventListener("click", () => { if (S.H > 1) { S.H--; restart(`${S.H} hidden neuron${S.H > 1 ? "s" : ""}, ${4 * S.H + 1} parameters. Press Step or Train.`); } });
+  $("h-plus").addEventListener("click", () => { if (S.H < 8) { S.H++; restart(`${S.H} hidden neurons, ${4 * S.H + 1} parameters. Press Step or Train.`); } });
+  segGroup("seg-act", (v) => {
+    S.act = v;
+    $("eq-act").innerHTML = v === "tanh" ? "h<sub>j</sub> = tanh(z<sub>j</sub>)" : "h<sub>j</sub> = max(0, z<sub>j</sub>)";
+    restart(`Activation: ${v === "tanh" ? "tanh" : "ReLU"}. Same starting weights, new bend. Press Step or Train.`);
+  });
+  $("lr").addEventListener("change", (e) => { S.lr = Number(e.target.value); S.dirty = true; });
+  segGroup("seg-speed", (v) => { S.speed = Number(v); });
+  segGroup("seg-view", (v) => { S.view = v; S.dirty = true; });
+  $("pick").addEventListener("change", (e) => select(parseKey(e.target.value)));
+  $("show-lines").addEventListener("change", () => { S.dirty = true; });
+  $("i-slider").addEventListener("input", (e) => {
+    const p = paramOf(S.sel); if (!p) return;
+    if (S.anim) finishAnim();
+    if (S.running) setRunning(false);
+    p.data = Number(e.target.value); S.dirty = true;
+  });
+
+  function probeFromEvent(e) {
+    const r = plot.getBoundingClientRect(), L = r.left + plot.clientLeft, T = r.top + plot.clientTop;
+    const x1 = ((e.clientX - L) / plot.clientWidth) * 2 * D - D, x2 = D - ((e.clientY - T) / plot.clientHeight) * 2 * D;
+    const k = nearestPoint(x1, x2);
+    if (k !== S.probe) { S.probe = k; S.dirty = true; }
+  }
+  const tip = $("tip");
+  function showTip(e) {
+    const r = plot.getBoundingClientRect(), mx = e.clientX - r.left - plot.clientLeft, my = e.clientY - r.top - plot.clientTop;
+    const W = plot.clientWidth, H = plot.clientHeight;
+    let best = -1, bd = 14 * 14;
+    data.forEach((p, k) => { const d = (toPx(p.x1, W) - mx) ** 2 + (toPy(p.x2, H) - my) ** 2; if (d < bd) { bd = d; best = k; } });
+    if (best < 0) { tip.hidden = true; return; }
+    const p = data[best];
+    tip.textContent = `(${fmt(p.x1)}, ${fmt(p.x2)}) · ${p.y ? "blue" : "orange"} · network: ${Math.round(M.yh[best] * 100)}% blue`;
+    tip.style.left = Math.max(110, Math.min(W - 110, toPx(p.x1, W))) + plot.clientLeft + "px";
+    tip.style.top = toPy(p.x2, H) + plot.clientTop + "px";
+    tip.hidden = false;
+  }
+  plot.addEventListener("pointerdown", (e) => { probeFromEvent(e); tip.hidden = true; });
+  plot.addEventListener("pointermove", (e) => {
+    if (e.pointerType !== "mouse") return;
+    if (e.buttons === 1) { probeFromEvent(e); tip.hidden = true; } else showTip(e);
+  });
+  plot.addEventListener("pointerleave", () => { tip.hidden = true; });
+
+  // ---------- resize and theme ----------
+  let film = null;
+  let lastNetW = 0;
+  new ResizeObserver(() => {
+    const w = netWrap.clientWidth;
+    if (Math.abs(w - lastNetW) > 1) { lastNetW = w; buildNet(); S.dirty = true; }
+  }).observe(netWrap);
+  new ResizeObserver(() => { buildNet(); S.dirty = true; }).observe(plot);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { readTheme(); S.dirty = true; drawPuzzle(); if (film) film.render(); });
+  new MutationObserver(() => { readTheme(); S.dirty = true; drawPuzzle(); if (film) film.render(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { S.dirty = true; drawPuzzle(); if (film) film.render(); });
+
+  // ---------- the puzzle: one straight line ----------
+  const puz = $("puz"), zctx = puz.getContext("2d");
+  const puzData = makeData("xor");
+  const PZ = { p: [-0.8, -0.45], q: [0.75, 0.7], drag: null };
+  function puzLine() {
+    const [px, py] = PZ.p, [qx, qy] = PZ.q;
+    let w1 = -(qy - py), w2 = qx - px;
+    const n = Math.hypot(w1, w2) || 1; w1 /= n; w2 /= n;
+    let b = -(w1 * px + w2 * py);
+    let bp = 0, op = 0, bn = 0, on = 0;
+    for (const d of puzData) { const z = w1 * d.x1 + w2 * d.x2 + b; if (z >= 0) { if (d.y) bp++; else op++; } else { if (d.y) bn++; else on++; } }
+    if (bp + on < op + bn) { w1 = -w1; w2 = -w2; b = -b; } // orient it so the positive side is the blue side
+    return { w1, w2, b, correct: Math.max(bp + on, op + bn) };
+  }
+  function bestLineScore() {
+    const blue = puzData.filter((d) => d.y).length, orange = puzData.length - blue;
+    let best = 0;
+    for (let a = 0; a < 360; a++) {
+      const th = (a * Math.PI) / 360, c = Math.cos(th), sn = Math.sin(th);
+      const t = puzData.map((d) => ({ t: c * d.x1 + sn * d.x2, y: d.y })).sort((u, v) => u.t - v.t);
+      let bb = 0, ob = 0;
+      for (let k = 0; k <= t.length; k++) {
+        best = Math.max(best, blue - bb + ob, orange - ob + bb);
+        if (k < t.length) { if (t[k].y) bb++; else ob++; }
+      }
+    }
+    return best;
+  }
+  function clipHalf(poly, L, sign) {
+    const out = [], f = (P) => sign * (L.w1 * P[0] + L.w2 * P[1] + L.b);
+    for (let i = 0; i < poly.length; i++) {
+      const A = poly[i], B = poly[(i + 1) % poly.length], fa = f(A), fb = f(B);
+      if (fa >= 0) out.push(A);
+      if (fa >= 0 !== fb >= 0) { const t = fa / (fa - fb); out.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t]); }
+    }
+    return out;
+  }
+  function drawPuzzle() {
+    const [W, H] = sizeCanvas(puz), ctx = zctx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = rgba(C.sheet); ctx.fillRect(0, 0, W, H);
+    const L = puzLine(), sq = [[-D, -D], [D, -D], [D, D], [-D, D]];
+    for (const [sign, col] of [[1, C.pos], [-1, C.neg]]) {
+      const poly = clipHalf(sq, L, sign); if (poly.length < 3) continue;
+      ctx.beginPath();
+      poly.forEach((pt, i) => { const x = toPx(pt[0], W), y = toPy(pt[1], H); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+      ctx.closePath(); ctx.fillStyle = rgba(col, 0.17); ctx.fill();
+    }
+    const ox = toPx(0, W), oy = toPy(0, H);
+    ctx.strokeStyle = rgba(C.ink, 0.18); ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox, H); ctx.moveTo(0, oy); ctx.lineTo(W, oy); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = rgba(C["ink-3"]); ctx.font = `11px ${MONO}`; ctx.textBaseline = "middle";
+    ctx.textAlign = "right"; ctx.fillText("x₁", W - 8, oy - 10);
+    ctx.textAlign = "left"; ctx.fillText("x₂", ox + 8, 12);
+    const pr = Math.max(3.2, Math.min(4.6, W / 80));
+    for (const d of puzData) {
+      const right = (L.w1 * d.x1 + L.w2 * d.x2 + L.b >= 0 ? 1 : 0) === d.y, col = d.y ? C.pos : C.neg;
+      ctx.beginPath(); ctx.arc(toPx(d.x1, W), toPy(d.x2, H), pr, 0, Math.PI * 2);
+      if (right) { ctx.fillStyle = rgba(col); ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = rgba(C.sheet); ctx.stroke(); }
+      else { ctx.fillStyle = rgba(C.sheet); ctx.fill(); ctx.lineWidth = 1.8; ctx.strokeStyle = rgba(col); ctx.stroke(); }
+    }
+    const [px, py] = PZ.p, [qx, qy] = PZ.q, dx = qx - px, dy = qy - py, n = Math.hypot(dx, dy) || 1;
+    ctx.beginPath();
+    ctx.moveTo(toPx(px - (dx / n) * 4, W), toPy(py - (dy / n) * 4, H));
+    ctx.lineTo(toPx(px + (dx / n) * 4, W), toPy(py + (dy / n) * 4, H));
+    ctx.strokeStyle = rgba(C.ink); ctx.lineWidth = 2; ctx.stroke();
+    for (const h of [PZ.p, PZ.q]) {
+      ctx.beginPath(); ctx.arc(toPx(h[0], W), toPy(h[1], H), 8, 0, Math.PI * 2);
+      ctx.fillStyle = rgba(C.ink); ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = rgba(C.sheet); ctx.stroke();
+    }
+    $("puz-score").textContent = `${L.correct} of ${N}`;
+    $("puz-pct").textContent = `${Math.round((100 * L.correct) / N)}%`;
+    $("nl-w1").textContent = fmt(L.w1); $("nl-w2").textContent = fmt(L.w2); $("nl-b").textContent = fmt(L.b);
+  }
+  function puzPos(e) {
+    const r = puz.getBoundingClientRect();
+    return [((e.clientX - r.left - puz.clientLeft) / puz.clientWidth) * 2 * D - D, D - ((e.clientY - r.top - puz.clientTop) / puz.clientHeight) * 2 * D];
+  }
+  function puzMove(h, pos) {
+    const c = (v) => Math.max(-1.1, Math.min(1.1, v)), next = [c(pos[0]), c(pos[1])], other = h === "p" ? PZ.q : PZ.p;
+    if (Math.hypot(next[0] - other[0], next[1] - other[1]) < 0.12) return; // keep the two handles apart so the line stays defined
+    PZ[h] = next; drawPuzzle();
+  }
+  puz.addEventListener("pointerdown", (e) => {
+    const pos = puzPos(e);
+    PZ.drag = Math.hypot(pos[0] - PZ.p[0], pos[1] - PZ.p[1]) <= Math.hypot(pos[0] - PZ.q[0], pos[1] - PZ.q[1]) ? "p" : "q";
+    puz.setPointerCapture(e.pointerId); puz.classList.add("dragging"); e.preventDefault();
+    puzMove(PZ.drag, pos);
+  });
+  puz.addEventListener("pointermove", (e) => { if (PZ.drag) puzMove(PZ.drag, puzPos(e)); });
+  const puzEnd = () => { PZ.drag = null; puz.classList.remove("dragging"); };
+  puz.addEventListener("pointerup", puzEnd);
+  puz.addEventListener("pointercancel", puzEnd);
+  new ResizeObserver(() => drawPuzzle()).observe(puz);
+
+  // ---------- the training film: one dot's journey, then hundreds of steps ----------
+  function createFilm() {
+    const plane = $("film-plane"), fpc = plane.getContext("2d");
+    const netc = $("film-net"), fnc = netc.getContext("2d");
+    const fdata = makeData("xor"), H = 4, LR = 0.3, STEPS = 300;
+
+    // the playground's default starting weights (seed 3), trained here with the same autograd
+    const rr = mulberry32(3 * 9973 + H * 131);
+    const w1 = [], b1 = [], w2 = [];
+    for (let j = 0; j < H; j++) {
+      w1.push([new Value(gaussian(rr)), new Value(gaussian(rr))]);
+      b1.push(new Value(gaussian(rr) * 0.3));
+      w2.push(new Value(gaussian(rr) * 0.9));
+    }
+    const b2 = new Value(0), PR = [];
+    for (let j = 0; j < H; j++) PR.push(w1[j][0], w1[j][1]);
+    PR.push(...b1, ...w2, b2);
+    const snap = () => Float64Array.from(PR, (p) => p.data);
+    const wa = (s, j) => s[2 * j], wb = (s, j) => s[2 * j + 1], bj = (s, j) => s[2 * H + j], vj = (s, j) => s[3 * H + j], c2 = (s) => s[4 * H];
+    function fw(s, x1, x2) {
+      const h = []; let zo = c2(s);
+      for (let j = 0; j < H; j++) { const t = Math.tanh(wa(s, j) * x1 + wb(s, j) * x2 + bj(s, j)); h.push(t); zo += vj(s, j) * t; }
+      return { h, yh: sigmoid(zo) };
+    }
+    function graphLoss(p) {
+      let zo = b2;
+      for (let j = 0; j < H; j++) zo = add(zo, mul(w2[j], tanh(add(add(mulc(w1[j][0], p.x1), mulc(w1[j][1], p.x2)), b1[j]))));
+      return bceWithLogits(zo, p.y);
+    }
+    const traj = [snap()];
+    // follow the dot the untrained network gets most wrong
+    let sample = 0, worst = -1;
+    fdata.forEach((p, k) => { const f = fw(traj[0], p.x1, p.x2), l = -Math.log(p.y ? f.yh : 1 - f.yh); if (l > worst) { worst = l; sample = k; } });
+    TAPE = []; PR.forEach((p) => { p.grad = 0; }); backward(graphLoss(fdata[sample])); TAPE = null;
+    const sg = Float64Array.from(PR, (p) => p.grad);
+    for (let k = 0; k < STEPS; k++) {
+      TAPE = []; PR.forEach((p) => { p.grad = 0; });
+      let tot = null; for (const p of fdata) { const L = graphLoss(p); tot = tot ? add(tot, L) : L; }
+      backward(mulc(tot, 1 / fdata.length)); TAPE = null;
+      PR.forEach((p) => { p.data -= LR * p.grad; });
+      traj.push(snap());
+    }
+    const right = (s, p) => (fw(s, p.x1, p.x2).yh > 0.5 ? 1 : 0) === p.y;
+    const accs = traj.map((s) => fdata.filter((p) => right(s, p)).length / fdata.length);
+    const lerpS = (a, b, f) => a.map((v, k) => v + (b[k] - v) * f);
+    const pct = (v) => Math.round(v * 100) + "%";
+    const sm = (u) => u * u * (3 - 2 * u);
+    const SP = fdata[sample], spColor = SP.y ? "blue" : "orange";
+
+    // read the trained network: which hidden lines pair up into stripes, and how each stripe votes
+    const fin = traj[STEPS];
+    function findStripes() {
+      const used = new Set(), out = [];
+      for (let j = 0; j < H; j++) {
+        if (used.has(j)) continue;
+        for (let k = j + 1; k < H; k++) {
+          if (used.has(k)) continue;
+          const nj = Math.hypot(wa(fin, j), wb(fin, j)), nk = Math.hypot(wa(fin, k), wb(fin, k));
+          const cos = (wa(fin, j) * wa(fin, k) + wb(fin, j) * wb(fin, k)) / (nj * nk);
+          if (Math.abs(cos) < 0.95) continue;
+          used.add(j); used.add(k);
+          const nx = wa(fin, j) / nj, ny = wb(fin, j) / nj;
+          const mid = (-bj(fin, j) / nj - Math.sign(cos) * bj(fin, k) / nk) / 2, mx = nx * mid, my = ny * mid;
+          const vote = [j, k].reduce((a, q) => a + vj(fin, q) * Math.tanh(wa(fin, q) * mx + wb(fin, q) * my + bj(fin, q)), 0);
+          out.push({ j, k, blueCorners: -nx * ny > 0, votesBlue: vote > 0, central: Math.hypot(mx, my) < 0.3 });
+          break;
+        }
+      }
+      return out;
+    }
+    const ST = findStripes();
+    const storyOK = ST.length === 2 && ST.every((t) => t.central && t.blueCorners === t.votesBlue) && ST[0].blueCorners !== ST[1].blueCorners;
+    const stripeText = (t) => `<b>Result.</b> h${sb(t.j + 1)} and h${sb(t.k + 1)} have lined up side by side. Together they mark a stripe through the ${t.blueCorners ? "blue" : "orange"} corners, and inside it they vote <b>${t.votesBlue ? "blue" : "orange"}</b>.`;
+    const finalF = fw(fin, SP.x1, SP.x2);
+    const resultText = `<b>Result.</b> The output neuron adds up the votes, and the sum is a boundary no single straight line could draw: ${pct(accs[STEPS])} of the dots are right after ${STEPS} steps. The dot we followed is now ${pct(finalF.yh)} blue.`;
+
+    // ----- scenes -----
+    const SC = [
+      { k: "start", d: 5000 }, { k: "fwd", d: 6500 }, { k: "cmp", d: 5500 }, { k: "bwd", d: 6500 },
+      { k: "upd", d: 5500 }, { k: "rep", d: 10000 }, { k: "res", d: 10500 },
+    ];
+    const TOTAL = SC.reduce((a, x) => a + x.d, 0);
+    const startOf = (i) => SC.slice(0, i).reduce((a, x) => a + x.d, 0);
+    function at(T) { let i = 0, t = T; while (i < SC.length - 1 && t >= SC[i].d) { t -= SC[i].d; i++; } return { i, u: Math.min(1, t / SC[i].d) }; }
+    const ALL = new Set([0, 1, 2, 3]);
+
+    function caption(k, u) {
+      const f0 = fw(traj[0], SP.x1, SP.x2);
+      switch (k) {
+        case "start": return `<b>Start.</b> The 17 parameters are random. Each hidden neuron draws one line (dashed), and the output neuron mixes them into a boundary (solid). Only ${pct(accs[0])} of the dots are on the right side.`;
+        case "fwd": return `<b>Forward.</b> Follow one dot through the network. Each hidden neuron reports which side of its line the dot is on, as a number between −1 and 1. The output neuron combines the four reports into a guess: ${pct(f0.yh)} blue.`;
+        case "cmp": return SP.y
+          ? `<b>Compare.</b> The dot is actually blue, but the network gave it only a ${pct(f0.yh)} chance of blue. The loss turns the size of the mistake into one number: ${fmt(worst)}. A confident wrong guess costs a lot.`
+          : `<b>Compare.</b> The dot is actually orange, but the network gave it a ${pct(f0.yh)} chance of blue. The loss turns the size of the mistake into one number: ${fmt(worst)}. A confident wrong guess costs a lot.`;
+        case "bwd": return `<b>Backward.</b> The mistake flows back along the same wires. Each weight finds out which way it should move to make this guess less wrong: blue wires want to grow, orange wires want to shrink.`;
+        case "upd": return `<b>Update.</b> Every weight moves a small step the way it wants. Real training does this for all ${N} dots at once and averages their wishes, so one step moves the lines only a little.`;
+        case "rep": return `<b>Repeat.</b> Forward, compare, backward, update, over and over. Watch the dashed lines move into place and the hollow dots fill in.`;
+        case "res":
+          if (!storyOK) return `<b>Result.</b> The lines have moved to where the colors meet. The output neuron combines which side of each line a dot is on, and the result is a boundary no single straight line could draw: ${pct(accs[STEPS])} of the dots are right.`;
+          return u < 0.33 ? stripeText(ST[0]) : u < 0.66 ? stripeText(ST[1]) : resultText;
+      }
+      return "";
+    }
+
+    // ----- drawing -----
+    const GF = 49, fheat = document.createElement("canvas"); fheat.width = fheat.height = GF;
+    const fhc = fheat.getContext("2d"), fimg = fhc.createImageData(GF, GF), fgrid = new Float64Array(GF * GF);
+    function drawPlane(s, o) {
+      const [W, Hh] = sizeCanvas(plane), ctx = fpc;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      for (let r = 0; r < GF; r++) {
+        const x2 = D - (2 * D * r) / (GF - 1);
+        for (let c = 0; c < GF; c++) fgrid[r * GF + c] = fw(s, -D + (2 * D * c) / (GF - 1), x2).yh;
+      }
+      const t = C.lutPlot, d = fimg.data;
+      for (let k = 0; k < GF * GF; k++) { const li = lut(fgrid[k] * 2 - 1); d[k * 4] = t[li]; d[k * 4 + 1] = t[li + 1]; d[k * 4 + 2] = t[li + 2]; d[k * 4 + 3] = 255; }
+      fhc.putImageData(fimg, 0, 0);
+      const cw = W / (GF - 1);
+      ctx.imageSmoothingEnabled = true; ctx.drawImage(fheat, -cw / 2, -cw / 2, W + cw, Hh + cw);
+      ctx.strokeStyle = rgba(C.ink, 0.85); ctx.lineWidth = 1.8; contour(ctx, W, Hh, fgrid, GF);
+      drawNeuronLines(ctx, W, Hh, H, (j) => [wa(s, j), wb(s, j), bj(s, j)], o.hi);
+      const pr = Math.max(2.6, Math.min(3.8, W / 90));
+      for (const p of fdata) {
+        const col = p.y ? C.pos : C.neg;
+        ctx.beginPath(); ctx.arc(toPx(p.x1, W), toPy(p.x2, Hh), pr, 0, Math.PI * 2);
+        if (right(s, p)) { ctx.fillStyle = rgba(col); ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = rgba(C.sheet); ctx.stroke(); }
+        else { ctx.fillStyle = rgba(C.sheet); ctx.fill(); ctx.lineWidth = 1.7; ctx.strokeStyle = rgba(col); ctx.stroke(); }
+      }
+      if (o.sample) {
+        const x = toPx(SP.x1, W), y = toPy(SP.x2, Hh);
+        ctx.beginPath(); ctx.arc(x, y, pr + 5, 0, Math.PI * 2); ctx.lineWidth = 2; ctx.strokeStyle = rgba(C.ink); ctx.stroke();
+        if (o.ping > 0) { ctx.beginPath(); ctx.arc(x, y, pr + 5 + 12 * o.ping, 0, Math.PI * 2); ctx.lineWidth = 1.5; ctx.strokeStyle = rgba(C.ink, 1 - o.ping); ctx.stroke(); }
+        ctx.font = `600 12px ${UI}`; ctx.textBaseline = "alphabetic";
+        const lft = x < W - 80; ctx.textAlign = lft ? "left" : "right";
+        const tx = lft ? x + pr + 9 : x - pr - 9, ty = y - pr - 6 < 14 ? y + pr + 18 : y - pr - 6;
+        ctx.lineWidth = 3; ctx.strokeStyle = rgba(C.sheet, 0.9); ctx.strokeText("this dot", tx, ty); ctx.fillStyle = rgba(C.ink); ctx.fillText("this dot", tx, ty);
+      }
+    }
+
+    function geom(W, Hh) {
+      const r = Math.max(11, Math.min(17, Hh * 0.055));
+      const xi = r + 8, xo = W - r - 98, xh = (xi + xo) / 2 + 6;
+      const inp = [[xi, Hh * 0.38], [xi, Hh * 0.62]];
+      const hid = Array.from({ length: H }, (_, j) => [xh, Hh * (0.16 + 0.233 * j)]);
+      const out = [xo, Hh * 0.5];
+      const edges = [];
+      for (let j = 0; j < H; j++) for (let i = 0; i < 2; i++) edges.push({ layer: 1, j, a: inp[i], b: hid[j], pi: 2 * j + i });
+      for (let j = 0; j < H; j++) edges.push({ layer: 2, j, a: hid[j], b: out, pi: 3 * H + j });
+      for (const e of edges) {
+        const dx = e.b[0] - e.a[0], dy = e.b[1] - e.a[1], n = Math.hypot(dx, dy);
+        e.s = [e.a[0] + (dx / n) * r, e.a[1] + (dy / n) * r]; e.t = [e.b[0] - (dx / n) * r, e.b[1] - (dy / n) * r];
+      }
+      return { r, inp, hid, out, edges };
+    }
+    const along = (e, f) => [e.s[0] + (e.t[0] - e.s[0]) * f, e.s[1] + (e.t[1] - e.s[1]) * f];
+    function dot(ctx, pt, r, a = 1) { ctx.beginPath(); ctx.arc(pt[0], pt[1], r, 0, Math.PI * 2); ctx.fillStyle = rgba(C.ink, a); ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = rgba(C.sheet, a); ctx.stroke(); }
+    function label(ctx, txt, x, y, align, strong) {
+      ctx.textAlign = align; ctx.lineWidth = 3.5; ctx.strokeStyle = rgba(C.sheet, 0.92); ctx.strokeText(txt, x, y);
+      ctx.fillStyle = rgba(strong ? C.ink : C["ink-2"]); ctx.fillText(txt, x, y);
+    }
+    function drawNet(s, o) {
+      const [W, Hh] = sizeCanvas(netc), ctx = fnc;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, Hh);
+      const G = geom(W, Hh), f = fw(s, SP.x1, SP.x2), any = o.hi && o.hi.size > 0;
+      ctx.font = `600 10px ${UI}`; ctx.fillStyle = rgba(C["ink-3"]); ctx.textBaseline = "alphabetic";
+      ctx.textAlign = "left"; ctx.fillText("INPUT", 0, 12);
+      ctx.textAlign = "center"; ctx.fillText("HIDDEN", G.hid[0][0], 12);
+      ctx.textAlign = "right"; ctx.fillText("OUTPUT", W, 12);
+      ctx.lineCap = "round";
+      for (const e of G.edges) {
+        const grad = e.layer === 1 ? o.g1 : o.g2, v = grad ? -sg[e.pi] : s[e.pi];
+        const w = grad ? 0.7 + 4.3 * Math.min(1, Math.sqrt(Math.abs(v) / 0.8)) : 0.7 + 3.8 * Math.min(1, Math.abs(v) / 3);
+        ctx.strokeStyle = rgba(v >= 0 ? C.pos : C.neg, any && !o.hi.has(e.j) ? 0.18 : 0.85); ctx.lineWidth = w;
+        ctx.beginPath(); ctx.moveTo(e.s[0], e.s[1]); ctx.lineTo(e.t[0], e.t[1]); ctx.stroke();
+      }
+      const node = (pt, val, lit, name, ring) => {
+        ctx.beginPath(); ctx.arc(pt[0], pt[1], G.r, 0, Math.PI * 2);
+        if (lit) { const li = lut(val), t = C.lutNode; ctx.fillStyle = `rgb(${t[li]},${t[li + 1]},${t[li + 2]})`; } else ctx.fillStyle = rgba(C.sheet);
+        ctx.fill(); ctx.lineWidth = ring ? 2.4 : 1.2; ctx.strokeStyle = ring ? rgba(C.ink) : rgba(C["ink-3"], 0.6); ctx.stroke();
+        ctx.font = `500 11px ${MONO}`; ctx.textBaseline = "middle"; label(ctx, name, pt[0], pt[1] + 0.5, "center", true);
+      };
+      ctx.font = `11px ${MONO}`;
+      [SP.x1, SP.x2].forEach((x, i) => {
+        node(G.inp[i], x, o.lit.inp, `x${sb(i + 1)}`, false);
+        if (o.lit.inp) { ctx.font = `11px ${MONO}`; ctx.textBaseline = "alphabetic"; label(ctx, fmt(x), G.inp[i][0] - G.r, G.inp[i][1] + G.r + 13, "left", false); }
+      });
+      for (let j = 0; j < H; j++) {
+        node(G.hid[j], f.h[j], o.lit.hid, `h${sb(j + 1)}`, any && o.hi.has(j));
+        if (o.lit.hid) { ctx.font = `11px ${MONO}`; ctx.textBaseline = "alphabetic"; label(ctx, fmt(f.h[j]), G.hid[j][0] + G.r + 4, G.hid[j][1] - G.r + 6, "left", false); }
+      }
+      node(G.out, f.yh * 2 - 1, o.lit.out, "ŷ", o.ringOut);
+      if (o.lit.out) {
+        const x = G.out[0] + G.r + 7, y = G.out[1];
+        ctx.textBaseline = "alphabetic"; ctx.font = `500 13px ${MONO}`; label(ctx, `${pct(f.yh)} blue`, x, y - (o.badge ? 8 : -4), "left", true);
+        if (o.badge) { ctx.font = `11px ${MONO}`; label(ctx, `actual: ${spColor}`, x, y + 8, "left", false); label(ctx, `loss ${fmt(-Math.log(SP.y ? f.yh : 1 - f.yh))}`, x, y + 22, "left", false); }
+      }
+      if (o.pulse) for (const e of G.edges) if (e.layer === o.pulse.layer) dot(ctx, along(e, o.pulse.back ? 1 - o.pulse.f : o.pulse.f), 3.6);
+      for (const q of parts) {
+        const seg = Math.min(1, Math.floor(q.f)), e = G.edges[q.path[seg]], loc = q.f - seg;
+        dot(ctx, along(e, q.back ? 1 - loc : loc), 2.6, 0.75);
+      }
+    }
+
+    // signals streaming through the network during the fast-forward
+    let parts = [], spawnAcc = 0;
+    function stepParticles(dt, spawning) {
+      for (const q of parts) q.f += dt / 520;
+      parts = parts.filter((q) => q.f < 2);
+      if (!spawning) return;
+      spawnAcc += dt;
+      while (spawnAcc > 45) {
+        spawnAcc -= 45;
+        const j = Math.floor(Math.random() * H), i = Math.floor(Math.random() * 2), back = Math.random() < 0.5;
+        const e1 = 2 * j + i, e2 = 2 * H + j;
+        parts.push({ path: back ? [e2, e1] : [e1, e2], back, f: 0 });
+      }
+    }
+
+    // ----- playback -----
+    let T = 0, playing = false, last = 0, capKey = "", autoPaused = false, started = false;
+    const chips = [...$("film-chips").querySelectorAll("button")];
+    function setPlayLabel() { $("film-play").textContent = playing ? "Pause" : T >= TOTAL ? "Replay" : T > 0 ? "Resume" : "Play"; }
+    function render(dt = 0) {
+      const { i, u } = at(T), k = SC[i].k;
+      let s = traj[0], step = 0, pl = { hi: null, sample: true, ping: 0 };
+      let nt = { lit: { inp: true, hid: true, out: true }, hi: null, g1: false, g2: false, pulse: null, badge: false, ringOut: false };
+      if (k === "start") { pl.sample = false; nt.lit = { inp: false, hid: false, out: false }; }
+      else if (k === "fwd") {
+        pl.ping = u < 0.18 ? u / 0.18 : 0;
+        nt.lit = { inp: u > 0.05, hid: u >= 0.4, out: u >= 0.8 };
+        if (u >= 0.08 && u < 0.4) nt.pulse = { layer: 1, f: sm((u - 0.08) / 0.32), back: false };
+        if (u >= 0.5 && u < 0.8) nt.pulse = { layer: 2, f: sm((u - 0.5) / 0.3), back: false };
+        if (u >= 0.4 && u < 0.62) { pl.hi = ALL; nt.hi = ALL; }
+      } else if (k === "cmp") { nt.badge = true; nt.ringOut = true; }
+      else if (k === "bwd") {
+        nt.badge = true;
+        if (u < 0.4) nt.pulse = { layer: 2, f: sm(u / 0.4), back: true };
+        if (u >= 0.45 && u < 0.85) nt.pulse = { layer: 1, f: sm((u - 0.45) / 0.4), back: true };
+        nt.g2 = u > 0.22; nt.g1 = u > 0.66;
+      } else if (k === "upd") { s = lerpS(traj[0], traj[1], sm(Math.min(1, u * 1.6))); step = u > 0.6 ? 1 : 0; }
+      else if (k === "rep") {
+        const x = 1 + (STEPS - 1) * Math.pow(u, 1.7), lo = Math.floor(x), hi = Math.min(STEPS, lo + 1);
+        s = lerpS(traj[lo], traj[hi], x - lo); step = lo;
+      } else {
+        s = fin; step = STEPS; pl.sample = u >= 0.66;
+        if (storyOK) { const t = u < 0.33 ? ST[0] : u < 0.66 ? ST[1] : null; const set = t ? new Set([t.j, t.k]) : null; pl.hi = set; nt.hi = set; }
+        else { pl.hi = ALL; }
+      }
+      stepParticles(dt, playing && k === "rep" && u < 0.97);
+      drawPlane(s, pl); drawNet(s, nt);
+      const key = k + (k === "res" ? (u < 0.33 ? "a" : u < 0.66 ? "b" : "c") : "");
+      if (key !== capKey) { capKey = key; $("film-cap").innerHTML = caption(k, u); }
+      $("film-meta").textContent = `step ${step} · ${pct(accs[step])} right`;
+      $("film-fill").style.width = (100 * T) / TOTAL + "%";
+      chips.forEach((c, n) => c.classList.toggle("on", n === i));
+    }
+    function tick(now) {
+      if (!playing) return;
+      const dt = Math.min(64, now - last); last = now;
+      T = Math.min(TOTAL, T + dt);
+      if (T >= TOTAL) { playing = false; setPlayLabel(); }
+      render(dt);
+      if (playing) requestAnimationFrame(tick);
+    }
+    function play() { if (T >= TOTAL) T = 0; playing = true; started = true; autoPaused = false; last = performance.now(); setPlayLabel(); requestAnimationFrame(tick); }
+    function pause() { playing = false; setPlayLabel(); render(); }
+    $("film-play").addEventListener("click", () => (playing ? pause() : play()));
+    chips.forEach((c, n) => c.addEventListener("click", () => { T = startOf(n); parts = []; capKey = ""; if (!playing) play(); else render(); }));
+    new IntersectionObserver((entries) => {
+      const vis = entries[0].isIntersecting;
+      if (vis && !started && !reduceMotion) play();
+      else if (vis && autoPaused) play();
+      else if (!vis && playing) { playing = false; autoPaused = true; setPlayLabel(); }
+    }, { threshold: 0.55 }).observe($("film"));
+    new ResizeObserver(() => render()).observe(plane);
+    setPlayLabel(); render();
+    return { render: () => { capKey = ""; render(); } };
+  }
+
+  // the floating shortcut, shown while reading the introduction
+  const pill = $("jump-pill");
+  let pillQueued = false;
+  function updatePill() {
+    pillQueued = false;
+    const pg = $("playground").getBoundingClientRect();
+    pill.hidden = !(window.scrollY > 500 && pg.top > window.innerHeight * 0.5);
+  }
+  window.addEventListener("scroll", () => { if (!pillQueued) { pillQueued = true; requestAnimationFrame(updatePill); } }, { passive: true });
+
+  // ---------- main loop ----------
+  function frame() {
+    if (S.anim) advanceAnim(performance.now());
+    else if (S.running) { for (let k = 0; k < S.speed; k++) trainStep(); S.dirty = true; }
+    if (S.dirty) { S.dirty = false; refresh(); render(); }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- boot ----------
+  $("ag-code").textContent = $("autograd").textContent.trim();
+  data = makeData(S.dataset);
+  S.probe = nearestPoint(...PROBE_TARGET[S.dataset]);
+  initNet();
+  for (let k = 0; k < 12; k++) trainStep(); // open a few steps in, so the first view shows training under way
+  readTheme();
+  lastNetW = netWrap.clientWidth;
+  buildNet(); buildPick(); buildInspector();
+  setRunning(false);
+  narrate(REST);
+  refresh(); render();
+  film = createFilm();
+  const best = bestLineScore();
+  $("puz-best").textContent = `${best} of ${N} (${Math.round((100 * best) / N)}%)`;
+  drawPuzzle();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
