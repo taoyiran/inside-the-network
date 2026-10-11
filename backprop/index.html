@@ -245,9 +245,9 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
 </head>
 <body>
 <div class="page">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Inside the Network</a><span aria-hidden="true">›</span><span>Chapter 2</span></nav>
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Inside the Network</a><span aria-hidden="true">›</span><span>Chapter 3</span></nav>
   <header class="col">
-    <div class="eyebrow">Chapter 2</div>
+    <div class="eyebrow">Chapter 3</div>
     <h1>Backprop, one operation at a time</h1>
     <p class="dek">In chapter 1, one click on Backward gave every weight its gradient. This chapter opens up that click. Inside, it is nothing more than multiplying small numbers, one operation at a time.</p>
     <nav class="jump" aria-label="Page shortcuts">
@@ -287,7 +287,7 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
       <p class="film-cap" id="f-cap" aria-live="polite"></p>
     </figure>
 
-    <p>Chapter 1 showed what training does: guess, measure, adjust. The adjusting needs one number per weight, its <b>gradient</b>, and the Backward stage produced all of them at once. This chapter shows how. If you skipped chapter 1, the film and the next section are enough to follow along.</p>
+    <p>Chapter 1 showed what training does: guess, measure, adjust. Chapter 2 showed what the adjusting needs: one slope per weight, together called the <b>gradient</b>, which points uphill on the loss landscape so training can step the other way. In chapter 1 the Backward stage produced every one of those slopes at once. This chapter shows how. If you skipped the earlier chapters, the film and the next section are enough to follow along.</p>
 
     <h2>The question</h2>
     <p>A gradient answers one question: if I nudge this weight up a little, how much does the loss change? There is an obvious way to find out. Nudge the weight, run the network again, and measure. That works, and the playground below uses it to double-check every answer. But it costs one extra run of the network for every single weight.</p>
@@ -308,7 +308,7 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
     <p>Backpropagation gets every gradient for about the cost of three runs, however many weights there are: one forward pass, then a backward pass that costs about two more. That one trick, more than any other, is why large networks can be trained at all. It is built from three simple tools.</p>
 
     <h2>Tool 1: the slope of one operation</h2>
-    <p>Start with one operation on its own, such as tanh. Its <b>slope</b> at a point says how much the output moves when you nudge the input. A slope of 0.5 means a nudge of 0.01 in the input moves the output by about 0.005. Drag across the curve to see the slope change.</p>
+    <p>Chapter 2 measured slopes by nudging the whole network. Backpropagation instead uses the slope of each small operation, which is always easy to know. Start with one operation on its own, such as tanh. Its <b>slope</b> at a point says how much the output moves when you nudge the input. A slope of 0.5 means a nudge of 0.01 in the input moves the output by about 0.005. Drag across the curve to see the slope change.</p>
 
     <figure class="card" aria-label="A function, its tangent line and its slope">
       <div class="lens-top">
@@ -464,15 +464,16 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
     <h2>Where this is going</h2>
     <ol class="road">
       <li><span class="n">1</span><span><a href="../">A network you can touch</a></span><span></span></li>
-      <li class="here"><span class="n">2</span><span>Backprop, one operation at a time</span><span class="tag">This page</span></li>
-      <li><span class="n">3</span><span>Going deeper: why layers help</span><span></span></li>
-      <li><span class="n">4</span><span>Seeing: convolutional networks</span><span></span></li>
-      <li class="branch"><span class="n">4′</span><span>Listening: spectrograms and sound</span><span class="tag">Branch</span></li>
-      <li><span class="n">5</span><span>Words as vectors: tokens and embeddings</span><span></span></li>
-      <li><span class="n">6</span><span>Attention</span><span></span></li>
-      <li><span class="n">7</span><span>A tiny GPT, trained in your browser</span><span></span></li>
+      <li><span class="n">2</span><span><a href="../loss-and-gradients/">Loss and gradients: walking downhill</a></span><span></span></li>
+      <li class="here"><span class="n">3</span><span>Backprop, one operation at a time</span><span class="tag">This page</span></li>
+      <li><span class="n">4</span><span>Going deeper: why layers help</span><span></span></li>
+      <li><span class="n">5</span><span>Seeing: convolutional networks</span><span></span></li>
+      <li class="branch"><span class="n">5′</span><span>Listening: spectrograms and sound</span><span class="tag">Branch</span></li>
+      <li><span class="n">6</span><span>Words as vectors: tokens and embeddings</span><span></span></li>
+      <li><span class="n">7</span><span>Attention</span><span></span></li>
+      <li><span class="n">8</span><span>A tiny GPT, trained in your browser</span><span></span></li>
     </ol>
-    <nav class="chapnav" aria-label="Chapters"><a href="../">← Chapter 1: A network you can touch</a><span>Chapter 3: Going deeper, coming next</span></nav>
+    <nav class="chapnav" aria-label="Chapters"><a href="../loss-and-gradients/">← Chapter 2: Loss and gradients</a><span>Chapter 4: Going deeper, coming next</span></nav>
     <p class="foot">Working prototype, October 2026. Every figure on this page is a live computation.<br><a href="https://github.com/taoyiran/inside-the-network">Source on GitHub</a> · code under MIT, text and figures under CC BY 4.0.</p>
   </section>
   <a class="jump-pill" id="jump-pill" href="#playground" hidden>Playground ↓</a>

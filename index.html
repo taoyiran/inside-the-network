@@ -541,7 +541,7 @@ a.btn { text-decoration: none; }
       <li>Set the learning rate to 3. Steps that large overshoot, and the loss curve starts to jump.</li>
       <li>Pick a dot deep inside a region the network already gets right, then switch to the backward view. Its wires go thin: a dot that is already classified well asks for almost nothing.</li>
       <li>Switch to ReLU and press Reset a few times. Sometimes a neuron's square goes blank. It outputs 0 for every dot, so its gradient is 0 and training can never revive it.</li>
-      <li>Try Spiral with 8 neurons, η = 1 and Fast. It sits on a plateau for a long time, then suddenly finds a way through. Chapter 3 shows why extra layers make this easier.</li>
+      <li>Try Spiral with 8 neurons, η = 1 and Fast. It sits on a plateau for a long time, then suddenly finds a way through. Chapter 4 shows why extra layers make this easier.</li>
     </ul>
 
     <h2>What runs where</h2>
@@ -555,15 +555,16 @@ a.btn { text-decoration: none; }
     <h2>Where this is going</h2>
     <ol class="road">
       <li class="here"><span class="n">1</span><span>A network you can touch</span><span class="tag">This page</span></li>
-      <li><span class="n">2</span><span><a href="chapter-2/">Backprop, one operation at a time</a></span><span class="tag">New</span></li>
-      <li><span class="n">3</span><span>Going deeper: why layers help</span><span></span></li>
-      <li><span class="n">4</span><span>Seeing: convolutional networks</span><span></span></li>
-      <li class="branch"><span class="n">4′</span><span>Listening: spectrograms and sound</span><span class="tag">Branch</span></li>
-      <li><span class="n">5</span><span>Words as vectors: tokens and embeddings</span><span></span></li>
-      <li><span class="n">6</span><span>Attention</span><span></span></li>
-      <li><span class="n">7</span><span>A tiny GPT, trained in your browser</span><span></span></li>
+      <li><span class="n">2</span><span><a href="loss-and-gradients/">Loss and gradients: walking downhill</a></span><span></span></li>
+      <li><span class="n">3</span><span><a href="backprop/">Backprop, one operation at a time</a></span><span></span></li>
+      <li><span class="n">4</span><span>Going deeper: why layers help</span><span></span></li>
+      <li><span class="n">5</span><span>Seeing: convolutional networks</span><span></span></li>
+      <li class="branch"><span class="n">5′</span><span>Listening: spectrograms and sound</span><span class="tag">Branch</span></li>
+      <li><span class="n">6</span><span>Words as vectors: tokens and embeddings</span><span></span></li>
+      <li><span class="n">7</span><span>Attention</span><span></span></li>
+      <li><span class="n">8</span><span>A tiny GPT, trained in your browser</span><span></span></li>
     </ol>
-    <nav class="chapnav" aria-label="Chapters"><span>This is chapter 1</span><a href="chapter-2/">Next: Chapter 2, Backprop, one operation at a time →</a></nav>
+    <nav class="chapnav" aria-label="Chapters"><span>This is chapter 1</span><a href="loss-and-gradients/">Next: Chapter 2, Loss and gradients →</a></nav>
     <p class="foot">Working prototype, October 2026. Every figure on this page is a live computation.<br><a href="https://github.com/taoyiran/inside-the-network">Source on GitHub</a> · code under MIT, text and figures under CC BY 4.0.</p>
   </section>
   <a class="jump-pill" id="jump-pill" href="#playground" hidden>Playground ↓</a>
