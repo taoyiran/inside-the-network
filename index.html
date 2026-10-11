@@ -269,6 +269,15 @@ a.btn { text-decoration: none; }
 .film-cap b { color: var(--ink); }
 .intro a { color: var(--ink); text-underline-offset: 3px; }
 .foot a { color: var(--ink-2); text-underline-offset: 3px; }
+
+/* hover and focus descriptions */
+.tt { position: fixed; left: 0; top: 0; z-index: 30; max-width: min(300px, calc(100vw - 24px)); background: var(--ink); color: var(--sheet); font: 13px/1.45 var(--font-display); padding: 8px 11px; border-radius: 8px; box-shadow: 0 6px 22px var(--shadow); pointer-events: none; opacity: 0; transform: translateY(3px); transition: opacity 0.12s ease, transform 0.12s ease; }
+.tt.on { opacity: 1; transform: none; }
+.tt b { font-weight: 650; }
+.tt .k { font-family: var(--font-mono); font-size: 12px; }
+.tt .hint { display: block; margin-top: 4px; font-size: 12px; opacity: 0.72; }
+@media (prefers-reduced-motion: reduce) { .tt { transition: none; } }
+.stat, .phase { cursor: help; }
 </style>
 </head>
 <body>
@@ -296,7 +305,7 @@ a.btn { text-decoration: none; }
       <div class="film-bar">
         <button type="button" class="btn primary" id="film-play">Play</button>
         <div class="film-chips" id="film-chips" role="group" aria-label="Jump to a scene">
-          <button type="button" data-i="0">Start</button><button type="button" data-i="1">Forward</button><button type="button" data-i="2">Compare</button><button type="button" data-i="3">Backward</button><button type="button" data-i="4">Update</button><button type="button" data-i="5">Repeat</button><button type="button" data-i="6">Result</button>
+          <button type="button" data-i="0" data-tip="film-0">Start</button><button type="button" data-i="1" data-tip="film-1">Forward</button><button type="button" data-i="2" data-tip="film-2">Compare</button><button type="button" data-i="3" data-tip="film-3">Backward</button><button type="button" data-i="4" data-tip="film-4">Update</button><button type="button" data-i="5" data-tip="film-5">Repeat</button><button type="button" data-i="6" data-tip="film-6">Result</button>
         </div>
         <span class="film-meta" id="film-meta"></span>
       </div>
@@ -373,38 +382,38 @@ a.btn { text-decoration: none; }
         <div class="ctl">
           <span class="lab">Training</span>
           <div class="btns">
-            <button type="button" class="btn primary" id="b-train"></button>
-            <button type="button" class="btn" id="b-step">Step</button>
-            <button type="button" class="btn" id="b-reset">Reset</button>
+            <button type="button" class="btn primary" id="b-train" data-tip="train"></button>
+            <button type="button" class="btn" id="b-step" data-tip="step">Step</button>
+            <button type="button" class="btn" id="b-reset" data-tip="reset">Reset</button>
           </div>
         </div>
         <div class="ctl">
           <span class="lab" id="lab-data">Data</span>
           <div class="seg" role="group" aria-labelledby="lab-data" id="seg-data">
-            <button type="button" data-v="clusters" aria-pressed="false">Clusters</button>
-            <button type="button" data-v="xor" aria-pressed="true">XOR</button>
-            <button type="button" data-v="circle" aria-pressed="false">Circle</button>
-            <button type="button" data-v="spiral" aria-pressed="false">Spiral</button>
+            <button type="button" data-v="clusters" data-tip="data-clusters" aria-pressed="false">Clusters</button>
+            <button type="button" data-v="xor" data-tip="data-xor" aria-pressed="true">XOR</button>
+            <button type="button" data-v="circle" data-tip="data-circle" aria-pressed="false">Circle</button>
+            <button type="button" data-v="spiral" data-tip="data-spiral" aria-pressed="false">Spiral</button>
           </div>
         </div>
         <div class="ctl">
           <span class="lab">Hidden neurons</span>
           <div class="stepper">
-            <button type="button" id="h-minus" aria-label="Fewer hidden neurons">−</button>
-            <output id="h-val" aria-live="polite">4</output>
-            <button type="button" id="h-plus" aria-label="More hidden neurons">+</button>
+            <button type="button" id="h-minus" data-tip="neurons" aria-label="Fewer hidden neurons">−</button>
+            <output id="h-val" data-tip="neurons" aria-live="polite">4</output>
+            <button type="button" id="h-plus" data-tip="neurons" aria-label="More hidden neurons">+</button>
           </div>
         </div>
         <div class="ctl">
           <span class="lab" id="lab-act">Activation</span>
           <div class="seg" role="group" aria-labelledby="lab-act" id="seg-act">
-            <button type="button" data-v="tanh" aria-pressed="true">tanh</button>
-            <button type="button" data-v="relu" aria-pressed="false">ReLU</button>
+            <button type="button" data-v="tanh" data-tip="act-tanh" aria-pressed="true">tanh</button>
+            <button type="button" data-v="relu" data-tip="act-relu" aria-pressed="false">ReLU</button>
           </div>
         </div>
         <div class="ctl">
           <label class="lab" for="lr">Learning rate <span class="nc">η</span></label>
-          <select id="lr">
+          <select id="lr" data-tip="lr">
             <option value="0.03">0.03</option>
             <option value="0.1">0.1</option>
             <option value="0.3" selected>0.3</option>
@@ -415,8 +424,8 @@ a.btn { text-decoration: none; }
         <div class="ctl">
           <span class="lab" id="lab-speed">Speed</span>
           <div class="seg" role="group" aria-labelledby="lab-speed" id="seg-speed">
-            <button type="button" data-v="1" aria-pressed="true">Slow</button>
-            <button type="button" data-v="12" aria-pressed="false">Fast</button>
+            <button type="button" data-v="1" data-tip="speed-slow" aria-pressed="true">Slow</button>
+            <button type="button" data-v="12" data-tip="speed-fast" aria-pressed="false">Fast</button>
           </div>
         </div>
       </div>
@@ -425,7 +434,7 @@ a.btn { text-decoration: none; }
         <div class="area-plot">
           <div class="pane-head">
             <span class="pane-title">The data</span>
-            <label class="tog" for="show-lines"><input type="checkbox" id="show-lines">Show neuron lines</label>
+            <label class="tog" for="show-lines" data-tip="lines"><input type="checkbox" id="show-lines">Show neuron lines</label>
           </div>
           <div class="plot-wrap">
             <canvas id="plot" role="img" aria-label="The dots, shaded by the network's current guess, with the decision boundary drawn as a dark line"></canvas>
@@ -446,8 +455,8 @@ a.btn { text-decoration: none; }
           <div class="pane-head">
             <span class="pane-title">The network <span class="count" id="r-params">17 parameters</span></span>
             <div class="seg" role="group" aria-label="Network view" id="seg-view">
-              <button type="button" data-v="fwd" aria-pressed="true">Forward</button>
-              <button type="button" data-v="bwd" aria-pressed="false">Backward</button>
+              <button type="button" data-v="fwd" data-tip="view-fwd" aria-pressed="true">Forward</button>
+              <button type="button" data-v="bwd" data-tip="view-bwd" aria-pressed="false">Backward</button>
             </div>
           </div>
           <div class="net" id="net"><svg id="netsvg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg></div>
@@ -456,9 +465,9 @@ a.btn { text-decoration: none; }
 
         <div class="area-stats">
           <div class="stats">
-            <div class="stat"><span class="lab">Step</span><b id="r-step">0</b><span class="cap">training rounds so far</span></div>
-            <div class="stat"><span class="lab">Loss</span><b id="r-loss">–</b><span class="cap">average wrongness, lower is better</span></div>
-            <div class="stat"><span class="lab">Accuracy</span><b id="r-acc">–</b><span class="cap">dots on the right side</span></div>
+            <div class="stat" data-tip="stat-step"><span class="lab">Step</span><b id="r-step">0</b><span class="cap">training rounds so far</span></div>
+            <div class="stat" data-tip="stat-loss"><span class="lab">Loss</span><b id="r-loss">–</b><span class="cap">average wrongness, lower is better</span></div>
+            <div class="stat" data-tip="stat-acc"><span class="lab">Accuracy</span><b id="r-acc">–</b><span class="cap">dots on the right side</span></div>
           </div>
           <div class="chart-head"><span class="lab">Loss over training</span><span class="cap" id="loss-hover">hover the chart for values</span></div>
           <canvas id="loss" aria-label="Average loss over training steps"></canvas>
@@ -466,10 +475,10 @@ a.btn { text-decoration: none; }
 
         <div class="area-story">
           <div class="phases" aria-hidden="true">
-            <span class="phase">Forward</span><span class="arrow">→</span>
-            <span class="phase">Loss</span><span class="arrow">→</span>
-            <span class="phase">Backward</span><span class="arrow">→</span>
-            <span class="phase">Update</span>
+            <span class="phase" data-tip="phase-0">Forward</span><span class="arrow">→</span>
+            <span class="phase" data-tip="phase-1">Loss</span><span class="arrow">→</span>
+            <span class="phase" data-tip="phase-2">Backward</span><span class="arrow">→</span>
+            <span class="phase" data-tip="phase-3">Update</span>
           </div>
           <p class="narr" id="narr" aria-live="polite"></p>
         </div>
@@ -485,13 +494,13 @@ a.btn { text-decoration: none; }
                 </div>
                 <div class="pick">
                   <label class="lab" for="pick">Inspect</label>
-                  <select id="pick"></select>
+                  <select id="pick" data-tip="pick"></select>
                 </div>
               </div>
               <p class="iplain" id="i-plain"></p>
               <div class="slider-row" id="i-sl">
                 <label for="i-slider" id="i-sl-lab"></label>
-                <input type="range" id="i-slider" min="-4" max="4" step="0.01">
+                <input type="range" id="i-slider" data-tip="slider" min="-4" max="4" step="0.01">
               </div>
             </div>
             <div class="insp-detail">
@@ -979,6 +988,7 @@ function backward(loss) {
     b.type = "button"; b.className = "node";
     b.style.left = x - s / 2 + "px"; b.style.top = y - s / 2 + "px"; b.style.width = b.style.height = s + "px";
     b.setAttribute("aria-label", aria);
+    b.dataset.tip = "node"; b.dataset.sel = selKey(sel); b.dataset.fast = "";
     const cv = document.createElement("canvas"); cv.width = cv.height = Math.round(s * dpr); b.appendChild(cv);
     const nm = document.createElement("span"); nm.className = "nname"; nm.textContent = name; b.appendChild(nm);
     b.addEventListener("click", () => select(sel));
@@ -997,10 +1007,9 @@ function backward(loss) {
     function addEdge(layer, j, i, x1, y1, x2, y2) {
       const d = `M${x1.toFixed(1)} ${y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)}`;
       const path = svgEl("path", { class: "edge", d }, gE);
-      const hit = svgEl("path", { class: "hit", d }, gHit);
+      const hit = svgEl("path", { class: "hit", d, "data-tip": "wire", "data-follow": "", "data-fast": "" }, gHit);
       const sel = layer === 1 ? { type: "edge", layer: 1, j, i } : { type: "edge", layer: 2, j };
-      const t = svgEl("title", {}, hit);
-      t.textContent = layer === 1 ? `w${sb(j + 1)}${sb(i + 1)}: x${sb(i + 1)} → h${sb(j + 1)}` : `v${sb(j + 1)}: h${sb(j + 1)} → output`;
+      hit.dataset.sel = selKey(sel);
       hit.addEventListener("click", () => select(sel));
       const pulse = svgEl("circle", { class: "pulse", r: 3.6, cx: x1, cy: y1 }, gPulse);
       pulse.style.display = "none";
@@ -1268,6 +1277,7 @@ function backward(loss) {
 
   function render() {
     drawPlot(); drawNodes(); renderNet(); updateInspector(); drawLoss(); updateReadouts();
+    refreshTip();
   }
 
   // ---------- narration and the slow-motion step ----------
@@ -1832,6 +1842,124 @@ function backward(loss) {
     pill.hidden = !(window.scrollY > 500 && pg.top > window.innerHeight * 0.5);
   }
   window.addEventListener("scroll", () => { if (!pillQueued) { pillQueued = true; requestAnimationFrame(updatePill); } }, { passive: true });
+
+  // ---------- descriptions on hover, keyboard focus, or after a tap ----------
+  const NEXT_STAGE = ["Compare the guess with the dot's true color.", "Send the error backward to every weight.", "Move every weight a small step.", "Finish the step now."];
+  const FILM_TIPS = ["Random starting weights.", "One dot travels through the network.", "The guess meets the true color.", "The error flows back to every weight.", "Every weight takes one small step.", "Hundreds of steps, fast-forwarded.", "How the trained network solves the puzzle."];
+  const PHASE_TIPS = ["Feed the dot through the network to get a guess, ŷ.", "Score how wrong the guess is.", "Work out every weight's gradient with the chain rule.", "Move every weight a small step against its gradient."];
+  const TIPS = {
+    train: () => S.running
+      ? "<b>Pause</b> training. Everything stays where it is, so you can inspect any number."
+      : `<b>Train</b> continuously. Each step runs the forward pass, loss, backward pass and update on all ${N} dots, ${S.speed === 1 ? "about 60 steps a second" : "about 700 steps a second"}.`,
+    step: () => S.anim
+      ? `<b>${$("b-step").textContent}.</b> ${NEXT_STAGE[S.anim.stage]}`
+      : "<b>Step</b> through one round of training, one stage per click: forward pass, loss, backward pass, update.",
+    reset: () => `<b>Reset</b> to new random starting weights (seed ${S.seed} → ${S.seed + 1}). The dots stay the same. A fixed seed means every visitor sees the same numbers.`,
+    "data-clusters": () => "<b>Clusters</b>: two blobs. One straight line separates them, so even 1 hidden neuron is enough. The easy warm-up.",
+    "data-xor": () => "<b>XOR</b>: blue in two opposite corners, orange in the other two. No single line works, so it needs at least 2 hidden neurons. This is the puzzle from the top of the page.",
+    "data-circle": () => "<b>Circle</b>: blue inside, orange in a ring around it. It takes at least 3 lines, so 3 hidden neurons, to fence in the middle.",
+    "data-spiral": () => "<b>Spiral</b>: two arms wound around each other. Hard for one hidden layer. Try 8 neurons, η = 1 and Fast, and be patient.",
+    neurons: () => `<b>${S.H} hidden neuron${S.H > 1 ? "s" : ""}, ${4 * S.H + 1} parameters.</b> Each neuron draws one line and adds 4 parameters: 2 weights in, a bias, and 1 weight out. Changing this restarts training.`,
+    "act-tanh": () => "<b>tanh</b> squashes each neuron's sum into the range −1 to 1 along a smooth S-curve, so every line becomes a soft edge.",
+    "act-relu": () => "<b>ReLU</b> keeps a positive sum and turns a negative one into 0. It is popular in large networks, but a neuron can die: if it outputs 0 for every dot, it stops learning.",
+    lr: () => `<b>Learning rate η = ${S.lr}.</b> Each update moves a weight by η × its gradient. Too small and training crawls. Too large and it overshoots, so the loss jumps around.`,
+    "speed-slow": () => "<b>Slow</b>: one training step per frame, about 60 a second. Good for watching the boundary move.",
+    "speed-fast": () => "<b>Fast</b>: 12 training steps per frame, about 700 a second. Use it for Spiral.",
+    lines: () => "Draw each hidden neuron's line on the data: the places where its sum is zero. The output neuron combines these lines into the boundary.",
+    "view-fwd": () => "<b>Forward view</b>: wires show the weights. Blue is positive, orange negative, and thicker is larger.",
+    "view-bwd": () => "<b>Backward view</b>: wires show what the probe dot asks of each weight. Blue means increase it, orange means decrease it, and thickness is how hard it pushes.",
+    pick: () => "Choose any weight or neuron to inspect. It does the same as tapping it in the network.",
+    slider: () => "Drag to set this number by hand. Training pauses, so you see exactly what your change does to the boundary, the loss and every gradient.",
+    "stat-step": () => `<b>${S.step} steps</b> so far. Each step uses all ${N} dots once.`,
+    "stat-loss": () => `<b>Loss ${fmt(M.loss, 3)}</b>: the average penalty over all ${N} dots. A perfect, fully confident network would score 0. One that always says 50% scores about 0.69.`,
+    "stat-acc": () => `<b>${Math.round(M.acc * N)} of ${N} dots</b> are on the right side of the boundary. Accuracy only counts right or wrong; the loss also counts how confident each answer is.`,
+    wire: (el) => {
+      const s = parseKey(el.dataset.sel), p = paramOf(s), J = sb(s.j + 1);
+      const nm = s.layer === 1 ? `w${J}${sb(s.i + 1)}` : `v${J}`, wire = s.layer === 1 ? `x${sb(s.i + 1)} → h${J}` : `h${J} → output`;
+      const view = S.viewOverride || S.view, g = M.pg[p.idx];
+      const body = view === "fwd"
+        ? `weight = <span class="k">${fmt(p.data, 3)}</span>`
+        : `∂L/∂${nm} for the probe = <span class="k">${fmt(g, 3)}</span>: the probe wants it ${Math.abs(g) < 5e-4 ? "left alone" : g < 0 ? "larger" : "smaller"}`;
+      return `<b>${nm}</b> <span class="k">${wire}</span><br>${body}<span class="hint">Click to inspect</span>`;
+    },
+    node: (el) => {
+      const s = parseKey(el.dataset.sel), f = M.f, pt = data[S.probe];
+      let t;
+      if (s.layer === 0) t = `<b>x${sb(s.i + 1)} = ${fmt(s.i === 0 ? pt.x1 : pt.x2)}</b>: the probe dot's ${s.i === 0 ? "horizontal" : "vertical"} position. Its square is a plain ramp.`;
+      else if (s.layer === 1) t = M.dead[s.j]
+        ? `<b>h${sb(s.j + 1)} is dead</b>: it outputs 0 for every dot, so it no longer learns.`
+        : `<b>h${sb(s.j + 1)} = ${fmt(f.h[s.j])}</b> for the probe dot. Its square shows h${sb(s.j + 1)} at every point of the plane.`;
+      else t = `<b>ŷ = ${Math.round(f.yh * 100)}% blue</b> for the probe dot, which is actually ${pt.y ? "blue" : "orange"}. Its square is the whole prediction in miniature.`;
+      return `${t}<span class="hint">Click to inspect</span>`;
+    },
+  };
+  for (let i = 0; i < 4; i++) TIPS[`phase-${i}`] = () => PHASE_TIPS[i];
+  for (let i = 0; i < 7; i++) TIPS[`film-${i}`] = () => `${FILM_TIPS[i]} <span class="hint">Click to jump here</span>`;
+
+  const tt = document.createElement("div");
+  tt.className = "tt"; tt.id = "tt"; tt.setAttribute("role", "tooltip"); tt.setAttribute("aria-hidden", "true");
+  document.body.appendChild(tt);
+  let tipEl = null, tipPoint = null, tipTimer = 0, tipHide = 0;
+  const tipHtml = (el) => { const f = TIPS[el.dataset.tip]; return f ? f(el) : ""; };
+  function placeTip() {
+    const w = tt.offsetWidth, h = tt.offsetHeight;
+    let x, y;
+    if (tipPoint) { x = tipPoint[0] - w / 2; y = tipPoint[1] - h - 16; if (y < 8) y = tipPoint[1] + 20; }
+    else { const r = tipEl.getBoundingClientRect(); x = r.left + r.width / 2 - w / 2; y = r.top - h - 8; if (y < 8) y = r.bottom + 8; }
+    tt.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, x)) + "px";
+    tt.style.top = Math.max(8, y) + "px";
+  }
+  function showTip(el, point) {
+    clearTimeout(tipTimer); clearTimeout(tipHide);
+    if (tipEl && tipEl !== el) tipEl.removeAttribute("aria-describedby");
+    tipEl = el; tipPoint = point && el.hasAttribute("data-follow") ? point : null;
+    const html = tipHtml(el); if (!html) return;
+    tt.innerHTML = html; tt.classList.add("on"); tt.setAttribute("aria-hidden", "false");
+    el.setAttribute("aria-describedby", "tt");
+    placeTip();
+  }
+  function hideTip() {
+    clearTimeout(tipTimer); clearTimeout(tipHide);
+    if (tipEl) tipEl.removeAttribute("aria-describedby");
+    tipEl = null; tipPoint = null; tt.classList.remove("on"); tt.setAttribute("aria-hidden", "true");
+  }
+  // called every frame the page redraws, so open tips show live values
+  function refreshTip() { if (tipEl && tt.classList.contains("on")) { tt.innerHTML = tipHtml(tipEl); placeTip(); } }
+
+  document.addEventListener("pointerover", (e) => {
+    if (e.pointerType !== "mouse") return;
+    const el = e.target.closest("[data-tip]");
+    if (!el) return;
+    if (el === tipEl && tt.classList.contains("on")) return;
+    clearTimeout(tipTimer);
+    const point = [e.clientX, e.clientY];
+    tipTimer = setTimeout(() => showTip(el, point), el.hasAttribute("data-fast") ? 120 : 450);
+  });
+  document.addEventListener("pointerout", (e) => {
+    if (e.pointerType !== "mouse") return;
+    const el = e.target.closest("[data-tip]");
+    if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
+    clearTimeout(tipTimer);
+    if (el === tipEl) hideTip();
+  });
+  document.addEventListener("pointermove", (e) => {
+    if (tipEl && tipPoint && e.pointerType === "mouse") { tipPoint = [e.clientX, e.clientY]; placeTip(); }
+  });
+  // on touch there is no hover: describe what was just tapped, briefly
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-tip]");
+    if (!el) return;
+    if (e.pointerType === "touch" || (!e.pointerType && matchMedia("(hover: none)").matches)) {
+      requestAnimationFrame(() => { showTip(el, null); tipHide = setTimeout(hideTip, 2600); });
+    } else if (el === tipEl) requestAnimationFrame(refreshTip);
+  });
+  document.addEventListener("focusin", (e) => {
+    const el = e.target.closest("[data-tip]");
+    if (el && e.target.matches(":focus-visible")) showTip(el, null);
+  });
+  document.addEventListener("focusout", (e) => { if (tipEl && tipEl.contains(e.target) && !tipPoint) hideTip(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideTip(); });
+  window.addEventListener("scroll", () => { if (tipEl) hideTip(); }, { passive: true });
 
   // ---------- main loop ----------
   function frame() {
