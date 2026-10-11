@@ -1048,7 +1048,8 @@ def train_step(net, dots, lr):
 
   // ---------- resize, theme, boot ----------
   const redrawAll = () => { film.render(true); drawRace(); drawSpaceFigure(); drawGalleryFigure(); drawVG(); PG.dirty = true; };
-  let rq = 0; new ResizeObserver(() => { cancelAnimationFrame(rq); rq = requestAnimationFrame(redrawAll); }).observe(document.body);
+  // redraw when the page's width changes (not its height, which changes whenever a readout gets longer)
+  let rq = 0, lastW = 0; new ResizeObserver(() => { const w = document.body.clientWidth; if (w === lastW) return; lastW = w; cancelAnimationFrame(rq); rq = requestAnimationFrame(redrawAll); }).observe(document.body);
   const retheme = () => { readTheme(); redrawAll(); };
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
   new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });

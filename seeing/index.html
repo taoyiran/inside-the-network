@@ -160,7 +160,7 @@ img { max-width: 100%; }
     <p>Even with four times as many parameters (32 hidden neurons, 25,450 in all), the plain network reaches only 91% on centered digits. So what does the convolutional network know? Two tools explain how it works, and three secrets show what it actually learned.</p>
 
     <h2>Tool 1: one small stencil, used everywhere</h2>
-    <p>A plain neuron has one weight for every pixel: 784 of them, each tied to one spot in the picture. A convolution uses a small <b>stencil</b> instead, here 5 × 5 = 25 weights. It slides the stencil over every position of the picture. At each position it multiplies the 25 pixels under the stencil by the 25 weights and adds them up, plus a bias. Those sums form a new picture, called a <b>feature map</b>: large where the pattern in the stencil appears.</p>
+    <p>A plain neuron has one weight for every pixel: 784 of them, each tied to one spot in the picture. A convolution uses a small <b>stencil</b> instead, here 5 × 5 = 25 weights. It slides the stencil over every position of the picture. At each position it multiplies the 25 pixels under the stencil by the 25 weights and adds them up, plus a bias. Those sums form a new picture, called a <b>feature map</b>: large where the pattern in the stencil appears. (Deep-learning libraries call this a convolution; mathematicians would call it a cross-correlation, because the stencil is not flipped.)</p>
 
     <figure class="card" id="stencil" aria-label="A stencil you can edit, sliding over a digit">
       <div class="picker" id="st-pick" role="group" aria-label="Pick a test digit"></div>
@@ -182,7 +182,7 @@ img { max-width: 100%; }
     <p>The same 25 weights are used at all 576 positions, so a stencil that finds a horizontal stroke finds it anywhere in the picture. That is why the convolutional network needs so few weights, and part of why it copes better with a moved digit: the pattern is still found, just in a different place on the map.</p>
 
     <h2>Tool 2: layers of stencils</h2>
-    <p>The network stacks two such layers. Layer 1 has 8 stencils, giving 8 feature maps; the activation ReLU (as in chapter 1) keeps the positive values and sets the rest to 0. Then <b>pooling</b> shrinks each map by keeping only the largest value in each 2 × 2 block, so a stroke that moves by a pixel often lands in the same block. Layer 2 has 16 stencils, and each one looks at all 8 maps at once, so it can respond to combinations of strokes: a corner, a curve, a crossing. After another pooling, an ordinary dense layer weighs the 256 remaining numbers into 10 scores, one per digit.</p>
+    <p>The network stacks two such layers. Layer 1 has 8 stencils, giving 8 feature maps; the activation ReLU (as in chapter 1) keeps the positive values and sets the rest to 0. Then <b>pooling</b> shrinks each map by keeping only the largest value in each 2 × 2 block, so a stroke that moves by a pixel often lands in the same block. Layer 2 has 16 stencils, each 5 × 5 but 8 layers deep, one layer per map (200 weights each), so each one looks at all 8 maps at once and can respond to combinations of strokes: a corner, a curve, a crossing. After another pooling, an ordinary dense layer weighs the 256 remaining numbers into 10 scores, one per digit.</p>
 
     <figure class="card" id="walk" aria-label="A digit passing through every layer of the network">
       <div class="picker" id="wk-pick" role="group" aria-label="Pick a test digit"></div>
@@ -192,32 +192,32 @@ img { max-width: 100%; }
         <div class="stage wide"><p class="sh">→ Pooling</p><canvas id="wk-2" aria-label="The 8 maps after pooling"></canvas><p class="sd">8 maps of 12 × 12</p></div>
         <div class="stage wide"><p class="sh">→ Layer 2 · 16 stencils</p><canvas id="wk-3" aria-label="Layer 2's 16 feature maps"></canvas><p class="sd">16 maps of 8 × 8, after ReLU<br>3,216 parameters</p></div>
         <div class="stage wide"><p class="sh">→ Pooling</p><canvas id="wk-4" aria-label="The 16 maps after pooling"></canvas><p class="sd">16 × 4 × 4 = 256 numbers</p></div>
-        <div class="stage wide"><p class="sh">→ 10 scores</p><div class="bars" id="wk-5"></div><p class="sd">dense layer, then softmax<br>2,570 parameters</p></div>
+        <div class="stage wide"><p class="sh">→ 10 probabilities</p><div class="bars" id="wk-5"></div><p class="sd">dense layer, then softmax<br>2,570 parameters</p></div>
       </div>
       <p class="readout" id="wk-read"></p>
     </figure>
 
     <h2>Secret 1: nobody taught it edges</h2>
-    <p>Nobody chose the stencils. Training started them as tiny random numbers and adjusted them by gradient descent, exactly as in the earlier chapters, to make the right digit's probability higher. Here are layer 1's 8 stencils at several moments of training. The first five columns are a fresh copy of the network training in your browser right now; the last is the finished network used on the rest of this page, trained with the same settings for longer.</p>
+    <p>Nobody chose the stencils. Training started them as tiny random numbers and adjusted them by gradient descent, as in the earlier chapters (with one difference, explained below: each step uses a batch of 20 digits), to make the right digit's probability higher. Here are layer 1's 8 stencils at several moments of training. Each row is one moment. The first five rows are a fresh copy of the network training in your browser right now; the last row is the finished network used on the rest of this page, trained with the same settings for longer.</p>
 
     <figure class="card" id="learn" aria-label="Layer 1's stencils at several moments of training">
       <div class="learn" id="ln-rows"></div>
       <p class="readout" id="ln-read">Loading 7,000 digits…</p>
     </figure>
 
-    <p>Within a few hundred steps the noise turns into smooth patterns: edges between blue and orange at different angles, and broad strokes. These are the same kinds of detectors people used to design by hand for reading images, and large networks trained on photographs find similar ones in their first layer. Each stencil found a pattern that helps tell digits apart, because that is what lowered the loss.</p>
+    <p>Within a few hundred steps the noise turns into smooth patterns: edges between blue and orange at different angles, and broad strokes. One choice makes this visible: layer 1's starting weights are 50 times smaller than usual, so the pattern that training adds is not hidden under the starting noise. With a normal start the network learns just as well, but its stencils keep much of their starting noise. These are the same kinds of detectors people used to design by hand for reading images, and large networks trained on photographs find similar ones in their first layer. Each stencil found a pattern that helps tell digits apart, because that is what lowered the loss.</p>
 
     <h2>Secret 2: what it thinks a 3 looks like</h2>
-    <p>Training changes the weights to fit the pictures. You can also run it the other way: keep the weights fixed and change the <em>pixels</em>, step by step, in the direction that makes the network more sure it sees a 3. The gradient with respect to each pixel comes from the same backward pass, just carried one step further, down to the picture. Start from blank paper and see what the network draws.</p>
+    <p>Training changes the weights to fit the pictures. You can also run it the other way: keep the weights fixed and change the <em>pixels</em>, step by step, in the direction that makes the network more sure it sees a 3. The gradient with respect to each pixel comes from the same backward pass, just carried one step further, down to the picture. Start from blank paper and see what the network draws. (A gentle pull back toward blank paper at every step means only the pixels that matter get ink.)</p>
 
-    <figure class="card" id="dream" aria-label="The picture the network is most sure is a given digit">
+    <figure class="card" id="dream" aria-label="A picture made from blank paper by changing pixels to raise the network's confidence in a digit">
       <div class="ctl-row">
         <div class="seg" role="group" aria-label="Digit" id="dr-digits"></div>
         <button type="button" class="btn primary small" id="dr-go" data-tip="dr-go">Dream</button>
       </div>
       <div class="duo">
         <div><div class="ptitle">The average of 600 real ones</div><canvas class="cv" id="dr-avg" aria-label="The average of the training images of this digit"></canvas><p class="cap2" id="dr-avg-c"></p></div>
-        <div><div class="ptitle">What the network is most sure of</div><canvas class="cv" id="dr-img" aria-label="The picture found by changing pixels to raise the network's confidence"></canvas><p class="cap2" id="dr-img-c"></p></div>
+        <div><div class="ptitle">Pixels changed to raise its confidence</div><canvas class="cv" id="dr-img" aria-label="The picture found by changing pixels to raise the network's confidence"></canvas><p class="cap2" id="dr-img-c"></p></div>
       </div>
       <p class="readout" id="dr-read"></p>
     </figure>
@@ -246,7 +246,7 @@ img { max-width: 100%; }
       <p class="readout" id="fo-read"></p>
     </figure>
 
-    <p>We tried this on 300 test digits the network reads correctly. With ε = 0.1 it was fooled on 43% of them, with ε = 0.15 on 84%, and with ε = 0.2 on 98%, usually with high confidence in the wrong answer. A random change of ±0.2 per pixel fooled it on only 1%. The change that fools it is not noise: it is aimed, pixel by pixel, at the strokes and places the network relies on. Changes like this are called <b>adversarial examples</b>. They have been found in networks of every size trained on pictures, from tiny ones like this to large ones trained on photographs.</p>
+    <p>We tried this on 300 test digits the network reads correctly. With ε = 0.1 it was fooled on 43% of them, with ε = 0.15 on 84%, and with ε = 0.2 on 98%, usually with high confidence in the wrong answer. A random change of ±0.2 per pixel (staying between paper and ink) fooled it on only 1%. The change that fools it is not noise: it is aimed. Every pixel is pushed whichever way hurts the network most, including pixels far from the strokes. Changes like this are called <b>adversarial examples</b>. They have been found in networks of every size trained on pictures, from tiny ones like this to large ones trained on photographs.</p>
 
     <h2>The algorithm, layer by layer</h2>
     <p>The convolutional network is trained like every network in this series: forward pass, loss, backward pass, a small step for every weight. What is new is the shape of the layers, the 10 answers instead of 2, and that each step uses a small batch of digits instead of all of them. Here is the whole program in six parts. The code is the JavaScript this page actually runs, or the same program in Python.</p>
@@ -261,7 +261,7 @@ img { max-width: 100%; }
     <div class="fig">
       <div class="pg-grid">
         <div>
-          <div class="bar-row" style="margin-bottom:8px"><span class="ptitle2" style="font:600 15px var(--font-display)">Draw a digit</span><span class="hint">big and centered works best</span></div>
+          <div class="bar-row" style="margin-bottom:8px"><span class="ptitle2" style="font:600 15px var(--font-display)">Draw a digit</span><span class="hint">scaled and centered like the training digits; move it with the arrows</span></div>
           <canvas id="pl-draw" aria-label="Drawing area: draw a digit with the mouse or a finger"></canvas>
           <div class="row-gap">
             <button type="button" class="btn small" id="pl-clear" data-tip="pl-clear">Clear</button>
@@ -272,7 +272,7 @@ img { max-width: 100%; }
           </div>
           <div class="row-gap" style="align-items:flex-start;margin-top:14px">
             <div><canvas class="small-digit" id="pl-view" aria-label="What the network sees: your drawing at 28 × 28 pixels"></canvas><p class="cap2">what it sees</p></div>
-            <div><canvas class="small-digit" id="pl-sal" aria-label="Where it looks: which pixels would change its answer most" data-tip="pl-sal"></canvas><p class="cap2">where it looks</p></div>
+            <div><canvas class="small-digit" id="pl-sal" aria-label="Where it looks: which pixels would change its confidence most" data-tip="pl-sal"></canvas><p class="cap2">where it looks</p></div>
           </div>
         </div>
         <div>
@@ -305,13 +305,13 @@ img { max-width: 100%; }
     <h2>How to read the figures</h2>
     <dl class="read">
       <dt>Digits</dt>
-      <dd>Each pixel is a number from 0 (paper) to 1 (ink), drawn as a square of that darkness.</dd>
+      <dd>Each pixel is a number from 0 (paper) to 1 (ink), drawn as a square shaded from the paper color to the ink color.</dd>
       <dt>Stencils and maps</dt>
-      <dd>Blue is positive, orange negative, paper-colored zero. Each stencil square is stretched to its own strongest weight, so faint stencils still show their pattern; the numbers above each column say how big the weights really are. Feature maps in one layer share a scale.</dd>
+      <dd>Blue is positive, orange negative, paper-colored zero. Each stencil square is stretched to its own strongest weight, so faint stencils still show their pattern; in Secret 1, the "largest" number beside each row is the largest weight among that row's 8 stencils, so you can see how big the weights really are. Feature maps in one layer share a scale.</dd>
       <dt>Probability bars</dt>
       <dd>The network's 10 probabilities, one per digit, adding up to 100%. The longest bar is its answer.</dd>
       <dt>The change</dt>
-      <dd>In Secret 3, blue pixels were made inkier and orange ones lighter; the strongest color is a change of ε.</dd>
+      <dd>In Secret 3, blue pixels were given more ink and orange ones less; the strongest color is a change of ε.</dd>
       <dt>Where it looks</dt>
       <dd>In the playground: blue where more ink would make the network more sure of its answer, orange where less ink would. Strong colors mark the pixels it is most sensitive to.</dd>
     </dl>
@@ -328,7 +328,7 @@ img { max-width: 100%; }
     </ul>
 
     <h2>What runs where</h2>
-    <p>Everything runs in your browser, with no machine-learning library. The digits are 7,000 images from the MNIST database by Yann LeCun and Corinna Cortes: 600 of each digit for training and 100 of each for testing. They are shared under the <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a> license, and so is this chapter's copy of them. The trained convolutional network and the plain network were trained in advance with exactly the code above: 6 passes over the 6,000 training digits in batches of 20, with learning rate 0.1 and then 0.03 for the last two passes, about 30 seconds on a laptop. Their weights load from a file. Everything else runs live: the training in the film, in Secret 1 and in the playground, the dreams and the attacks. When this page loaded it checked the backward pass the slow way, nudging weights and pixels one at a time and measuring how the loss changed: <span id="gc-check">the check is running…</span> Browsers round a few math functions very slightly differently, so live training can come out a little differently from one browser to another.</p>
+    <p>Everything runs in your browser, with no machine-learning library. The digits are 7,000 images from the <a href="http://yann.lecun.com/exdb/mnist/">MNIST database</a> by Yann LeCun and Corinna Cortes: 600 of each digit for training and 100 of each for testing. They are shared under the <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a> license, and so are this chapter's copy of them, the images made from them, and the weights trained on them. The trained convolutional network and the plain network were trained in advance with exactly the code above: 6 passes over the 6,000 training digits in batches of 20, with learning rate 0.1 and then 0.03 for the last two passes, about 30 seconds on a laptop. Their weights load from a file. Everything else runs live: the training in the film, in Secret 1 and in the playground, the dreams and the attacks. When this page loaded it checked the backward pass the slow way, nudging weights and pixels one at a time and measuring how the loss changed: <span id="gc-check">the check is running…</span> Browsers round a few math functions very slightly differently, so live training can come out a little differently from one browser to another.</p>
 
     <h2>Where this is going</h2>
     <ol class="road">
@@ -343,7 +343,7 @@ img { max-width: 100%; }
       <li><span class="n">8</span><span>A tiny GPT, trained in your browser</span><span></span></li>
     </ol>
     <nav class="chapnav" aria-label="Chapters"><a href="../going-deeper/">← Chapter 4: Going deeper</a><span>Coming next: 5′ Listening, then 6 Words as vectors</span></nav>
-    <p class="foot">Working prototype, October 2026. Every figure on this page is a live computation.<br><a href="https://github.com/taoyiran/inside-the-network">Source on GitHub</a> · code under MIT, text and figures under CC BY 4.0, MNIST digits under CC BY-SA 3.0.</p>
+    <p class="foot">Working prototype, October 2026. Every figure on this page is a live computation.<br><a href="https://github.com/taoyiran/inside-the-network">Source on GitHub</a> · code under MIT, text and figures under CC BY 4.0, <a href="http://yann.lecun.com/exdb/mnist/">MNIST</a> digits and what is made from them under CC BY-SA 3.0.</p>
   </section>
   <a class="jump-pill" id="jump-pill" href="#playground" hidden>Playground ↓</a>
 </div>
@@ -590,6 +590,7 @@ def train_step(net, batch, lr):
   "use strict";
   const $ = (id) => document.getElementById(id);
   const pct = (v) => Math.round(v * 100) + "%";
+  const sure = (p) => (p >= 0.995 ? "over 99%" : pct(p)); // never "100%": the network is never certain
   const reduceMotion = ITN.reduceMotion;
   const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
 
@@ -660,7 +661,7 @@ def train_step(net, batch, lr):
     if (host.childElementCount !== 30) host.innerHTML = p.map((_, j) => `<span>${j}</span><span class="bar"><i></i></span><span></span>`).join("");
     p.forEach((v, j) => {
       const [n, b, t] = [host.children[j * 3], host.children[j * 3 + 1], host.children[j * 3 + 2]];
-      b.firstChild.style.width = (100 * v).toFixed(1) + "%"; t.textContent = v >= 0.995 ? "100%" : v < 0.005 ? "0%" : pct(v);
+      b.firstChild.style.width = (100 * v).toFixed(1) + "%"; t.textContent = v >= 0.995 ? ">99%" : v < 0.005 ? "0%" : pct(v);
       for (const el of [n, b, t]) el.classList.toggle("top", j === top);
     });
   }
@@ -673,6 +674,7 @@ def train_step(net, batch, lr):
     return new Uint8Array(await new Response(stream).arrayBuffer());
   }
   const DATA = { ready: false, train: null, test: [], firstOf: [] };
+  let FAILED = ""; // why the digits could not be loaded, if they could not
   const toImage = (px, k) => { const g = grid(1, 28, 28); for (let p = 0; p < 784; p++) g.d[p] = px[k * 784 + p] / 255; return g; };
   async function loadDigits() {
     const [tr, te] = await Promise.all([gunzip(ITN_DIGITS.train), gunzip(ITN_DIGITS.test)]);
@@ -691,7 +693,8 @@ def train_step(net, batch, lr):
   }
   const CNN_SHAPE = [{ type: "conv", n: 8, k: 5, size: 200 }, { type: "relu" }, { type: "pool" }, { type: "conv", n: 16, k: 5, size: 3200 }, { type: "relu" }, { type: "pool" }, { type: "dense", n: 10, size: 2560 }];
   const MLP_SHAPE = [{ type: "dense", n: 8, size: 6272 }, { type: "relu" }, { type: "dense", n: 10, size: 80 }];
-  const NET = decodeNet(ITN_WEIGHTS.cnn, CNN_SHAPE), PLAIN = decodeNet(ITN_WEIGHTS.mlp, MLP_SHAPE);
+  const HAVE_FILES = typeof ITN_WEIGHTS !== "undefined" && typeof ITN_DIGITS !== "undefined";
+  const NET = HAVE_FILES ? decodeNet(ITN_WEIGHTS.cnn, CNN_SHAPE) : null, PLAIN = HAVE_FILES ? decodeNet(ITN_WEIGHTS.mlp, MLP_SHAPE) : null;
   const probsOf = (net, image) => softmax(forward(net, image).at(-1).d);
   const argmax = (p) => p.indexOf(Math.max(...p));
   const zeroGrads = (net) => net.map((L) => (L.W ? { W: new Float64Array(L.W.length), b: new Float64Array(L.b.length) } : null));
@@ -728,7 +731,6 @@ def train_step(net, batch, lr):
     };
     return T;
   }
-  const accuracyOn = (net, set) => set.filter((e) => argmax(forward(net, e.image).at(-1).d) === e.label).length / set.length;
   const stencilTiles = (net) => Array.from({ length: 8 }, (_, f) => ({ data: net[0].W.subarray(f * 25, f * 25 + 25), n: 5, kind: "div" }));
   const maxAbs = (a) => { let m = 0; for (const v of a) m = Math.max(m, Math.abs(v)); return m; };
 
@@ -781,9 +783,9 @@ def train_step(net, batch, lr):
     JOB.avg3 = averageOf(3);
     const seven = DATA.test[JOB.seven];
     JOB.foolFrames = fool(seven.image, seven.label, 0.15, -1);
-    JOB.ready = true; onReady.forEach((f) => f());
     const T = trainer(1);
-    JOB.snaps.push(copyNet(T.net));
+    JOB.snaps.push(copyNet(T.net)); // before the film can start: its third scene needs at least this
+    JOB.ready = true; onReady.forEach((f) => f());
     while (T.step < 300) { T.next(); JOB.step = T.step; if (JOB.at.includes(T.step)) JOB.snaps.push(copyNet(T.net)); if (T.step % 10 === 0) progress.forEach((f) => f()); yield; }
     JOB.trained = true;
     for (const net of JOB.snaps) { yield* measure(net, (a) => JOB.accs.push(a)); progress.forEach((f) => f()); }
@@ -811,20 +813,21 @@ def train_step(net, batch, lr):
   }
 
   // ---------- the question: two networks and a digit you can move ----------
-  const SH = { k: 0, dx: 0, dy: 0, acc: {}, timer: 0 };
+  const SH = { k: 0, dx: 0, dy: 0, acc: {}, job: null, jobKey: "" };
   const moveText = (dx, dy) => {
     const part = (n, a, b) => (n ? `${Math.abs(n)} pixel${Math.abs(n) > 1 ? "s" : ""} ${n > 0 ? b : a}` : "");
     const s = [part(dx, "left", "right"), part(dy, "up", "down")].filter(Boolean).join(" and ");
-    return s ? "Moved " + s : "Centered";
+    return s ? "Moved " + s : "Centered, as in training";
   };
-  function shiftAccuracy(dx, dy) {
-    const key = dx + "," + dy;
-    if (!SH.acc[key]) {
-      let a = 0, b = 0;
-      for (const e of DATA.test) { const x = shifted(e.image, dx, dy); if (argmax(forward(PLAIN, x).at(-1).d) === e.label) a++; if (argmax(forward(NET, x).at(-1).d) === e.label) b++; }
-      SH.acc[key] = [a / DATA.test.length, b / DATA.test.length];
+  // both networks on all 1,000 test digits moved by (dx, dy), 50 digits per slice of work
+  function* shiftMeasure(dx, dy) {
+    let a = 0, b = 0;
+    for (let k = 0; k < DATA.test.length; k++) {
+      const e = DATA.test[k], x = shifted(e.image, dx, dy);
+      if (argmax(forward(PLAIN, x).at(-1).d) === e.label) a++; if (argmax(forward(NET, x).at(-1).d) === e.label) b++;
+      if (k % 50 === 49) yield;
     }
-    return SH.acc[key];
+    SH.acc[dx + "," + dy] = [a / DATA.test.length, b / DATA.test.length];
   }
   function drawShift() {
     if (!DATA.ready) return;
@@ -833,8 +836,9 @@ def train_step(net, batch, lr):
     bars($("sh-mlp"), pm); bars($("sh-cnn"), pc);
     $("sh-mlp-g").innerHTML = guessText(pm); $("sh-cnn-g").innerHTML = guessText(pc);
     const key = SH.dx + "," + SH.dy, done = SH.acc[key];
-    $("sh-read").innerHTML = `${moveText(SH.dx, SH.dy)}. ` + (done ? `On all 1,000 test digits moved the same way, the plain network reads <b>${pct(done[0])}</b> correctly and the convolutional network <b>${pct(done[1])}</b>.` : "Measuring all 1,000 test digits moved the same way…");
-    if (!done) { clearTimeout(SH.timer); SH.timer = setTimeout(() => { shiftAccuracy(SH.dx, SH.dy); drawShift(); }, 60); }
+    const same = SH.dx || SH.dy ? " moved the same way" : "";
+    $("sh-read").innerHTML = `${moveText(SH.dx, SH.dy)}. ` + (done ? `On all 1,000 test digits${same}, the plain network reads <b>${pct(done[0])}</b> correctly and the convolutional network <b>${pct(done[1])}</b>.` : `Measuring all 1,000 test digits${same}…`);
+    if (!done && SH.jobKey !== key) { SH.jobKey = key; SH.job = shiftMeasure(SH.dx, SH.dy); }
   }
   document.querySelectorAll("#shift [data-mv]").forEach((b) => b.addEventListener("click", () => {
     const [dx, dy] = b.dataset.mv.split(",").map(Number);
@@ -865,7 +869,7 @@ def train_step(net, batch, lr):
       b.textContent = Math.abs(v - Math.round(v)) < 1e-9 ? String(Math.round(v)).replace("-", "−") : ITN.fmt(v, 2).replace(/^(−?)0\./, "$1.");
     });
     document.querySelectorAll("#st-presets button").forEach((b) => b.classList.toggle("on", b.dataset.p === ST.preset));
-    if (!DATA.ready) { $("st-read").textContent = "Loading 7,000 digits…"; return; }
+    if (!DATA.ready) { $("st-read").textContent = FAILED || "Loading 7,000 digits…"; return; }
     const image = DATA.test[ST.k].image, map = stencilMap(image), scale = maxAbs(map) || 1;
     const shown = ST.slide >= 0 ? map.map((v, i) => (i < ST.slide ? v : 0)) : map;
     drawOne($("st-map"), { data: shown, n: 24, kind: "div", scale });
@@ -885,12 +889,12 @@ def train_step(net, batch, lr):
   $("st-presets").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-p]"); if (!b) return;
     ST.preset = b.dataset.p;
-    if (ST.preset === "learned") { ST.W = Float64Array.from(NET[0].W.subarray(FILM_F * 25, FILM_F * 25 + 25)); ST.b = NET[0].b[FILM_F]; }
+    if (ST.preset === "learned") { if (!NET) return; ST.W = Float64Array.from(NET[0].W.subarray(FILM_F * 25, FILM_F * 25 + 25)); ST.b = NET[0].b[FILM_F]; }
     else { ST.W = Float64Array.from(PRESETS[ST.preset]); ST.b = 0; }
     drawStencil();
   });
   function mapCell(e) { const r = $("st-map").getBoundingClientRect(), x = Math.floor(((e.clientX - r.left) / r.width) * 24), y = Math.floor(((e.clientY - r.top) / r.height) * 24); return x >= 0 && x < 24 && y >= 0 && y < 24 ? y * 24 + x : -1; }
-  $("st-map").addEventListener("pointermove", (e) => { const c = mapCell(e); if (c !== ST.hover) { ST.hover = c; if (ST.slide < 0) drawStencil(); } });
+  $("st-map").addEventListener("pointermove", (e) => { const c = mapCell(e); if (c !== ST.hover) { ST.hover = c; if (ST.slide < 0) drawStencil(); ITN.tips.refresh(); } });
   $("st-map").addEventListener("pointerleave", () => { ST.hover = -1; if (ST.slide < 0) drawStencil(); });
   let slideT0 = 0;
   $("st-slide").addEventListener("click", () => { if (!DATA.ready) return; ST.slide = 0; slideT0 = performance.now(); });
@@ -917,7 +921,7 @@ def train_step(net, batch, lr):
       el.firstChild.innerHTML = `${row.head}<small>${row.acc != null ? `test ${pct(row.acc)}` : row.net ? "test …" : "training…"}</small><small>${row.net ? `largest ${ITN.fmt(maxAbs(row.net[0].W), 2)}` : ""}</small>`;
       if (row.net) drawTiles(el.lastChild, stencilTiles(row.net), 8, 6); else el.lastChild.getContext("2d").clearRect(0, 0, el.lastChild.width, el.lastChild.height);
     });
-    $("ln-read").innerHTML = !DATA.ready ? "Loading 7,000 digits…" : !JOB.trained ? `Training a fresh network in your browser: step ${JOB.step} of 300…`
+    $("ln-read").innerHTML = FAILED ? FAILED : !DATA.ready ? "Loading 7,000 digits…" : !JOB.trained ? `Training a fresh network in your browser: step ${JOB.step} of 300…`
       : JOB.accs.length < JOB.snaps.length || JOB.refAcc == null ? "Measuring each moment on the 1,000 test digits…"
       : `At step 0 the largest weight is ${ITN.fmt(maxAbs(JOB.snaps[0][0].W), 3)}: almost blank. After 300 steps of 20 digits each (one pass over the training digits), this fresh network already reads <b>${pct(JOB.accs.at(-1))}</b> of the 1,000 test digits correctly. The finished network, after 1,800 steps, reads <b>${pct(JOB.refAcc)}</b>.`;
   }
@@ -928,12 +932,12 @@ def train_step(net, batch, lr):
     if (!DATA.ready) return;
     const avg = DR.avg[DR.d] || (DR.avg[DR.d] = averageOf(DR.d)), pa = probsOf(NET, Object.assign(grid(1, 28, 28), { d: avg }));
     drawOne($("dr-avg"), { data: avg, n: 28, kind: "ink" });
-    $("dr-avg-c").innerHTML = `The network: <b>${pct(pa[DR.d])}</b> sure this is a ${DR.d}`;
+    $("dr-avg-c").innerHTML = `The network: <b>${sure(pa[DR.d])}</b> sure this is a ${DR.d}`;
     const x = DR.D ? DR.D.x : grid(1, 28, 28), px = probsOf(NET, x);
     drawOne($("dr-img"), { data: x.d, n: 28, kind: "ink" });
-    $("dr-img-c").innerHTML = DR.D ? `Step ${DR.D.step} of 300: <b>${pct(px[DR.d])}</b> sure this is a ${DR.d}` : "Blank paper: press Dream";
+    $("dr-img-c").innerHTML = DR.D ? `Step ${DR.D.step} of 300: <b>${sure(px[DR.d])}</b> sure this is a ${DR.d}` : "Blank paper: press Dream";
     $("dr-read").innerHTML = DR.D && DR.D.step >= 300
-      ? `Starting from blank paper, 300 small changes to the pixels made the network ${pct(px[DR.d])} sure it sees a ${DR.d}. The average real ${DR.d} gets ${pct(pa[DR.d])}.`
+      ? `Starting from blank paper, 300 small changes to the pixels made the network ${sure(px[DR.d])} sure it sees a ${DR.d}. The average real ${DR.d} gets ${sure(pa[DR.d])}.`
       : DR.D ? "Changing the pixels…" : "";
     document.querySelectorAll("#dr-digits button").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.v) === DR.d)));
   }
@@ -957,8 +961,9 @@ def train_step(net, batch, lr):
     const k = argmax(pa), done = !FO.frames || FO.f >= FO.frames.length - 1;
     $("fo-read").innerHTML = FO.mode === "orig" ? "Press <b>Fool it</b> to change the pixels, or try a random change of the same size."
       : !done ? "Changing the pixels…"
-      : FO.mode === "rand" ? `A random change of ±${FO.eps.toFixed(2)} to every pixel: the network says <b>${k}</b>, ${Math.round(100 * pa[k])}% sure.`
-      : `Every pixel moved by at most ε = ${FO.eps.toFixed(2)}, in ten small steps aimed at the network. It now says <b>${k}</b>, ${pa[k] >= 0.995 ? "over 99" : Math.round(100 * pa[k])}% sure${k === e.label ? ": it was not fooled this time; try a larger ε" : FO.target >= 0 && k !== FO.target ? `, though not the ${FO.target} you asked for; try a larger ε` : ""}.`;
+      : FO.mode === "rand" ? `A random change of ±${FO.eps.toFixed(2)} to every pixel: the network says <b>${k}</b>, ${sure(pa[k])} sure.`
+      : FO.target === e.label ? `${e.label} is already its answer, so pulling toward it changes little: it says <b>${k}</b>, ${pa[k] >= 0.995 ? "over 99" : Math.round(100 * pa[k])}% sure. Choose another digit under "Make it say".`
+      : `Every pixel moved by at most ε = ${FO.eps.toFixed(2)}, in ten small steps aimed at the network. It now says <b>${k}</b>, ${pa[k] >= 0.995 ? "over 99" : Math.round(100 * pa[k])}% sure${k === e.label ? `: it was not fooled this time; ${FO.eps >= 0.25 ? "even the largest ε here is not enough for this one" : "try a larger ε"}` : FO.target >= 0 && k !== FO.target ? `, though not the ${FO.target} you asked for; ${FO.eps >= 0.25 ? "even the largest ε here is not enough for this one" : "try a larger ε"}` : ""}.`;
   }
   function startFool(mode) {
     if (!DATA.ready) return;
@@ -979,7 +984,7 @@ def train_step(net, batch, lr):
       words: "To the network a picture is just numbers: 784 of them for a 28 × 28 digit, each from 0 for paper to 1 for ink. After a convolution layer there are several grids, one per stencil, so the code keeps a stack of grids in one long list and computes where each entry lives.",
       math: [`a digit: 28 × 28 numbers from 0 (paper) to 1 (ink)`, `a stack of ${mi("c")} grids, each ${mi("h")} × ${mi("w")}: entry (ch, ${mi("y")}, ${mi("x")}) is number (ch · ${mi("h")} + ${mi("y")}) · ${mi("w")} + ${mi("x")} in the list`] },
     { title: "A convolution: one stencil, every position",
-      words: "Each filter has a 5 × 5 stencil of weights for every grid it reads. At every position, multiply the numbers under the stencil by its weights, add them all up with the filter's bias, and write the sum into the filter's feature map. The same weights are used at every position.",
+      words: "Each filter is a stencil with one 5 × 5 layer of weights for every grid it reads: 1 layer in layer 1, 8 in layer 2. At every position, multiply the numbers under the stencil by its weights, add them all up with the filter's bias, and write the sum into the filter's feature map. The same weights are used at every position.",
       math: [`${mi("z")}${sub(mi("f"))}(${mi("y")}, ${mi("x")}) = ${mi("b")}${sub(mi("f"))} + Σ${sub("ch")} Σ${sub(mi("i"))} Σ${sub(mi("j"))} ${mi("W")}${sub(mi("f"))}(ch, ${mi("i")}, ${mi("j")}) · ${mi("a")}${sub("ch")}(${mi("y")} + ${mi("i")}, ${mi("x")} + ${mi("j")})`, `at every position: (28 − 5 + 1)² = 576 in layer 1, (12 − 5 + 1)² = 64 in layer 2`] },
     { title: "ReLU and pooling",
       words: "ReLU keeps positive values and turns negative ones into 0, as in chapter 1. Max pooling keeps the largest value in each 2 × 2 block, halving each map's width and height. It remembers where each maximum came from, because the backward pass needs it.",
@@ -1023,8 +1028,8 @@ def train_step(net, batch, lr):
         case "pixels": return "<b>A picture is numbers.</b> This 7 is 28 × 28 = 784 pixels, each a number from 0 (paper) to 1 (ink). Those 784 numbers are all the network gets.";
         case "stencil": return "<b>One stencil slides.</b> A convolution layer has a few small stencils of 5 × 5 weights. Each one slides over all 576 positions; at each, it multiplies the 25 pixels under it by its 25 weights and adds them up. Where its pattern appears, here ink above and paper below (the lower edge of a flat stroke), the sum is large and the map is blue.";
         case "learned": return `<b>Nobody designed the stencils.</b> They start as almost-blank random numbers. Here a fresh network trains in your browser: after 300 steps of 20 digits each, its stencils are strokes and edges${JOB.accs.length === JOB.at.length ? `, and it already reads ${pct(JOB.accs.at(-1))} of the test digits` : ""}. The last frame is the finished network.`;
-        case "layers": return `<b>Layer by layer.</b> Layer 1's 8 stencils make 8 maps of where each kind of stroke is (left). Pooling shrinks them; layer 2's 16 stencils combine them into corners, curves and crossings (right). The last layer weighs all of it into 10 scores: "7", ${conf(p7[7])}% sure.`;
-        case "dream": return `<b>What it thinks a 3 looks like.</b> Left: the average of 600 real 3s. Right: start from blank paper and change the pixels, not the weights, to make the network more sure it sees a 3. After 300 steps it is ${pct(pd)} sure, of a few faint strokes.`;
+        case "layers": return `<b>Layer by layer.</b> Layer 1's 8 stencils make 8 maps of where each kind of stroke is (left). Pooling shrinks them; layer 2's 16 stencils combine them into larger pieces of strokes (right). The last layer weighs all of it into 10 scores: "7", ${conf(p7[7])}% sure.`;
+        case "dream": return `<b>What it thinks a 3 looks like.</b> Left: the average of 600 real 3s. Right: start from blank paper and change the pixels, not the weights, to make the network more sure it sees a 3. After 300 steps it is ${sure(pd)} sure, of a few faint strokes.`;
         case "fooled": return `<b>Fooled.</b> Change every pixel of the 7 by at most 0.15, each in the direction that hurts the network most. To us it is still a 7. The network now says ${kf}, ${conf(pf[kf])}% sure.`;
         case "short": return "<b>In short.</b> A convolutional network finds small patterns anywhere in a picture, with stencils it learned by itself, and combines them layer by layer. But what it finds is not quite what we see.";
       }
@@ -1035,13 +1040,13 @@ def train_step(net, batch, lr):
       chips.forEach((c, n) => c.classList.toggle("on", n === i));
       $("f-fill").style.width = (100 * t) / TOTAL + "%";
       if (!JOB.ready) {
-        $("f-ticker").textContent = DATA.ready ? "training a fresh network in your browser…" : "loading 7,000 digits…";
+        $("f-ticker").textContent = FAILED || (DATA.ready ? "preparing the film in your browser…" : "loading 7,000 digits…");
         if (force || drawn !== "wait") { drawn = "wait"; for (const id of ["f-left", "f-right"]) { const [W, H] = sizeCanvas($(id)); const ctx = $(id).getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = rgba(C.sheet); ctx.fillRect(0, 0, W, H); } }
         return;
       }
       const e = seven();
       // the third scene steps through the fresh run's snapshots, then the finished network, as far as they exist yet
-      const snapIdx = Math.min(Math.floor(u * (JOB.at.length + 1)), JOB.at.length, JOB.trained ? JOB.at.length : JOB.snaps.length - 1);
+      const snapIdx = Math.max(0, Math.min(Math.floor(u * (JOB.at.length + 1)), JOB.at.length, JOB.trained ? JOB.at.length : JOB.snaps.length - 1));
       const sub = k === "stencil" ? Math.min(576, Math.floor((u / 0.85) * 576)) : k === "learned" ? snapIdx : k === "dream" ? Math.min(JOB.dream.length - 1, Math.floor((u / 0.85) * (JOB.dream.length - 1))) : k === "fooled" ? Math.min(JOB.foolFrames.length - 1, Math.floor(Math.max(0, (u - 0.15) / 0.65) * (JOB.foolFrames.length - 1))) : 0;
       const key = k === "learned" ? `${k}|${sub}|${JOB.snaps.length}|${JOB.accs.length}|${JOB.refAcc != null}|${Math.floor(JOB.step / 10)}` : `${k}|${sub}`;
       if (!force && key === drawn) return;
@@ -1079,9 +1084,9 @@ def train_step(net, batch, lr):
         lt = "Layer 1: 8 maps"; rt = "Layer 2: 16 maps"; ticker = `answer: ${argmax(p)}, ${conf(Math.max(...p))}% sure`;
       } else if (k === "dream") {
         const fr = JOB.dream[sub], p = probsOf(NET, Object.assign(grid(1, 28, 28), { d: fr }))[3];
-        const L = drawOne($("f-left"), { data: JOB.avg3, n: 28, kind: "ink" }); label(L.ctx, `3 · ${pct(probsOf(NET, Object.assign(grid(1, 28, 28), { d: JOB.avg3 }))[3])}`, 8, 8);
-        const R = drawOne($("f-right"), { data: fr, n: 28, kind: "ink" }); label(R.ctx, `3 · ${pct(p)}`, 8, 8);
-        lt = "The average of 600 real 3s"; rt = "Pixels changed to look like a 3"; ticker = `step ${sub * 10} of 300 · the network is ${pct(p)} sure it is a 3`;
+        const L = drawOne($("f-left"), { data: JOB.avg3, n: 28, kind: "ink" }); label(L.ctx, `3 · ${sure(probsOf(NET, Object.assign(grid(1, 28, 28), { d: JOB.avg3 }))[3])}`, 8, 8);
+        const R = drawOne($("f-right"), { data: fr, n: 28, kind: "ink" }); label(R.ctx, `3 · ${sure(p)}`, 8, 8);
+        lt = "The average of 600 real 3s"; rt = "Pixels changed to look like a 3"; ticker = `step ${sub * 10} of 300 · the network is ${sure(p)} sure it is a 3`;
       } else if (k === "fooled") {
         const p0 = probsOf(NET, e.image), fr = JOB.foolFrames[sub], p = probsOf(NET, Object.assign(grid(1, 28, 28), { d: fr })), kk = argmax(p);
         const L = drawOne($("f-left"), { data: e.image.d, n: 28, kind: "ink" }); label(L.ctx, `${argmax(p0)} · ${conf(Math.max(...p0))}%`, 8, 8);
@@ -1170,26 +1175,29 @@ def train_step(net, batch, lr):
       drawTiles($("pl-l1"), Array.from({ length: 8 }, (_, f) => ({ data: v[2].d.subarray(f * 576, f * 576 + 576), n: 24, kind: "div", scale: m2 })), 8, 4);
       drawTiles($("pl-l2"), Array.from({ length: 16 }, (_, f) => ({ data: v[5].d.subarray(f * 64, f * 64 + 64), n: 8, kind: "div", scale: m5 })), 8, 4);
     }
-    drawTiles($("pl-filters"), stencilTiles(PG.T ? PG.T.net : makeCNN(PG.seed)), 8, 6);
+    if (!PG.T && (!PG.preview || PG.preview.seed !== PG.seed)) PG.preview = { seed: PG.seed, net: makeCNN(PG.seed) };
+    drawTiles($("pl-filters"), stencilTiles(PG.T ? PG.T.net : PG.preview.net), 8, 6);
     const T = PG.T;
-    $("pl-status").textContent = !T || !T.step ? `seed ${PG.seed} · not trained yet` : `pass ${T.pass} · step ${T.step.toLocaleString("en-US")} · ` + (PG.evalAcc === null ? "measuring test accuracy…" : `test accuracy ${pct(PG.evalAcc)} at step ${PG.evalAt.toLocaleString("en-US")}`) + (T.step >= 1800 ? " · as much training as the trained network" : "");
+    $("pl-status").textContent = !T || !T.step ? `seed ${PG.seed} · not trained yet` : `pass ${T.pass} · step ${T.step.toLocaleString("en-US")} · ` + (PG.evalAcc !== null ? `test accuracy ${pct(PG.evalAcc)} at step ${PG.evalAt.toLocaleString("en-US")}` : PG.evalJob ? "measuring test accuracy…" : "test accuracy is measured every 100 steps") + (T.step >= 1800 ? " · as much training as the trained network" : "");
     $("pl-train").textContent = PG.running ? "Pause" : T && T.step ? "Resume" : "Train";
     document.querySelectorAll("#pl-net button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === PG.which)));
     ITN.tips.refresh();
   }
   // drawing
-  let drawing = null;
+  let drawing = null, drawingId = null;
   const toLocal = (e) => { const r = $("pl-draw").getBoundingClientRect(); return [((e.clientX - r.left) / r.width) * 280, ((e.clientY - r.top) / r.height) * 280]; };
   $("pl-draw").addEventListener("pointerdown", (e) => {
     if (PG.source === "test") { PG.source = "draw"; PG.strokes = []; }
-    drawing = [toLocal(e)]; PG.strokes.push(drawing); $("pl-draw").setPointerCapture(e.pointerId); PG.dx = PG.dy = 0; PG.dirty = true; e.preventDefault();
+    if (drawing) return; // one pointer at a time
+    drawing = [toLocal(e)]; drawingId = e.pointerId; PG.strokes.push(drawing); $("pl-draw").setPointerCapture(e.pointerId); PG.dx = PG.dy = 0; PG.canvasDirty = true; e.preventDefault();
   });
-  $("pl-draw").addEventListener("pointermove", (e) => { if (!drawing) return; drawing.push(toLocal(e)); PG.dirty = true; });
-  const endStroke = () => { if (!drawing) return; drawing = null; PG.input = processDrawing(); PG.dirty = true; };
+  $("pl-draw").addEventListener("pointermove", (e) => { if (!drawing || e.pointerId !== drawingId) return; drawing.push(toLocal(e)); PG.canvasDirty = true; });
+  // the networks read the drawing when a stroke ends; while drawing, only the drawing itself is redrawn
+  const endStroke = (e) => { if (!drawing || e.pointerId !== drawingId) return; drawing = null; drawingId = null; PG.input = processDrawing(); PG.dirty = true; };
   $("pl-draw").addEventListener("pointerup", endStroke); $("pl-draw").addEventListener("pointercancel", endStroke);
   $("pl-clear").addEventListener("click", () => { PG.strokes = []; PG.source = "draw"; PG.input = null; PG.dx = PG.dy = 0; PG.dirty = true; });
   let testPick = 0;
-  $("pl-random").addEventListener("click", () => { if (!DATA.ready) return; testPick = (testPick * 7 + 13) % DATA.test.length; PG.testK = testPick; PG.source = "test"; PG.strokes = []; PG.input = DATA.test[testPick].image; PG.dx = PG.dy = 0; PG.dirty = true; });
+  $("pl-random").addEventListener("click", () => { if (!DATA.ready) return; testPick = (testPick + 137) % DATA.test.length; PG.testK = testPick; PG.source = "test"; PG.strokes = []; PG.input = DATA.test[testPick].image; PG.dx = PG.dy = 0; PG.dirty = true; });
   document.querySelectorAll("[data-pmv]").forEach((b) => b.addEventListener("click", () => {
     const [dx, dy] = b.dataset.pmv.split(",").map(Number);
     if (!dx && !dy) { PG.dx = PG.dy = 0; } else { PG.dx = Math.max(-8, Math.min(8, PG.dx + dx)); PG.dy = Math.max(-8, Math.min(8, PG.dy + dy)); }
@@ -1201,21 +1209,25 @@ def train_step(net, batch, lr):
 
   // ---------- one loop for everything that moves ----------
   function frame(now) {
+    try { step(now); } finally { requestAnimationFrame(frame); }
+  }
+  function step(now) {
     // the stencil sliding across the digit
-    if (ST.slide >= 0) { ST.slide = Math.floor(((now - slideT0) / 3500) * 576); if (ST.slide > 576) ST.slide = -1; drawStencil(); }
+    if (ST.slide >= 0) { ST.slide = Math.floor((Math.max(0, now - slideT0) / 3500) * 576); if (ST.slide > 576) ST.slide = -1; drawStencil(); }
     // a dream in progress: 15 steps per frame
     if (DR.running && DR.D) { for (let s = 0; s < 15 && DR.D.step < 300; s++) DR.D.next(); if (DR.D.step >= 300) DR.running = false; drawDream(); }
     // an attack in progress: one of its ten steps every 80 ms
-    if (FO.frames && FO.mode !== "orig" && FO.f < FO.frames.length - 1) { const f = Math.floor((now - FO.t0) / 80); if (f !== FO.f) { FO.f = Math.min(FO.frames.length - 1, f); drawFool(); } }
+    if (FO.frames && FO.mode !== "orig" && FO.f < FO.frames.length - 1) { const f = Math.floor(Math.max(0, now - FO.t0) / 80); if (f !== FO.f) { FO.f = Math.min(FO.frames.length - 1, f); drawFool(); } }
     // your own network training, within about 10 ms per frame; its test accuracy is measured every 100 steps, a little at a time
     if (PG.running && PG.T) {
       const t0 = performance.now();
       do { PG.T.next(); if (PG.T.step % 100 === 0) PG.evalJob = measure(copyNet(PG.T.net), ((at) => (a) => { PG.evalAcc = a; PG.evalAt = at; })(PG.T.step)); } while (performance.now() - t0 < 8);
       if (now - PG.lastUpdate > 120) PG.dirty = true;
     }
+    if (SH.job) { const t0 = performance.now(); while (performance.now() - t0 < 6) if (SH.job.next().done) { SH.job = null; SH.jobKey = ""; drawShift(); break; } }
     if (PG.evalJob) { const t0 = performance.now(); while (performance.now() - t0 < 4) if (PG.evalJob.next().done) { PG.evalJob = null; PG.dirty = true; break; } }
-    if (PG.dirty) { PG.dirty = false; PG.lastUpdate = now; drawPlayground(); }
-    requestAnimationFrame(frame);
+    if (PG.dirty) { PG.dirty = false; PG.canvasDirty = false; PG.lastUpdate = now; drawPlayground(); }
+    else if (PG.canvasDirty) { PG.canvasDirty = false; drawCanvas(); }
   }
 
   // ---------- check the backward pass the slow way ----------
@@ -1235,7 +1247,7 @@ def train_step(net, batch, lr):
   }
 
   // ---------- descriptions on hover, keyboard focus, or after a tap ----------
-  const FILM_TIPS = ["A digit as 784 numbers.", "A stencil sliding over the digit.", "Stencils forming during training.", "The digit passing through both layers.", "The picture the network is most sure is a 3.", "A 7 changed slightly to fool the network.", "The chapter in one sentence."];
+  const FILM_TIPS = ["A digit as 784 numbers.", "A stencil sliding over the digit.", "Stencils forming during training.", "The digit passing through both layers.", "Pixels changed until the network sees a 3.", "A 7 changed slightly to fool the network.", "The chapter in one sentence."];
   for (let i = 0; i < 7; i++) ITN.tips.add({ [`film-${i}`]: () => `${FILM_TIPS[i]} <span class="hint">Click to jump here</span>` });
   ITN.tips.add({
     "lens-math": () => "<b>Math</b>: the same steps written as formulas.",
@@ -1253,8 +1265,8 @@ def train_step(net, batch, lr):
     "dr-go": () => "Start again from blank paper and run 300 steps.",
     "fo-eps": () => `No pixel may change by more than ${FO.eps.toFixed(2)} (1 is the difference between paper and ink).`,
     "fo-target": () => "Push toward any wrong answer, or pull toward one digit you choose.",
-    "fo-go": () => "Ten steps, each moving every pixel by ε/4 in the direction that hurts the network most.",
-    "fo-rand": () => "Change every pixel by +ε or −ε at random, for comparison.",
+    "fo-go": () => "Ten steps, each moving every pixel by ε/4 in the direction that lowers the right answer's probability, or raises the digit you chose.",
+    "fo-rand": () => "Change every pixel by +ε or −ε at random (staying between paper and ink), for comparison.",
     "fo-reset": () => "Go back to the unchanged digit.",
     "pl-clear": () => "Wipe the drawing.",
     "pl-random": () => "Use a digit from the test set instead of a drawing.",
@@ -1267,7 +1279,8 @@ def train_step(net, batch, lr):
 
   // ---------- resize, theme, boot ----------
   function redrawAll() { film.render(true); drawShift(); drawStencil(); drawWalk(); drawLearn(); drawDream(); drawFool(); pickers.forEach((P) => P.paint()); PG.dirty = true; }
-  let rq = 0; new ResizeObserver(() => { cancelAnimationFrame(rq); rq = requestAnimationFrame(redrawAll); }).observe(document.body);
+  // redraw when the page's width changes (not its height, which changes whenever a readout gets longer)
+  let rq = 0, lastW = 0; new ResizeObserver(() => { const w = document.body.clientWidth; if (w === lastW) return; lastW = w; cancelAnimationFrame(rq); rq = requestAnimationFrame(redrawAll); }).observe(document.body);
   const retheme = () => { readTheme(); redrawAll(); };
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
   new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
@@ -1277,8 +1290,9 @@ def train_step(net, batch, lr):
   requestAnimationFrame(frame);
   whenReady(() => { film.render(true); drawLearn(); });
   progress.push(() => { drawLearn(); film.render(); });
-  const fail = (msg) => { for (const id of ["sh-read", "ln-read", "wk-read", "dr-read", "fo-read"]) $(id).textContent = msg; $("f-ticker").textContent = msg; };
-  if (typeof DecompressionStream === "undefined" || typeof ITN_DIGITS === "undefined") fail(typeof ITN_DIGITS === "undefined" ? "The digits file did not load." : "This browser cannot unpack the digits. A recent Chrome, Edge, Firefox or Safari can.");
+  const fail = (msg) => { FAILED = msg; for (const id of ["sh-read", "ln-read", "wk-read", "dr-read", "fo-read", "st-read"]) $(id).textContent = msg; $("f-ticker").textContent = msg; };
+  if (!HAVE_FILES) fail("The digits or the trained weights did not load (digits.js, weights.js).");
+  else if (typeof DecompressionStream === "undefined") fail("This browser cannot unpack the digits. A recent Chrome, Edge, Firefox or Safari can.");
   else loadDigits().then(() => {
     SH.k = ST.k = WK.k = FO.k = DATA.firstOf[7];
     makePicker($("sh-pick"), SH.k, (k) => { SH.k = k; drawShift(); });
@@ -1290,8 +1304,9 @@ def train_step(net, batch, lr):
     drawShift(); drawStencil(); drawWalk(); drawLearn(); drawFool(); PG.dirty = true;
     gradientCheck();
     runLoad(loadWork());
-    whenReady(() => { DR.D = dreamer(3); while (DR.D.step < 300) DR.D.next(); drawDream(); });
-  }).catch((err) => fail("The digits could not be unpacked: " + err.message));
+    // Secret 2 opens with the film's finished dream of a 3, unless a dream was already started
+    whenReady(() => { if (!DR.D && DR.d === 3) { DR.D = { x: Object.assign(grid(1, 28, 28), { d: Float64Array.from(JOB.dream.at(-1)) }), step: 300, next() {} }; drawDream(); } });
+  }, (err) => fail("The digits could not be unpacked: " + err.message));
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
 })();
 </script>

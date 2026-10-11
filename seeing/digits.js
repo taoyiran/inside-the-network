@@ -1,4 +1,4 @@
-// 7,000 handwritten digits from the MNIST database by Yann LeCun and Corinna Cortes, made available under
+// 7,000 handwritten digits from the MNIST database by Yann LeCun and Corinna Cortes (http://yann.lecun.com/exdb/mnist/), made available under
 // the Creative Commons Attribution-Share Alike 3.0 license (https://creativecommons.org/licenses/by-sa/3.0/);
 // this file, a subset of it, is shared under the same license. The first 600 of each digit from MNIST's
 // training set (6,000) and the first 100 of each from its test set (1,000).

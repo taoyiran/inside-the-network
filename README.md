@@ -28,9 +28,9 @@ Why a network with two narrow hidden layers learns some shapes far faster than o
 
 ## Chapter 5: Seeing, convolutional networks
 
-A small convolutional network reads handwritten digits, and the chapter opens it up. A stencil you can edit slides over a digit, a layer-by-layer view shows every feature map, and three secrets follow. First, the stencils teach themselves: a fresh network trains in your browser and its first-layer stencils turn from noise into edge detectors. Second, gradient ascent on the pixels shows what the network thinks each digit looks like. Third, a faint, aimed change to the pixels fools it. The playground lets you draw a digit, compare it with a plain network, move it around, see where the network looks, and train your own.
+A small convolutional network reads handwritten digits, and the chapter opens it up. A stencil you can edit slides over a digit, a layer-by-layer view shows every feature map, and three secrets follow. First, the stencils teach themselves: a fresh network trains in your browser and its first-layer stencils, started very small, turn from noise into edge detectors. Second, gradient ascent on the pixels shows what the network thinks each digit looks like. Third, a faint, aimed change to the pixels fools it. The playground lets you draw a digit, compare it with a plain network, move it around, see where the network looks, and train your own.
 
-The digits are a 7,000-image subset of the MNIST database by Yann LeCun and Corinna Cortes, under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/); `seeing/digits.js` is shared under that license. `seeing/weights.js` holds the two networks trained in advance with the chapter's own code.
+The digits are a 7,000-image subset of the [MNIST database](http://yann.lecun.com/exdb/mnist/) by Yann LeCun and Corinna Cortes, under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/); `seeing/digits.js` is shared under that license, and so are `seeing/weights.js` (the two networks trained in advance on those digits with the chapter's own code) and images made from the digits.
 
 ## Run it locally
 
@@ -45,7 +45,7 @@ python3 -m http.server 8000
 
 - `index.html`, `loss-and-gradients/`, `backprop/`, `going-deeper/`, `seeing/`: one folder per chapter, each a self-contained page.
 - `assets/site.css`: the shared design tokens and components.
-- `assets/autograd.js`: the one autograd every chapter runs. Chapter 3 shows it in five parts, split at blank lines, next to a Python translation with the same five parts, so keep exactly five blank-line-separated sections in both.
+- `assets/autograd.js`: the shared autograd. Chapters 1 to 3 run on it, and chapter 4 checks its hand-written backward pass against it. Chapter 3 shows it in five parts, split at blank lines, next to a Python translation with the same five parts, so keep exactly five blank-line-separated sections in both.
 - `assets/common.js`: shared helpers: number formatting, hover descriptions, the Words · Math · Code switch.
 
 ## Roadmap
@@ -64,4 +64,4 @@ python3 -m http.server 8000
 
 - Code: [MIT](LICENSE)
 - Text and figures: [CC BY 4.0](LICENSE-CONTENT.md)
-- MNIST digits in `seeing/digits.js`: [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/), by Yann LeCun and Corinna Cortes
+- MNIST digits in `seeing/digits.js`, the weights in `seeing/weights.js` and images made from the digits: [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/), from the [MNIST database](http://yann.lecun.com/exdb/mnist/) by Yann LeCun and Corinna Cortes
