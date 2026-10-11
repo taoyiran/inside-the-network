@@ -28,7 +28,6 @@ img { max-width: 100%; }
 .film-over { position: absolute; inset: 0; background: var(--sheet); display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 12px 6px; }
 .orow2 { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--rule); font: 16px/1.35 var(--font-display); color: var(--ink); }
 .orow2 span:last-child { font: 14px/1.3 var(--font-body); color: var(--ink-2); text-align: right; }
-.film-ticker { font: 500 13px/1.5 var(--font-mono); color: var(--ink); background: var(--well); border-radius: 8px; padding: 8px 12px; margin-top: 10px; min-height: 1.5em; overflow-x: auto; white-space: pre; font-variant-numeric: tabular-nums; font-variant-ligatures: none; }
 /* penalty widget */
 .pen-top { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .pen-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: center; }
@@ -69,7 +68,6 @@ img { max-width: 100%; }
 .stat .cap { font: 13px/1.3 var(--font-body); color: var(--ink-3); }
 .pl-explain { margin-top: 14px; background: var(--well); border-radius: 10px; padding: 14px 16px; }
 .pl-explain .rep.words p { font-size: 17px; }
-.tt .hint { display: block; margin-top: 4px; font-size: 12px; opacity: 0.72; color: inherit; }
 @media (prefers-reduced-motion: reduce) { .tt { transition: none; } }
 </style>
 </head>
@@ -354,7 +352,6 @@ for step in range(200):
   "use strict";
   const $ = (id) => document.getElementById(id);
   const { fmt } = ITN;
-  const signed = (v, d = 2) => { const s = fmt(v, d); return s[0] === "−" ? s : "+" + s; };
   const pair = (a, d = 2) => `(${fmt(a[0], d)}, ${fmt(a[1], d)})`;
   const reduceMotion = ITN.reduceMotion;
   const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
@@ -401,7 +398,7 @@ for step in range(200):
     }
     return pts;
   })();
-  const sig = (z) => 1 / (1 + Math.exp(-z));
+  const sig = ITN.sig;
   const softplus = (z) => Math.max(z, 0) + Math.log1p(Math.exp(-Math.abs(z)));
   function lossAt(mode, w1, w2) {
     let s = 0;
@@ -897,8 +894,9 @@ for step in range(200):
     $("pen-ce-bar").style.width = (100 * Math.min(1, Math.abs(pushCE))) + "%";
     $("pen-se-bar").style.width = (100 * Math.min(1, Math.abs(pushSE))) + "%";
     const right = (pen.p > 0.5 ? 1 : 0) === pen.y, col = pen.y ? "blue" : "orange";
-    const margin = Math.abs(pen.p - 0.5), state = margin < 0.005 ? "undecided: a 50-50 guess is neither right nor wrong" : right ? (margin > 0.4 ? "confidently right" : "right") : margin > 0.4 ? "<b>confidently wrong</b>" : "wrong";
-    $("pen-read").innerHTML = `The network says <b>${Math.round(pen.p * 100)}% blue</b> for ${pen.y ? "a blue" : "an orange"} dot, so it is ${state}. The bars show how hard each loss pushes the neuron's sum z to fix it.${!right && margin > 0.4 ? ` Squared error pushes far less than cross-entropy (${fmt(Math.abs(pushSE))} against ${fmt(Math.abs(pushCE))}).` : ""}`;
+    const vd = ITN.verdict(pen.p, pen.y);
+    const state = { undecided: "undecided: a 50-50 guess is neither right nor wrong", justRight: "right, but only just", rightish: "right", right: "confidently right", justWrong: "wrong, but only just", wrong: "wrong", wrongConf: "<b>confidently wrong</b>" }[vd];
+    $("pen-read").innerHTML = `The network says <b>${Math.round(pen.p * 100)}% blue</b> for ${pen.y ? "a blue" : "an orange"} dot, so it is ${state}. The bars show how hard each loss pushes the neuron's sum z to fix it.${vd === "wrongConf" ? ` Squared error pushes far less than cross-entropy (${fmt(Math.abs(pushSE))} against ${fmt(Math.abs(pushCE))}).` : ""}`;
   }
   $("pen-p").addEventListener("input", (e) => { pen.p = Number(e.target.value) / 1000; drawPen(); });
   $("pen-y").addEventListener("click", (e) => {
@@ -962,20 +960,22 @@ for step in range(200):
       : `<b>The ball has rolled just past the edge of the map</b>, to ${pair(PL.w)}. The map is only a window; the ground goes on beyond it. Press Run to keep following the slope.`;
     else if (gm < 2e-4) text = "<b>The ground is flat: the ball has reached the bottom.</b> Both slopes are about 0, so the steps have shrunk to nothing. These are the best weights this neuron can have.";
     else if (PL.reversals >= 3) text = `<b>Every step overshoots.</b> With η = ${PL.lr}, the ball jumps past the valley floor each time and lands on the opposite slope. It may bounce like this forever.`;
-        else text = `The dashed arrow is the gradient: the loss rises fastest in that direction. The ball will step the opposite way, η = ${PL.lr} times as far (solid arrow).`;
+    else text = `The dashed arrow is the gradient: the loss rises fastest in that direction. The ball will step the opposite way, η = ${PL.lr} times as far (solid arrow).`;
     const nw = [PL.w[0] + step[0], PL.w[1] + step[1]], c = ITN.code, eta = String(PL.lr);
     const lossName = PL.mode === "mse" ? "the squared-error loss" : "the loss";
+    const eps = 1e-4, e0 = lossAt("acc", ...PL.w), dA = [lossAt("acc", PL.w[0] + eps, PL.w[1]) - e0, lossAt("acc", PL.w[0], PL.w[1] + eps) - e0];
+    const flat = dA[0] === 0 && dA[1] === 0;
     const r = PL.mode === "acc" ? {
-      words: text,
-      math: [`nudging each weight by ε = 0.0001 changes the error rate by ${fmt(st.nudge[0] * 1e-4, 4)} and ${fmt(st.nudge[1] * 1e-4, 4)}, so the gradient is (0, 0)`, `<i>w</i> ← <i>w</i> − ${eta} · (0, 0) = ${pair(PL.w)}: the ball stays where it is`],
-      js: `const [g1, g2] = gradient(w1, w2);   // [0.000, 0.000]: the error rate is flat\n// so w1 and w2 do not change`,
-      py: `g1, g2 = gradient(w1, w2)   # (0.000, 0.000): the error rate is flat\n# so w1 and w2 do not change`,
+      words: flat ? text : "<b>The ball is right at the edge of a terrace.</b> A tiny nudge here makes the error rate jump instead of slide, so there is no slope to follow, only a cliff. Training on accuracy cannot use that either.",
+      math: [`nudging each weight by ε = 0.0001 changes the error rate by ${fmt(dA[0], 4)} and ${fmt(dA[1], 4)}`, flat ? `so the gradient is (0, 0), and <i>w</i> ← <i>w</i> − ${eta} · (0, 0) = ${pair(PL.w)}: the ball stays where it is` : "a jump, not a slope: at a terrace edge the gradient is not defined"],
+      js: `const [g1, g2] = gradient(w1, w2);   // [${c(st.nudge[0])}, ${c(st.nudge[1])}]${flat ? ": the error rate is flat\n// so w1 and w2 do not change" : ": a jump at a terrace edge, not a slope"}`,
+      py: `g1, g2 = gradient(w1, w2)   # (${c(st.nudge[0])}, ${c(st.nudge[1])})${flat ? ": the error rate is flat\n# so w1 and w2 do not change" : ": a jump at a terrace edge, not a slope"}`,
     } : {
-      words: text,
+      words: `${text} Measured by nudging each weight, the gradient is ${pair(st.nudge, 3)}; autograd gets ${pair(g, 3)}.`,
       math: [`∇<i>L</i> = (∂<i>L</i>/∂<i>w</i>₁, ∂<i>L</i>/∂<i>w</i>₂) = ${pair(g, 3)}&emsp;(by nudging each weight: ${pair(st.nudge, 3)})`,
         `<i>w</i> ← <i>w</i> − η∇<i>L</i> = ${pair(PL.w)} − ${eta} × ${pair(g, 3)} = ${pair(nw)}`],
-      js: `const [g1, g2] = gradient(w1, w2);   // [${c(g[0])}, ${c(g[1])}], the gradient of ${lossName}\nw1 -= ${eta} * g1;   // w1 is now ${c(nw[0])}\nw2 -= ${eta} * g2;   // w2 is now ${c(nw[1])}`,
-      py: `g1, g2 = gradient(w1, w2)   # (${c(g[0])}, ${c(g[1])}), the gradient of ${lossName}\nw1 -= ${eta} * g1   # w1 is now ${c(nw[0])}\nw2 -= ${eta} * g2   # w2 is now ${c(nw[1])}`,
+      js: `const [g1, g2] = gradient(w1, w2);   // [${c(g[0])}, ${c(g[1])}], the gradient of ${lossName}\n// (nudging each weight gives [${c(st.nudge[0])}, ${c(st.nudge[1])}])\nw1 -= ${eta} * g1;   // w1 is now ${c(nw[0])}\nw2 -= ${eta} * g2;   // w2 is now ${c(nw[1])}`,
+      py: `g1, g2 = gradient(w1, w2)   # (${c(g[0])}, ${c(g[1])}), the gradient of ${lossName}\n# (nudging each weight gives (${c(st.nudge[0])}, ${c(st.nudge[1])}))\nw1 -= ${eta} * g1   # w1 is now ${c(nw[0])}\nw2 -= ${eta} * g2   # w2 is now ${c(nw[1])}`,
     };
     $("pl-explain").innerHTML = ITN.view.reps(r);
     $("pl-run").textContent = PL.running ? "Pause" : "Run";
@@ -1006,7 +1006,7 @@ for step in range(200):
   $("pl-run").addEventListener("click", () => plRun(!PL.running));
   $("pl-step").addEventListener("click", () => { plRun(false); plStep(); plRender(); });
   $("pl-reset").addEventListener("click", () => { plRun(false); PL.w = START.slice(); PL.trail = []; PL.steps = 0; resetMotion(); plRender(); });
-  $("pl-lr").addEventListener("change", (e) => { PL.lr = Number(e.target.value); plRender(); });
+  $("pl-lr").addEventListener("change", (e) => { PL.lr = Number(e.target.value); resetMotion(); plRender(); });
   $("pl-field").addEventListener("change", (e) => { PL.field = e.target.checked; plRender(); });
   $("pl-mode").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-v]"); if (!b) return;

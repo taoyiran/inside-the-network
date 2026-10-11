@@ -160,8 +160,7 @@ details.math .eqs { margin-top: 10px; }
 .insp { padding-top: 18px; border-top: 1px solid var(--rule); }
 .insp-grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 14px 36px; }
 @media (max-width: 899px) { .insp-grid { grid-template-columns: minmax(0, 1fr); } }
-.iplain { font: 17px/1.5 var(--font-body); color: var(--ink); margin: 14px 0 0; }
-.insp-detail .ilead:first-child, .insp-detail .eqn:first-child { margin-top: 2px; }
+.insp-detail .rep.math .eqn, .insp-detail .rep.math .ilead:first-of-type { margin-top: 2px; }
 /* shortcuts */
 html { scroll-behavior: smooth; }
 a.btn { text-decoration: none; }
@@ -480,12 +479,8 @@ a.btn { text-decoration: none; }
 (function () {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  const SUBS = "₀₁₂₃₄₅₆₇₈₉";
-  const { sb, fmt, par } = ITN;
-  // σ for plain numbers (the autograd's sig() takes a Value)
-  const sig = (z) => (z >= 0 ? 1 / (1 + Math.exp(-z)) : Math.exp(z) / (1 + Math.exp(z)));
-  const cn = (name) => name.replace(/[₀-₉]/g, (d) => String(SUBS.indexOf(d))).replace("ŷ", "yhat");
-  const signed = (v, d = 3) => { const s = fmt(v, d); return s[0] === "−" ? s : "+" + s; };
+  // sig() is σ for plain numbers; the autograd's sigmoid() takes a Value
+  const { sb, fmt, par, sig, cn, signed } = ITN;
   const reduceMotion = ITN.reduceMotion;
   const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
   const UI = '"Bricolage Grotesque", system-ui, -apple-system, sans-serif';
@@ -1085,23 +1080,23 @@ a.btn { text-decoration: none; }
       body += `<p class="check">${same ? "✓" : "≠"} Autograd, walking the tape backward, got <b>${fmt(ag, 4)}</b> for the same dot.</p>`;
       foot = `Training averages this over all ${N} dots: ∂L/∂${nm} = <b>${fmt(M.g[p.idx], 4)}</b>. The next step moves ${nm} by −η·∂L/∂${nm} = <b>${signed(-S.lr * M.g[p.idx], 4)}</b>.`;
       plain = `${s.layer === 1 ? `This weight scales x${sb(s.i + 1)} on its way into hidden neuron h${J}.` : `This weight scales h${J}'s answer on its way into the output.`} ${nudge(nm, M.pg[p.idx], M.g[p.idx])}`;
-      note = `Its gradient for the probe dot is a product of slopes along the path from the loss back to this wire.`;
+      note = `Its gradient for the probe dot is a product of slopes along the path from the loss back to this wire. Worked out by hand it is ${fmt(prod, 4)}, and autograd gets ${fmt(ag, 4)}: ${Math.abs(ag - prod) <= 1e-9 * (1 + Math.abs(prod)) ? "the same number" : "a different number"}.`;
       const jn = j + 1, nmc = cn(nm);
       if (s.layer === 1) {
         const inn = s.i + 1;
-        js = `// how the probe dot's loss responds to ${nmc}, by the chain rule\nconst g = (yhat - y) * v${jn} * ${S.act === "tanh" ? `(1 - h${jn} ** 2)` : `(z${jn} > 0 ? 1 : 0)`} * x${inn};   // ${c(prod, 4)}\n// backward() on the probe dot agrees: ${nmc}.grad = ${c(ag, 4)}`;
-        py = `# how the probe dot's loss responds to ${nmc}, by the chain rule\ng = (yhat - y) * v${jn} * ${S.act === "tanh" ? `(1 - h${jn} ** 2)` : `(1 if z${jn} > 0 else 0)`} * x${inn}   # ${c(prod, 4)}\n# backward() on the probe dot agrees: ${nmc}.grad = ${c(ag, 4)}`;
+        js = () => `// how the probe dot's loss responds to ${nmc}, by the chain rule\nconst g = (yhat - y) * v${jn} * ${S.act === "tanh" ? `(1 - h${jn} ** 2)` : `(z${jn} > 0 ? 1 : 0)`} * x${inn};   // ${c(prod, 4)}\n// backward() on the probe dot agrees: ${nmc}.grad = ${c(ag, 4)}`;
+        py = () => `# how the probe dot's loss responds to ${nmc}, by the chain rule\ng = (yhat - y) * v${jn} * ${S.act === "tanh" ? `(1 - h${jn} ** 2)` : `(1 if z${jn} > 0 else 0)`} * x${inn}   # ${c(prod, 4)}\n# backward() on the probe dot agrees: ${nmc}.grad = ${c(ag, 4)}`;
       } else {
-        js = `// how the probe dot's loss responds to ${nmc}, by the chain rule\nconst g = (yhat - y) * h${jn};   // ${c(prod, 4)}\n// backward() on the probe dot agrees: ${nmc}.grad = ${c(ag, 4)}`;
-        py = `# how the probe dot's loss responds to ${nmc}, by the chain rule\ng = (yhat - y) * h${jn}   # ${c(prod, 4)}\n# backward() on the probe dot agrees: ${nmc}.grad = ${c(ag, 4)}`;
+        js = () => `// how the probe dot's loss responds to ${nmc}, by the chain rule\nconst g = (yhat - y) * h${jn};   // ${c(prod, 4)}\n// backward() on the probe dot agrees: ${nmc}.grad = ${c(ag, 4)}`;
+        py = () => `# how the probe dot's loss responds to ${nmc}, by the chain rule\ng = (yhat - y) * h${jn}   # ${c(prod, 4)}\n# backward() on the probe dot agrees: ${nmc}.grad = ${c(ag, 4)}`;
       }
     } else if (s.layer === 0) {
       val = `x${sb(s.i + 1)} = ${fmt(x[s.i], 3)} for the probe`;
       plain = `An input is not learned. It is simply the probe dot's ${s.i === 0 ? "horizontal" : "vertical"} position, ${fmt(x[s.i])}, fed into every hidden neuron.`;
       note = s.i === 0 ? "Its square is a plain ramp: orange at the left edge, blue at the right." : "Its square is a plain ramp: orange at the bottom, blue at the top.";
       body = `<div class="eqn"><div>x${sb(s.i + 1)} = ${fmt(x[s.i], 3)}</div></div>`;
-      js = `const x${s.i + 1} = ${c(x[s.i])};   // the probe dot's ${s.i === 0 ? "horizontal" : "vertical"} position`;
-      py = `x${s.i + 1} = ${c(x[s.i])}   # the probe dot's ${s.i === 0 ? "horizontal" : "vertical"} position`;
+      js = () => `const x${s.i + 1} = ${c(x[s.i])};   // the probe dot's ${s.i === 0 ? "horizontal" : "vertical"} position`;
+      py = () => `x${s.i + 1} = ${c(x[s.i])}   # the probe dot's ${s.i === 0 ? "horizontal" : "vertical"} position`;
     } else if (s.layer === 1) {
       const j = s.j, J = sb(j + 1);
       val = `h${J} = ${fmt(f.h[j], 3)} for the probe`;
@@ -1113,8 +1108,8 @@ a.btn { text-decoration: none; }
         ? `The square shows h${J} at every point of the plane. The neuron splits the plane along one straight line, where z${J} = 0. The output can only combine lines like this one, which is why XOR needs at least two of them.`
         : `The square shows h${J} at every point of the plane. It is zero on one side of the line z${J} = 0 and grows on the other. The output combines these bent planes.`;
       if (M.dead[j]) note = `This neuron is dead: z${J} ≤ 0 for all ${N} dots, so h${J} is always 0 and every gradient through it is 0. Training cannot bring it back. Press Reset for new starting weights.`;
-      js = `const z${j + 1} = w${j + 1}1 * x1 + w${j + 1}2 * x2 + b${j + 1};   // ${c(f.z[j])}\nconst h${j + 1} = ${S.act === "tanh" ? `Math.tanh(z${j + 1})` : `Math.max(0, z${j + 1})`};   // ${c(f.h[j])}`;
-      py = `z${j + 1} = w${j + 1}1 * x1 + w${j + 1}2 * x2 + b${j + 1}   # ${c(f.z[j])}\nh${j + 1} = ${S.act === "tanh" ? `math.tanh(z${j + 1})` : `max(0.0, z${j + 1})`}   # ${c(f.h[j])}`;
+      js = () => `const z${j + 1} = w${j + 1}1 * x1 + w${j + 1}2 * x2 + b${j + 1};   // ${c(f.z[j])}\nconst h${j + 1} = ${S.act === "tanh" ? `Math.tanh(z${j + 1})` : `Math.max(0, z${j + 1})`};   // ${c(f.h[j])}`;
+      py = () => `z${j + 1} = w${j + 1}1 * x1 + w${j + 1}2 * x2 + b${j + 1}   # ${c(f.z[j])}\nh${j + 1} = ${S.act === "tanh" ? `math.tanh(z${j + 1})` : `max(0.0, z${j + 1})`}   # ${c(f.h[j])}`;
       foot = `∂L/∂b${J} for the probe = (ŷ − y)·v${J}·slope = <b>${fmt(M.pg[p.idx], 4)}</b>. Averaged over all dots: <b>${fmt(M.g[p.idx], 4)}</b>.`;
       plain = M.dead[j]
         ? `h${J} has stopped working: it outputs 0 for every dot, so it contributes nothing.`
@@ -1131,25 +1126,18 @@ a.btn { text-decoration: none; }
         `<div>L = ${y ? "−log ŷ" : "−log(1 − ŷ)"} = <b>${fmt(M.pLoss, 3)}</b></div></div>`;
       note = `ŷ is the network's probability that the dot is blue. The probe is ${y ? "blue, so y = 1 and the loss is −log ŷ" : "orange, so y = 0 and the loss is −log(1 − ŷ)"}. The loss grows without limit as the network becomes confidently wrong.`;
       const termsC = P.w2.map((_, j) => `v${j + 1} * h${j + 1}`).join(" + ");
-      js = `const zout = ${termsC} + c;   // ${c(f.zo)}\nconst yhat = 1 / (1 + Math.exp(-zout));   // ${c(f.yh)}\nconst L = ${y ? "-Math.log(yhat)" : "-Math.log(1 - yhat)"};   // ${c(M.pLoss)}: the dot is ${y ? "blue (y = 1)" : "orange (y = 0)"}`;
-      py = `zout = ${termsC} + c   # ${c(f.zo)}\nyhat = 1 / (1 + math.exp(-zout))   # ${c(f.yh)}\nL = ${y ? "-math.log(yhat)" : "-math.log(1 - yhat)"}   # ${c(M.pLoss)}: the dot is ${y ? "blue (y = 1)" : "orange (y = 0)"}`;
+      js = () => `const zout = ${termsC} + c;   // ${c(f.zo)}\nconst yhat = 1 / (1 + Math.exp(-zout));   // ${c(f.yh)}\nconst L = ${y ? "-Math.log(yhat)" : "-Math.log(1 - yhat)"};   // ${c(M.pLoss)}: the dot is ${y ? "blue (y = 1)" : "orange (y = 0)"}`;
+      py = () => `zout = ${termsC} + c   # ${c(f.zo)}\nyhat = 1 / (1 + math.exp(-zout))   # ${c(f.yh)}\nL = ${y ? "-math.log(yhat)" : "-math.log(1 - yhat)"}   # ${c(M.pLoss)}: the dot is ${y ? "blue (y = 1)" : "orange (y = 0)"}`;
       foot = `∂L/∂c for the probe = ŷ − y = <b>${fmt(M.pg[p.idx], 4)}</b>. Averaged over all dots: <b>${fmt(M.g[p.idx], 4)}</b>. Tap any wire to see how its gradient is built.`;
       const pct = Math.round(f.yh * 100), vd = verdict(f.yh, y);
-      const verdictText = { right: "a confident right answer, so the loss is small", rightish: "a right answer, though not a confident one", justRight: "right, but only just, so the loss is still noticeable", justWrong: "wrong, but only just", wrong: "a wrong answer, so the loss is large", undecided: "a 50-50 guess, neither right nor wrong" }[vd];
+      const verdictText = { right: "a confident right answer, so the loss is small", rightish: "a right answer, though not a confident one", justRight: "right, but only just, so the loss is still noticeable", justWrong: "wrong, but only just", wrong: "a wrong answer, so the loss is large", wrongConf: "a confidently wrong answer, so the loss is large", undecided: "a 50-50 guess, neither right nor wrong" }[vd];
       plain = `The network thinks the probe dot is <b>${pct}% likely to be blue</b>. It is actually ${y ? "blue" : "orange"}: ${verdictText} (${fmt(M.pLoss)}).`;
     }
     $("i-val").textContent = val; $("i-foot").innerHTML = foot;
     $("i-body").innerHTML = ITN.view.reps({ words: `${plain}${note ? " " + note : ""}`, mathHtml: body, js, py });
   }
 
-  // one scale of confidence for every sentence about a guess
-  function verdict(yh, y) {
-    const margin = Math.abs(yh - 0.5);
-    if (margin < 0.005) return "undecided";
-    const right = (yh > 0.5 ? 1 : 0) === y;
-    if (margin < 0.15) return right ? "justRight" : "justWrong";
-    return right ? (margin >= 0.35 ? "right" : "rightish") : "wrong";
-  }
+  const verdict = ITN.verdict;
   function updateReadouts() {
     $("r-step").textContent = S.step;
     $("r-loss").textContent = fmt(M.loss, 3);
@@ -1157,7 +1145,7 @@ a.btn { text-decoration: none; }
     $("r-params").textContent = `${4 * S.H + 1} parameters`;
     const pt = data[S.probe], pct = Math.round(M.f.yh * 100);
     $("probe-card").innerHTML = `<span class="ring"></span><b>Probe dot</b> at x₁ = ${fmt(pt.x1)}, x₂ = ${fmt(pt.x2)}. It is actually <b>${pt.y ? "blue" : "orange"}</b>. ` +
-      `The network says <b>${pct}% blue</b>, so right now it is ${{ right: "<b>right</b>", rightish: "<b>right</b>", justRight: "<b>right</b>, but only just", justWrong: "<b>wrong</b>, but only just", wrong: "<b>wrong</b>", undecided: "<b>undecided</b>" }[verdict(M.f.yh, pt.y)]}. Tap another dot to change the probe.`;
+      `The network says <b>${pct}% blue</b>, so right now it is ${{ right: "<b>right</b>", rightish: "<b>right</b>", justRight: "<b>right</b>, but only just", justWrong: "<b>wrong</b>, but only just", wrong: "<b>wrong</b>", wrongConf: "<b>wrong</b>", undecided: "<b>undecided</b>" }[verdict(M.f.yh, pt.y)]}. Tap another dot to change the probe.`;
   }
 
 
@@ -1209,25 +1197,25 @@ a.btn { text-decoration: none; }
       return {
         words,
         math: [`<i>L</i> = ${lossM} = ${fmt(M.pLoss, 3)}&emsp;(the dot is ${pt.y ? "blue, y = 1" : "orange, y = 0"})`, `averaged over all ${N} dots: (1/${N}) Σ <i>L<sub>i</sub></i> = ${fmt(A.before, 3)}`],
-        js: `const y = ${pt.y};   // the probe dot is ${pt.y ? "blue" : "orange"}\nconst loss = -(y * Math.log(yhat) + (1 - y) * Math.log(1 - yhat));   // ${c(M.pLoss)}\n// training uses the average over all ${N} dots: ${c(A.before)}`,
-        py: `y = ${pt.y}   # the probe dot is ${pt.y ? "blue" : "orange"}\nloss = -(y * math.log(yhat) + (1 - y) * math.log(1 - yhat))   # ${c(M.pLoss)}\n# training uses the average over all ${N} dots: ${c(A.before)}`,
+        js: `const y = ${pt.y};   // the probe dot is ${pt.y ? "blue" : "orange"}\nconst loss = -(y * Math.log(yhat) + (1 - y) * Math.log(1 - yhat));   // ${c(M.pLoss)}\n// (the page computes the same number in a form that never takes log(0))\n// training uses the average over all ${N} dots: ${c(A.before)}`,
+        py: `y = ${pt.y}   # the probe dot is ${pt.y ? "blue" : "orange"}\nloss = -(y * math.log(yhat) + (1 - y) * math.log(1 - yhat))   # ${c(M.pLoss)}\n# (the page computes the same number in a form that never takes log(0))\n# training uses the average over all ${N} dots: ${c(A.before)}`,
       };
     }
     if (i === 2) {
       const slopeM = tanhAct ? "(1 − <i>h<sub>j</sub></i>²)" : "(1 if <i>z<sub>j</sub></i> > 0, else 0)";
       return {
         words,
-        math: [`∂<i>L</i>/∂<i>z</i><sub>out</sub> = <i>ŷ</i> − <i>y</i> = ${fmt(f.yh - pt.y, 3)}`, `∂<i>L</i>/∂<i>v<sub>j</sub></i> = (<i>ŷ</i> − <i>y</i>) · <i>h<sub>j</sub></i>`, `∂<i>L</i>/∂<i>w<sub>ji</sub></i> = (<i>ŷ</i> − <i>y</i>) · <i>v<sub>j</sub></i> · ${slopeM} · <i>x<sub>i</sub></i>`, `training averages these over all ${N} dots; for example ∂<i>L</i>/∂<i>w</i>₁₁ = ${fmt(M.g[P.w1[0][0].idx], 4)}`],
-        js: `TAPE = [];\nconst L = meanLoss(dots);   // the forward pass for all ${N} dots, recorded on the tape\nbackward(L);                // fills .grad for all ${4 * H + 1} parameters\n// for example w11.grad = ${c(M.g[P.w1[0][0].idx], 4)}`,
-        py: `TAPE = []\nL = mean_loss(dots)   # the forward pass for all ${N} dots, recorded on the tape\nbackward(L)           # fills .grad for all ${4 * H + 1} parameters\n# for example w11.grad = ${c(M.g[P.w1[0][0].idx], 4)}`,
+        math: [`∂<i>L</i>/∂<i>z</i><sub>out</sub> = <i>ŷ</i> − <i>y</i> = ${fmt(f.yh - pt.y, 3)}`, `∂<i>L</i>/∂<i>v<sub>j</sub></i> = (<i>ŷ</i> − <i>y</i>) · <i>h<sub>j</sub></i>`, `∂<i>L</i>/∂<i>w<sub>ji</sub></i> = (<i>ŷ</i> − <i>y</i>) · <i>v<sub>j</sub></i> · ${slopeM} · <i>x<sub>i</sub></i>`, `training averages these over all ${N} dots; for example ∂<i>L</i>/∂<i>w</i>₁₁ = ${fmt(A.g[P.w1[0][0].idx], 4)}`],
+        js: `TAPE = [];\nconst L = meanLoss(dots);   // the forward pass for all ${N} dots, recorded on the tape\nbackward(L);                // fills .grad for all ${4 * H + 1} parameters\n// for example w11.grad = ${c(A.g[P.w1[0][0].idx], 4)}`,
+        py: `TAPE = []\nL = mean_loss(dots)   # the forward pass for all ${N} dots, recorded on the tape\nbackward(L)           # fills .grad for all ${4 * H + 1} parameters\n# for example w11.grad = ${c(A.g[P.w1[0][0].idx], 4)}`,
       };
     }
-    const g11 = M.g[P.w1[0][0].idx], w11 = A.old[P.w1[0][0].idx];
+    const k11 = P.w1[0][0].idx, g11 = A.g[k11], w11 = A.old[k11], lr = A.lr;
     return {
       words,
-      math: [`<i>w</i> ← <i>w</i> − η · ∂<i>L</i>/∂<i>w</i>&emsp;for all ${4 * H + 1} parameters, with η = ${S.lr}`, `for example <i>w</i>₁₁: ${fmt(w11, 3)} − ${S.lr} × ${par(g11, 4)} = ${fmt(w11 - S.lr * g11, 3)}`],
-      js: `for (const p of params) p.data -= ${S.lr} * p.grad;   // for example w11: ${c(w11)} -> ${c(w11 - S.lr * g11)}`,
-      py: `for p in params:\n    p.data -= ${S.lr} * p.grad   # for example w11: ${c(w11)} -> ${c(w11 - S.lr * g11)}`,
+      math: [`<i>w</i> ← <i>w</i> − η · ∂<i>L</i>/∂<i>w</i>&emsp;for all ${4 * H + 1} parameters, with η = ${lr}`, `for example <i>w</i>₁₁: ${fmt(w11, 3)} − ${lr} × ${par(g11, 4)} = ${fmt(w11 - lr * g11, 3)}`],
+      js: `for (const p of params) p.data -= ${lr} * p.grad;   // for example w11: ${c(w11)} -> ${c(w11 - lr * g11)}`,
+      py: `for p in params:\n    p.data -= ${lr} * p.grad   # for example w11: ${c(w11)} -> ${c(w11 - lr * g11)}`,
     };
   }
   function enterStage(i) {
@@ -1249,7 +1237,7 @@ a.btn { text-decoration: none; }
     setRunning(false);
     const before = evalBatch(), g = PARAMS.map((p) => p.grad);
     const old = PARAMS.map((p) => p.data), nu = old.map((v, k) => v - S.lr * g[k]);
-    S.anim = { stage: 0, t0: 0, old, nu, before };
+    S.anim = { stage: 0, t0: 0, old, nu, before, g, lr: S.lr };
     enterStage(0);
   }
   function hidePulses() { if (NET) NET.edges.forEach((e) => { e.pulse.style.display = "none"; }); }

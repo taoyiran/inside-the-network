@@ -24,12 +24,19 @@ What happens inside the Backward click. A film follows one neuron's gradients ba
 
 ## Run it locally
 
-Open `index.html` in a browser. To serve it locally instead:
+The chapters share files in `assets/`, and some pages read their own code from there to display it, which browsers block for pages opened straight from disk. Serve the folder instead:
 
 ```sh
 python3 -m http.server 8000
 # then visit http://localhost:8000
 ```
+
+## Project layout
+
+- `index.html`, `loss-and-gradients/`, `backprop/`: one folder per chapter, each a self-contained page.
+- `assets/site.css`: the shared design tokens and components.
+- `assets/autograd.js`: the one autograd every chapter runs. Chapter 3 shows it in five parts, split at blank lines, next to a Python translation with the same five parts, so keep exactly five blank-line-separated sections in both.
+- `assets/common.js`: shared helpers: number formatting, hover descriptions, the Words · Math · Code switch.
 
 ## Roadmap
 

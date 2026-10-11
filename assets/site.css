@@ -84,7 +84,6 @@ summary { cursor: pointer; font: 560 15px/1.4 var(--font-display); color: var(--
 .eq-row span { font-size: 16px; color: var(--ink-2); line-height: 1.4; }
 @media (max-width: 600px) { .eq-row { grid-template-columns: minmax(0, 1fr); } .eq-row code { white-space: normal; } }
 
-/* film frame */
 /* film */
 .film { margin: 18px 0 22px; padding: 16px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; }
 .film-stage { position: relative; }
@@ -121,7 +120,6 @@ ol.seq > li::before { content: counter(seq); width: 22px; height: 22px; margin-t
 .rep.code pre { margin: 0; background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; overflow-x: auto; font: 12.5px/1.6 var(--font-mono); color: var(--ink); font-variant-ligatures: none; }
 .explain .rep + .rep { margin-top: 12px; }
 
-/* playground frame */
 /* playground */
 .fig { background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; padding: 18px 20px 20px; box-shadow: 0 1px 2px var(--shadow), 0 10px 30px var(--shadow); }
 @media (max-width: 520px) { .fig { padding: 14px 12px 16px; border-radius: 12px; } }
@@ -155,13 +153,12 @@ ol.road a { color: inherit; }
 pre, code, .mono { font-variant-ligatures: none; }
 
 /* hover and focus descriptions */
-/* hover and focus descriptions */
 .tt { position: fixed; left: 0; top: 0; z-index: 30; max-width: min(300px, calc(100vw - 24px)); background: var(--ink); color: var(--sheet); font: 13px/1.45 var(--font-display); padding: 8px 11px; border-radius: 8px; box-shadow: 0 6px 22px var(--shadow); pointer-events: none; opacity: 0; transform: translateY(3px); transition: opacity 0.12s ease, transform 0.12s ease; }
 .tt.on { opacity: 1; transform: none; }
 .tt b { font-weight: 650; }
 .tt .k { font-family: var(--font-mono); font-size: 12px; }
 .tt .hint { display: block; margin-top: 4px; font-size: 12px; opacity: 0.72; }
-@media (prefers-reduced-motion: reduce) { .tt, .gnode, .gedge { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .tt { transition: none; } }
 
 /* switch boxes */
 [data-reps] > .rep + .rep { margin-top: 12px; }

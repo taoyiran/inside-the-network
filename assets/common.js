@@ -14,13 +14,29 @@
   // a number as it would be typed in code: plain hyphen, never −0
   ITN.code = (v, d = 3) => { const x = Number(v.toFixed(d)); return (Object.is(x, -0) ? 0 : x).toFixed(d); };
   ITN.esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  ITN.signed = (v, d = 3) => { const s = ITN.fmt(v, d); return s[0] === "−" ? s : "+" + s; };
+  // σ for plain numbers (the autograd's sigmoid() takes a Value); this form never overflows
+  ITN.sig = (z) => (z >= 0 ? 1 / (1 + Math.exp(-z)) : Math.exp(z) / (1 + Math.exp(z)));
+  // a name as it can be written in code: w₂₁ → w21, ŷ → yhat
+  ITN.cn = (name) => name.replace(/[₀-₉]/g, (d) => String(SUBS.indexOf(d))).replace("ŷ", "yhat");
+  // one scale of confidence for every sentence about a guess ŷ of a dot labeled y
+  ITN.verdict = function (yh, y) {
+    const margin = Math.abs(yh - 0.5);
+    if (margin < 0.005) return "undecided";
+    const right = (yh > 0.5 ? 1 : 0) === y;
+    if (margin < 0.15) return right ? "justRight" : "justWrong";
+    if (margin < 0.35) return right ? "rightish" : "wrong";
+    return right ? "right" : "wrongConf";
+  };
   ITN.reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  // the text of a script element: its own text if it has any, otherwise the file it loads
+  // the text of a script element: its own text if it has any, otherwise the file it loads.
+  // Browsers refuse to fetch files from a page opened straight from disk; say so instead of waiting forever.
+  ITN.SOURCE_MISSING = "// The code could not be loaded here. Browsers block reading files from a page opened\n// straight from your disk; serve the folder instead (see the README), or read assets/autograd.js.";
   ITN.source = function (id) {
     const el = document.getElementById(id);
-    if (!el) return Promise.resolve("");
+    if (!el) return Promise.resolve(ITN.SOURCE_MISSING);
     if (!el.src) return Promise.resolve(el.textContent.trim());
-    return fetch(el.src).then((r) => (r.ok ? r.text() : "")).then((t) => t.trim()).catch(() => "");
+    return fetch(el.src).then((r) => (r.ok ? r.text() : "")).then((t) => t.trim() || ITN.SOURCE_MISSING).catch(() => ITN.SOURCE_MISSING);
   };
 
   // ---------- descriptions on hover, keyboard focus, or after a tap ----------
@@ -111,9 +127,15 @@
     if (saved && ["words", "math", "code", "all"].includes(saved.mode)) { VIEW.mode = saved.mode; VIEW.lang = saved.lang === "py" ? "py" : "js"; }
   } catch (e) { /* storage unavailable: keep the default */ }
   const viewListeners = [];
-  // r: { words: html, math: [html lines] or mathHtml: html, js: code text, py: code text }
-  function reps(r) {
+  // r: { words: html, math: [html lines] or mathHtml: html, js: code text, py: code text }.
+  // Any field may be a function, built only when that view is showing.
+  function reps(r0) {
     const want = (m) => VIEW.mode === "all" || VIEW.mode === m;
+    const val = (x) => (typeof x === "function" ? x() : x);
+    const r = {
+      words: want("words") ? val(r0.words) : "", math: want("math") ? val(r0.math) : null, mathHtml: want("math") ? val(r0.mathHtml) : "",
+      js: want("code") && VIEW.lang === "js" ? val(r0.js) : "", py: want("code") && VIEW.lang === "py" ? val(r0.py) : "",
+    };
     let h = "";
     if (want("words") && r.words) h += `<div class="rep words"><div class="rep-lab">Words</div><p>${r.words}</p></div>`;
     if (want("math") && (r.math || r.mathHtml)) h += `<div class="rep math"><div class="rep-lab">Math</div>${r.mathHtml || `<div class="mb">${r.math.map((l) => `<span>${l}</span>`).join("")}</div>`}</div>`;
