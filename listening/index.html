@@ -97,6 +97,7 @@ h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6
 .ln { display: inline-block; width: 20px; height: 0; border-top: 2.5px solid var(--ink); }
 .ln.dash { border-top: 2.5px dashed var(--ink-3); }
 .ln.blue { border-top-color: var(--pos); } .ln.orange { border-top-color: var(--neg); }
+.ln.orange.dashed { border-top-style: dashed; opacity: 0.6; } .ln.dot { border-top: 2.5px dotted var(--ink-3); }
 /* separation */
 .sep-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 18px; align-items: start; }
 @media (max-width: 640px) { .sep-grid { grid-template-columns: minmax(0, 1fr); } }
@@ -132,18 +133,18 @@ h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6
 
   <main class="col intro">
     <h2>The problem: getting a computer to hear</h2>
-    <p>Someone says "seven" and you understand it at once, whoever says it. A computer gets only what the microphone measures: 16,000 numbers every second. Turning those numbers into "seven" is <b>speech recognition</b>, one part of audio recognition. Recognizing a few chosen words, the job here, is called <b>keyword spotting</b>.</p>
+    <p>Someone says "seven" and you understand it at once, whoever says it. A computer gets only what the microphone measures: thousands of numbers every second (16,000 in the recordings here). Turning those numbers into "seven" is <b>speech recognition</b>, one part of audio recognition. Recognizing a few chosen words, the job here, is called <b>keyword spotting</b>.</p>
 
     <h3>Why recognize sound?</h3>
     <p>Because people talk, and many sounds matter. Phones and speakers listen for a wake word, such as "Hey Siri", with a small network that runs all the time and wakes the rest of the system only when it hears that word. Speech recognition writes captions for people who cannot hear, lets you control devices with your hands busy, and transcribes meetings. Sound recognition identifies birds from their songs and warns when a machine starts to sound wrong. The recordings in this chapter come from Speech Commands, a collection Google first released in 2017, made to train exactly this kind of small keyword spotter.</p>
 
     <h3>Why is it hard?</h3>
-    <p>A spoken word is never the same twice. Voices are high or low, people speak fast or slowly, with different accents, close to the microphone or far away, in quiet rooms or noisy ones. These are real recordings of single spoken digits from Speech Commands, each by a different person. Each square is a <b>spectrogram</b>, a picture of the sound that the rest of this chapter explains: time runs from left to right, pitch from bottom to top, and darker means louder. Click one of the first three in a row to hear it.</p>
+    <p>A spoken word is never the same twice. Voices are high or low, people speak fast or slowly, with different accents, close to the microphone or far away, in quiet rooms or noisy ones. These are real recordings of single spoken digits from Speech Commands, each by a different person. Each square is a <b>spectrogram</b>, a picture of the sound that the rest of this chapter explains: time runs from left to right, pitch from bottom to top, and the stronger the color, the louder. Click one of the three marked ▶ to hear it.</p>
 
     <figure class="card" id="variety" aria-label="Many speakers saying one digit, and their average">
       <div class="seg" role="group" aria-label="Digit" id="va-digits"></div>
       <div class="va-grid" style="margin-top:12px">
-        <div><div class="ptitle" id="va-many-t">24 of the 800 training recordings</div><canvas class="va-many" id="va-many" aria-label="Spectrograms of 24 speakers saying the chosen digit; click one of the first three in a row to hear it" data-tip="va-many"></canvas></div>
+        <div><div class="ptitle" id="va-many-t">24 of the 800 training recordings</div><canvas class="va-many" id="va-many" aria-label="Spectrograms of 24 speakers saying the chosen digit; click one of the three marked ▶ to hear it" data-tip="va-many"></canvas></div>
         <div><div class="ptitle">Their average</div><canvas class="cv va-avg" id="va-avg" aria-label="The average spectrogram of all 800 training recordings of the chosen digit"></canvas></div>
       </div>
       <p class="readout" id="va-read">Loading 9,000 recordings…</p>
@@ -154,7 +155,7 @@ h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6
     <h3>Why neural networks do so well</h3>
     <ul class="tries">
       <li><b>A spectrogram turns sound into a picture.</b> Once sound is a picture, the tools of chapter 5 apply: this chapter's network is chapter 5's code, unchanged except for the size of its last layer.</li>
-      <li><b>Convolution fits time.</b> A sound pattern means the same thing whenever it happens, so the same stencil can look for it at every moment, and a word that starts a little later is still recognized.</li>
+      <li><b>Convolution looks everywhere.</b> A sound pattern means the same thing whenever it happens, so the same stencil looks for it at every moment, and a word that starts a little later is still recognized. (The stencils slide along pitch too; Secret 3 shows why that helps less.)</li>
       <li><b>They learn from their mistakes.</b> The network is trained to tell the ten words apart, by gradient descent, on 8,000 recordings by 1,296 different people.</li>
     </ul>
 
@@ -164,7 +165,7 @@ h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6
     </figure>
 
     <h2>What this is</h2>
-    <p>This film follows one spoken "seven" from the microphone's numbers to the network's answer, then shows where it listens and the one thing it cannot shrug off.</p>
+    <p>This film follows one spoken "seven" from the microphone's numbers to the network's answer, then shows where it listens and one thing it cannot shrug off.</p>
 
     <figure class="film" id="film" aria-label="Animation: from a sound wave to a spectrogram to the network's answer">
       <div class="film-stage">
@@ -202,7 +203,7 @@ h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6
       <p class="readout" id="qt-read">Loading 9,000 recordings…</p>
     </figure>
 
-    <p>Moved two columns later (62 ms), the convolutional network still recognizes 88% of the test recordings. Moved two bands up, about 20 to 40% higher in pitch, it drops to 73%, and three bands up to 50%. The plain network suffers from both. Before explaining why, here is what a spectrogram is.</p>
+    <p>Moved two columns later (63 ms), the convolutional network still recognizes 89% of the test recordings. Moved two bands up, it drops to 74%, and three bands up to 49%; two bands up makes most pitches 20 to 40% higher, and the lowest ones, where a voice's own pitch lies, far more. The plain network shows the same pattern from a lower start: 61% two columns later, 40% two bands up. Before explaining why, here is what a spectrogram is.</p>
 
     <h2>Tool 1: sound is a wave</h2>
     <p>A microphone measures how the air pressure rises and falls, thousands of times a second; a loudspeaker pushes the air back the same way. A pure tone is a smooth wave that repeats: the faster it repeats, the higher the pitch. Real sounds are many waves added together. A <b>spectrogram</b> asks, moment by moment, which pitches are in the sound and how strong each one is. Pick a sound, listen, and compare its wave with its spectrogram.</p>
@@ -222,7 +223,7 @@ h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6
     <p>The network's spectrogram is made in four steps, repeated for 32 moments of the second. Each moment takes a <b>window</b> of 512 numbers (32 ms) and fades its edges. The <b>Fourier transform</b> finds how strong each of 257 frequencies is in that window. Those are added up into 32 <b>mel bands</b>, narrow at low pitches and wide at high ones, because that is roughly how we hear. Finally each band's strength is put on a <b>logarithmic</b> scale, in decibels, which is also how we hear loudness. Drag the slider to choose the moment.</p>
 
     <figure class="card" id="tool2" aria-label="The four steps from a sound wave to the network's picture">
-      <label class="ptitle" for="t2-frame" style="display:block">Moment <span id="t2-frame-v">10</span> of 32</label>
+      <label class="ptitle" for="t2-frame" style="display:block">Moment <span id="t2-frame-v">11</span> of 32</label>
       <input type="range" id="t2-frame" min="0" max="31" value="10" data-tip="t2-frame">
       <div class="t2" style="margin-top:10px">
         <div><div class="ptitle">1 · The window, faded at its edges</div><canvas id="t2-win" aria-label="The 512 samples of the chosen moment, with the fade"></canvas></div>
@@ -234,7 +235,7 @@ h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6
     </figure>
 
     <h2>Tool 3: the same network as chapter 5</h2>
-    <p>The network is chapter 5's convolutional network, with the same code: 8 stencils of 5 × 5, pooling, 16 stencils, pooling, and a dense layer that weighs everything into 10 probabilities. The only change is the size of the last layer, because a 32 × 32 picture leaves 400 numbers at the end instead of 256. It reads each spectrogram value minus 0.5, so quiet and loud parts push in opposite directions; that helps it train.</p>
+    <p>The network is chapter 5's convolutional network, with the same code: 8 stencils of 5 × 5, pooling, 16 stencils, pooling, and a dense layer that weighs everything into 10 probabilities. The only change is the size of the last layer, because a 32 × 32 picture leaves 400 numbers at the end instead of 256. It reads each spectrogram value minus 0.5, so quiet and loud parts push in opposite directions; that helps it learn a little faster early on.</p>
 
     <figure class="card" id="walk" aria-label="A recording passing through every layer of the network">
       <div class="picker" id="wk-pick" role="group" aria-label="Pick a test recording"></div>
@@ -257,7 +258,7 @@ h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6
       <p class="readout" id="ln-read">Loading 9,000 recordings…</p>
     </figure>
 
-    <p>On a spectrogram a stencil's left-to-right is time and its bottom-to-top is pitch, so its patterns mean something about sound. A stencil that is orange on the left and blue on the right fires where quiet turns into loud: the moment a sound starts. One that is blue above and orange below fires where high bands are loud and low ones quiet, as in the hiss of an "s". Another fires where loud turns into quiet: where a sound ends. As in chapter 5, layer 1's starting weights are 50 times smaller than usual, which keeps these patterns visible; with a normal start the network learns as well, but its stencils keep much of their starting noise.</p>
+    <p>On a spectrogram a stencil's left-to-right is time and its bottom-to-top is pitch, so its patterns mean something about sound. A stencil that is orange on the left and blue on the right fires where quiet turns into loud: the moment a sound starts. One that is blue above and orange below fires where the bands just above are loud and those just below quiet: the lower edge of a band of sound, such as the bottom of a voice. Another fires where loud turns into quiet: where a sound ends. As in chapter 5, layer 1's starting weights are 50 times smaller than usual, which keeps these patterns visible; with a normal start the network learns as well, but its stencils keep much of their starting noise.</p>
 
     <h2>Secret 2: where it listens</h2>
     <p>The backward pass can be carried down to the spectrogram itself, as in chapter 5: for every spot of the picture it says how much a little more sound there would raise or lower the network's confidence in its answer. That shows where it listens.</p>
@@ -272,18 +273,18 @@ h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6
       <p class="readout" id="wh-read"></p>
     </figure>
 
-    <p>It listens to the word and ignores the silence around it, and within the word it attends to particular bands and moments: the vowel's strongest bands, the hiss of an "s" or the burst of a "t".</p>
+    <p>It listens mostly to the word and pays little attention to the silence around it, and within the word it attends to particular bands and moments: the vowel's strongest bands, the hiss of an "s" or the burst of a "t".</p>
 
-    <h2>Secret 3: time is not pitch</h2>
-    <p>Here is the answer to the question. Both networks were measured on all 1,000 test recordings, moved later or earlier by up to 6 columns (186 ms) and up or down by up to 3 bands.</p>
+    <h2>Secret 3: it only shrugs off what it was shown</h2>
+    <p>Here is the answer to the question. The networks were measured on all 1,000 test recordings, moved later or earlier by up to 6 columns (188 ms) and up or down by up to 3 bands.</p>
 
     <figure class="card" id="tp" aria-label="Accuracy when recordings are moved in time or in pitch">
       <canvas id="tp-chart" aria-label="Accuracy of both networks against how far the recordings are moved"></canvas>
-      <div class="legend"><span><i class="ln blue"></i>convolutional, moved in time</span><span><i class="ln orange"></i>convolutional, moved in pitch</span><span><i class="ln dash"></i>plain network (both)</span></div>
+      <div class="legend"><span><i class="ln blue"></i>convolutional, moved in time</span><span><i class="ln orange"></i>convolutional, moved in pitch</span><span><i class="ln orange dashed"></i>the same network trained on pitch-shifted copies, moved in pitch</span><span><i class="ln dash"></i>plain network, in time</span><span><i class="ln dot"></i>plain network, in pitch</span></div>
       <p class="readout" id="tp-read">Measuring…</p>
     </figure>
 
-    <p>In a picture, a stroke looks the same wherever it is. In a spectrogram, a pattern means the same thing at any <em>time</em>: a "seven" said a moment later is still a "seven", and the network has heard words start at many moments. But a pattern does not mean the same thing at any <em>pitch</em>: which bands light up is part of what makes an "ee" different from an "oo", and why a high voice and a low voice saying the same vowel still share their pattern only roughly. So the network learned to ignore when, but not where in pitch. Speech systems handle different voices by training on many speakers, as this one did.</p>
+    <p>Moving a word in time barely matters; moving it in pitch matters a lot. Yet the network is convolutional in both directions: its stencils slide up and down the bands just as they slide along in time. What differs is what training showed it. Its 8,000 recordings start their words at many different moments, so it learned that <em>when</em> a word starts hardly matters. They rarely show a whole word moved two or three bands up, so it never learned to ignore that. The dashed orange line is the same network trained on copies of the recordings moved up and down by up to three bands: it keeps 87% at two bands up and 82% at three, and 89% unmoved. (A network should not ignore pitch entirely: which bands light up is part of what makes an "ee" different from an "oo".) A network learns to shrug off only the differences its training showed it. Speech systems handle different voices by training on many speakers, and on recordings with their pitch changed; you can try it in the playground.</p>
 
     <h2>Secret 4: noise</h2>
     <p>Real rooms are noisy. Add hiss to a recording, at a level measured in decibels below the word, and listen to what the networks still recognize.</p>
@@ -302,7 +303,7 @@ h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6
       <p class="readout" id="no-read"></p>
     </figure>
 
-    <p>On all 1,000 test recordings, with hiss 20 dB below the word the convolutional network still recognizes 87%, at 10 dB below 78%, at 5 dB below 71%, and with the hiss as loud as the word 56%. The plain network falls much faster. Training on recordings with noise added, as real systems do, makes networks far more robust.</p>
+    <p>On all 1,000 test recordings, with hiss 20 dB below the word the convolutional network still recognizes 86%, at 10 dB below 74%, at 5 dB below 64%, and with the hiss as loud as the word 47%. The plain network falls much faster: 44%, 29%, 21% and 16%. (These numbers were measured in advance on the original recordings, which this page does not carry.) As Secret 3 suggests, training on recordings with noise added, as real systems do, makes networks far more robust to it.</p>
 
     <h2>Pulling sounds apart</h2>
     <p>The spectrogram is also where sounds can be separated. In a mix, each spot of the spectrogram mostly belongs to one sound or the other. A <b>mask</b> says which spots to keep: multiply the mix's spectrogram by it, turn the result back into a wave, and you hear only what you kept. Here a spoken "seven" is mixed, equally loud, with a hum or with another person saying "three". Paint on the spectrogram to remove or keep parts, then listen.</p>
@@ -325,7 +326,7 @@ h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6
       </div>
     </figure>
 
-    <p>The ideal mask is made with knowledge you never have in practice: the two sounds before they were mixed. That is exactly what a separation network learns to produce. It is trained on mixes made from known sounds, it looks at a mix's spectrogram and predicts the mask, and it gets better by gradient descent on the difference from the ideal one. Networks that pull voices out of songs, or one speaker out of a crowded room, work in this space.</p>
+    <p>The ideal mask is made with knowledge you never have in practice: the two sounds before they were mixed. That is the kind of mask a separation network learns to predict, usually a soft version that keeps part of each spot. It is trained on mixes made from known sounds: it looks at a mix's spectrogram, predicts a mask, and gets better by gradient descent on how far the result is from the known sound. Many networks that pull voices out of songs, or one speaker out of a crowded room, work in this space; others work on the wave itself.</p>
 
     <h2>The algorithm: making the picture</h2>
     <p>The network's code is chapter 5's, unchanged. What is new is the code that turns a recording into its 32 × 32 picture, here in four parts. It is the JavaScript this page actually runs, on the recordings and on your microphone, or the same program in Python.</p>
@@ -364,6 +365,7 @@ h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6
             <div class="box span2 sep">
               <h4>Train your own</h4>
               <div class="row-gap" style="margin-top:0"><button type="button" class="btn primary small" id="pl-train" data-tip="pl-train">Train</button><button type="button" class="btn small" id="pl-reset" data-tip="pl-reset">Reset</button><span class="status" id="pl-status" style="margin:0"></span></div>
+              <label class="hint" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="pl-shift" data-tip="pl-shift"> train on copies moved up and down in pitch (as in Secret 3)</label>
               <p class="cap2" style="margin-top:10px">Its 8 layer-1 stencils</p>
               <canvas class="filt8" id="pl-filters" aria-label="Your network's 8 layer-1 stencils"></canvas>
             </div>
@@ -377,7 +379,7 @@ h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6
     <h2>How to read the figures</h2>
     <dl class="read">
       <dt>Spectrograms</dt>
-      <dd>Time runs from left to right, pitch from bottom (low) to top (high). Darker squares are louder, measured from the loudest point of the recording: the darkest is the loudest, paper color is 80 dB or more below it. The network's pictures have 32 moments of 31 ms and 32 mel bands from 0 to 8,000 Hz.</dd>
+      <dd>Time runs from left to right, pitch from bottom (low) to top (high). Squares shade from the paper color (80 dB or more below the loudest point of the recording) to the ink color (the loudest); Tool 1 and the separation figure use a 70 dB range. The network's pictures have 32 moments of 31.25 ms and 32 mel bands from 0 to 8,000 Hz.</dd>
       <dt>Waves</dt>
       <dd>The microphone's numbers over time; up and down are the air pressure rising and falling. In Tool 1 the right part is a 20 ms close-up.</dd>
       <dt>Stencils and maps</dt>
@@ -390,16 +392,16 @@ h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6
 
     <h2>Things to try</h2>
     <ul class="tries">
-      <li>In the question, move a recording 4 columns later, then 2 bands up. Which hurts more?</li>
+      <li>In the question, pick the 8 and move it 4 columns later, then 2 bands up. Which hurts more? The line under the figure answers for all 1,000 recordings.</li>
       <li>In Tool 1, compare the chord with the pure tone, and the siren with the clicks. Which way does each one run in the spectrogram?</li>
       <li>In the separation figure, choose the hum and paint out its horizontal lines at the bottom. Then try the ideal mask, and listen to what it removes.</li>
       <li>Record yourself saying "seven" normally, then in a very high or very low voice. Does the network still understand you?</li>
       <li>Record a digit in a quiet room and then with music playing in the background.</li>
-      <li>Train your own network and watch its stencils form.</li>
+      <li>Train your own network and watch its stencils form. Then tick "train on copies moved up and down in pitch", train again, and record yourself in a very high or very low voice.</li>
     </ul>
 
     <h2>What runs where</h2>
-    <p>Everything runs in your browser, with no machine-learning library. The recordings are 9,000 one-second clips of spoken digits from the <a href="https://www.tensorflow.org/datasets/catalog/speech_commands">Speech Commands dataset</a> by Pete Warden at Google, shared under the <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> license: 800 of each digit for training and 100 of each for testing, each digit's recordings by different people (1,296 speakers in training and 168 in testing), with no test speaker among the training speakers. The page carries their spectrograms, made with the code above, and 51 of the recordings themselves for listening. The trained convolutional and plain networks were trained in advance with exactly this page's code: 10 passes over the 8,000 training recordings in batches of 20, with learning rate 0.1 and then 0.03 for the last two passes, about a minute on a laptop. Their weights load from a file. Everything else runs live: the training in Secret 1 and in the playground, the measurements, the separation, and your microphone. When this page loaded it checked the backward pass the slow way: <span id="gc-check">the check is running…</span> Browsers round a few math functions very slightly differently, so live training can come out a little differently from one browser to another.</p>
+    <p>Everything runs in your browser, with no machine-learning library. The recordings are 9,000 one-second clips of spoken digits from the <a href="https://www.tensorflow.org/datasets/catalog/speech_commands">Speech Commands dataset</a> by Pete Warden at Google, shared under the <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> license: 800 of each digit for training and 100 of each for testing, each digit's recordings by different people (1,296 speakers in training and 168 in testing), with no test speaker among the training speakers. The page carries their spectrograms, made with the code above, and 51 of the recordings themselves: the 21 test recordings that the figures and the playground listen to, as exact 16-bit samples, and 30 training recordings that are only played, in 8-bit μ-law to save space. The trained convolutional and plain networks, and the one trained on pitch-shifted copies, were trained in advance with exactly this page's code: 10 passes over the 8,000 training recordings in batches of 20, with learning rate 0.1 and then 0.03 for the last two passes, about a minute on a laptop. Their weights load from a file. Everything else runs live: the training in Secret 1 and in the playground, the accuracy measurements, the separation, and your microphone; only the noise numbers in Secret 4 were measured in advance. When this page loaded it checked the backward pass the slow way: <span id="gc-check">the check is running…</span> Browsers round a few math functions very slightly differently, so live training can come out a little differently from one browser to another.</p>
 
     <h2>Where this is going</h2>
     <ol class="road">
@@ -534,7 +536,8 @@ function trainStep(net, batch, lr) {
 // Sound, as a computer gets it: a list of numbers between −1 and 1, here 16,000 of them per second.
 // A spectrogram turns that list into a picture: time runs from left to right, pitch from bottom to top.
 const RATE = 16000, WIN = 512, HOP = 500, FRAMES = 32, BANDS = 32;
-// QUIET: the quietest level that still counts as sound, in decibels. Every real clip here is louder; a quiet room is not.
+// QUIET: a recording whose loudest point is quieter than this (in decibels) is measured from QUIET instead, so near-silence
+// is not stretched to fill the whole range. Every recording here is louder.
 const QUIET = -20;
 
 // The Fourier transform of one short window says how strongly each frequency (pitch) is present in it.
@@ -557,7 +560,7 @@ function fft(re, im) {
   }
 }
 
-// Each window fades in and out (a Hann window), so its sudden edges do not add frequencies that are not there.
+// Each window fades in and out (a Hann window), so its sudden edges add far fewer frequencies that are not there.
 // We hear pitch roughly on a log scale, so the 32 bands are narrow at low frequencies and wide at high ones
 // (the mel scale). Each band adds up the power of the frequencies under a triangle.
 const HANN = Float64Array.from({ length: WIN }, (_, n) => 0.5 - 0.5 * Math.cos((2 * Math.PI * n) / WIN));
@@ -570,7 +573,7 @@ const MEL = Array.from({ length: BANDS }, (_, b) => {
 // The spectrogram of one second: for each of 32 moments, window the sound, find the power of every frequency,
 // add it up in the 32 bands, and take the logarithm in decibels (we hear loudness on a log scale too).
 // Each value is then measured from the loudest point of the clip, so a quiet and a loud "seven" look alike:
-// 0 dB below the loudest point becomes 1, 80 dB or more below becomes 0, in 16 steps. The top row is the highest band.
+// 0 dB below the loudest point becomes 1, 80 dB or more below becomes 0, in 16 levels. The top row is the highest band.
 function spectrogram(samples) {
   const out = grid(1, BANDS, FRAMES), re = new Float64Array(WIN), im = new Float64Array(WIN), db = new Float64Array(BANDS * FRAMES);
   for (let t = 0; t < FRAMES; t++) {
@@ -592,7 +595,8 @@ function spectrogram(samples) {
 # A spectrogram turns that list into a picture: time runs from left to right, pitch from bottom to top.
 import math
 RATE, WIN, HOP, FRAMES, BANDS = 16000, 512, 500, 32, 32
-# QUIET: the quietest level that still counts as sound, in decibels. Every real clip here is louder; a quiet room is not.
+# QUIET: a recording whose loudest point is quieter than this (in decibels) is measured from QUIET instead, so near-silence
+# is not stretched to fill the whole range. Every recording here is louder.
 QUIET = -20
 
 # The Fourier transform of one short window says how strongly each frequency (pitch) is present in it.
@@ -620,7 +624,7 @@ def fft(re, im):
                 re[a], im[a] = re[a] + tr, im[a] + ti
         size *= 2
 
-# Each window fades in and out (a Hann window), so its sudden edges do not add frequencies that are not there.
+# Each window fades in and out (a Hann window), so its sudden edges add far fewer frequencies that are not there.
 # We hear pitch roughly on a log scale, so the 32 bands are narrow at low frequencies and wide at high ones
 # (the mel scale). Each band adds up the power of the frequencies under a triangle.
 HANN = [0.5 - 0.5 * math.cos(2 * math.pi * n / WIN) for n in range(WIN)]
@@ -636,7 +640,7 @@ MEL = [triangle(b) for b in range(BANDS)]
 # The spectrogram of one second: for each of 32 moments, window the sound, find the power of every frequency,
 # add it up in the 32 bands, and take the logarithm in decibels (we hear loudness on a log scale too).
 # Each value is then measured from the loudest point of the clip, so a quiet and a loud "seven" look alike:
-# 0 dB below the loudest point becomes 1, 80 dB or more below becomes 0, in 16 steps. The top row is the highest band.
+# 0 dB below the loudest point becomes 1, 80 dB or more below becomes 0, in 16 levels. The top row is the highest band.
 def spectrogram(samples):
     db = [0.0] * (BANDS * FRAMES)
     for t in range(FRAMES):
@@ -730,11 +734,10 @@ def spectrogram(samples):
       for (const el of [n, b, t]) el.classList.toggle("top", j === top);
     });
   }
-  const guessText = (p) => { const k = p.indexOf(Math.max(...p)); return `${k} <small>· ${p[k] >= 0.995 ? "over 99" : Math.round(100 * p[k])}% sure</small>`; };
 
 
   // ---------- the recordings and the trained networks ----------
-  const bytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const bytes = (b64) => { const s = atob(b64), a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a; };
   async function gunzip(b64) {
     const stream = new Blob([bytes(b64)]).stream().pipeThrough(new DecompressionStream("gzip"));
     return new Uint8Array(await new Response(stream).arrayBuffer());
@@ -754,7 +757,13 @@ def spectrogram(samples):
   async function loadData() {
     const [tr, te, cl] = await Promise.all([gunzip(ITN_SOUNDS.train), gunzip(ITN_SOUNDS.test), gunzip(ITN_SOUNDS.clips)]);
     DATA.train = unpack(tr); DATA.test = unpack(te);
-    ITN_SOUNDS.clipIndex.forEach(([set, k, label], i) => DATA.clips.push({ set, k, label, audio: Float64Array.from(cl.subarray(i * RATE, (i + 1) * RATE), (b) => MU[b]) }));
+    let off = 0;
+    for (const [set, k, label] of ITN_SOUNDS.clipIndex) {
+      let audio;
+      if (set === "test") { const dv = new DataView(cl.buffer, cl.byteOffset + off, 2 * RATE); audio = Float64Array.from({ length: RATE }, (_, i) => dv.getInt16(2 * i, true) / 32768); off += 2 * RATE; }
+      else { audio = Float64Array.from(cl.subarray(off, off + RATE), (b) => MU[b]); off += RATE; }
+      DATA.clips.push({ set, k, label, audio });
+    }
     for (let d = 0; d < 10; d++) DATA.firstOf[d] = Array.prototype.findIndex.call(DATA.test.labels, (y) => y === d);
     DATA.ready = true;
   }
@@ -765,13 +774,14 @@ def spectrogram(samples):
     const take = (n) => { const a = new Float64Array(n); for (let i = 0; i < n; i++, o += 8) a[i] = dv.getFloat64(o, true); return a; };
     return shape.map((L) => (L.size ? { type: L.type, n: L.n, k: L.k, W: take(L.size), b: take(L.n) } : { type: L.type }));
   }
-  const NET = HAVE_FILES ? decodeNet(ITN_WEIGHTS.cnn, [{ type: "conv", n: 8, k: 5, size: 200 }, { type: "relu" }, { type: "pool" }, { type: "conv", n: 16, k: 5, size: 3200 }, { type: "relu" }, { type: "pool" }, { type: "dense", n: 10, size: 4000 }]) : null;
+  const CNN_SHAPE = [{ type: "conv", n: 8, k: 5, size: 200 }, { type: "relu" }, { type: "pool" }, { type: "conv", n: 16, k: 5, size: 3200 }, { type: "relu" }, { type: "pool" }, { type: "dense", n: 10, size: 4000 }];
+  const NET = HAVE_FILES ? decodeNet(ITN_WEIGHTS.cnn, CNN_SHAPE) : null, SHIFTED = HAVE_FILES ? decodeNet(ITN_WEIGHTS.shifted, CNN_SHAPE) : null;
   const PLAIN = HAVE_FILES ? decodeNet(ITN_WEIGHTS.plain, [{ type: "dense", n: 8, size: 8192 }, { type: "relu" }, { type: "dense", n: 10, size: 80 }]) : null;
   // ---------- training (the same settings as the trained networks) ----------
   function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function gaussian(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
   // the network reads each spectrogram value minus 0.5: most of a spectrogram is mid-level background,
-  // and centering it helps training a great deal
+  // and centering it helps training a little, mostly early on
   const toInput = (spec) => { const g = grid(1, BANDS, FRAMES); for (let i = 0; i < g.d.length; i++) g.d[i] = spec.d[i] - 0.5; return g; };
   // weights scaled by √(2 / inputs) (√(1 / inputs) for the last layer); layer 1's start 50 times smaller, with biases of 0.1,
   // as in chapter 5, so its stencils begin as almost-blank noise and every one of them starts switched on
@@ -786,20 +796,30 @@ def spectrogram(samples):
     const r = mulberry32(seed);
     return [{ type: "dense", n: 8, W: Float64Array.from({ length: 8192 }, () => gaussian(r) * Math.sqrt(2 / 1024)), b: new Float64Array(8) }, { type: "relu" }, { type: "dense", n: 10, W: Float64Array.from({ length: 80 }, () => gaussian(r) * Math.sqrt(1 / 8)), b: new Float64Array(10) }];
   }
+  // move a spectrogram right by dt columns (later) and up by dp bands (higher); spots that come in from outside
+  // repeat the nearest edge, as if the background went on
+  function moved(spec, dt, dp) {
+    const o = grid(1, BANDS, FRAMES);
+    for (let r = 0; r < BANDS; r++) for (let c = 0; c < FRAMES; c++) o.d[r * FRAMES + c] = spec.d[Math.max(0, Math.min(BANDS - 1, r + dp)) * FRAMES + Math.max(0, Math.min(FRAMES - 1, c - dt))];
+    return o;
+  }
   function shuffled(n, r) { const a = Array.from({ length: n }, (_, i) => i); for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
   // a trainer: passes over the training clips in a fresh random order each time, batches of 20,
-  // learning rate 0.1 for the first 8 passes and 0.03 after
-  function trainer(seed, make = makeCNN) {
-    const T = { net: make(seed), r: mulberry32(6 + seed), step: 0, order: null, pos: 0, pass: 0 };
+  // learning rate 0.1 for the first 8 passes and 0.03 after. With shift above 0, each training picture is first
+  // moved up or down by a random number of bands, up to shift, so the network sees every word at many pitches.
+  function trainer(seed, make = makeCNN, shift = 0) {
+    const T = { net: make(seed), r: mulberry32(6 + seed), rs: mulberry32(99 + seed), step: 0, order: null, pos: 0, pass: 0 };
     T.next = () => {
       if (!T.order || T.pos >= T.order.length) { T.order = shuffled(DATA.train.n, T.r); T.pos = 0; T.pass++; }
-      const batch = T.order.slice(T.pos, T.pos + 20).map((k) => ({ image: toInput(specOf(DATA.train, k)), label: DATA.train.labels[k] }));
+      const batch = T.order.slice(T.pos, T.pos + 20).map((k) => {
+        const s = specOf(DATA.train, k);
+        return { image: toInput(shift ? moved(s, 0, Math.floor(T.rs() * (2 * shift + 1)) - shift) : s), label: DATA.train.labels[k] };
+      });
       T.pos += 20; T.step++;
       return trainStep(T.net, batch, T.pass <= 8 ? 0.1 : 0.03);
     };
     return T;
   }
-
   const probsOf = (net, spec) => softmax(forward(net, toInput(spec)).at(-1).d);
   const argmax = (p) => p.indexOf(Math.max(...p));
   const zeroGrads = (net) => net.map((L) => (L.W ? { W: new Float64Array(L.W.length), b: new Float64Array(L.b.length) } : null));
@@ -808,12 +828,6 @@ def spectrogram(samples):
   const copyNet = (net) => net.map((L) => (L.W ? { ...L, W: Float64Array.from(L.W), b: Float64Array.from(L.b) } : { ...L }));
   const maxAbs = (a) => { let m = 0; for (const v of a) m = Math.max(m, Math.abs(v)); return m; };
   const stencilTiles = (net) => Array.from({ length: 8 }, (_, f) => ({ data: net[0].W.subarray(f * 25, f * 25 + 25), n: 5, kind: "div" }));
-  // move a spectrogram right by dt columns (later) and up by dp bands (higher); new spots are silence (0)
-  function moved(spec, dt, dp) {
-    const o = grid(1, BANDS, FRAMES);
-    for (let r = 0; r < BANDS; r++) for (let c = 0; c < FRAMES; c++) { const sr = r + dp, sc = c - dt; o.d[r * FRAMES + c] = sr >= 0 && sr < BANDS && sc >= 0 && sc < FRAMES ? spec.d[sr * FRAMES + sc] : 0; }
-    return o;
-  }
   const specTile = (spec) => ({ data: spec.d, n: 32, kind: "ink" });
 
   // ---------- sound in, sound out ----------
@@ -823,13 +837,20 @@ def spectrogram(samples):
     if (AC.state === "suspended") AC.resume();
     return AC;
   }
-  // linear interpolation going up; the average over each output step going down (a simple guard against aliasing)
+  // a windowed-sinc resampler: each output sample is a weighted sum of nearby input samples, with the weights of a
+  // low-pass filter that removes pitches above 90% of the lower rate's limit, so nothing above 8 kHz folds back into the bands
   function resample(x, from, to) {
+    if (from === to) return Float64Array.from(x);
     const ratio = from / to, n = Math.floor(x.length / ratio), out = new Float64Array(n);
+    const fc = (0.9 * Math.min(from, to)) / 2 / from, K = Math.ceil(16 * Math.max(1, ratio));
     for (let i = 0; i < n; i++) {
-      const a = i * ratio;
-      if (ratio > 1) { let s = 0, c = 0; for (let j = Math.floor(a); j < Math.ceil(a + ratio) && j < x.length; j++) { s += x[j]; c++; } out[i] = c ? s / c : 0; }
-      else { const j = Math.floor(a), t = a - j; out[i] = (x[j] || 0) * (1 - t) + (x[j + 1] || 0) * t; }
+      const c = i * ratio; let s = 0, ws = 0;
+      for (let j = Math.ceil(c - K); j <= Math.floor(c + K); j++) {
+        const d = c - j, win = 0.42 + 0.5 * Math.cos((Math.PI * d) / K) + 0.08 * Math.cos((2 * Math.PI * d) / K), w = (d === 0 ? 2 * fc : Math.sin(2 * Math.PI * fc * d) / (Math.PI * d)) * win;
+        if (j >= 0 && j < x.length) s += x[j] * w;
+        ws += w;
+      }
+      out[i] = s / ws;
     }
     return out;
   }
@@ -845,6 +866,13 @@ def spectrogram(samples):
     const src = ac.createBufferSource(); src.buffer = buf; src.connect(ac.destination); src.start(); playingSrc = src;
   }
   const rms = (s) => { let e = 0; for (const v of s) e += v * v; return Math.sqrt(e / s.length); };
+  // the word's own level: the RMS over the 20 ms stretches that are within 30 dB of the loudest stretch, so the silence around a word does not count
+  function wordLevel(s) {
+    const n = 320, e = [];
+    for (let i = 0; i + n <= s.length; i += n) { let a = 0; for (let j = i; j < i + n; j++) a += s[j] * s[j]; e.push(a / n); }
+    const top = Math.max(...e), on = e.filter((v) => v >= top / 1000);
+    return Math.sqrt(on.reduce((a, v) => a + v, 0) / on.length);
+  }
 
   // ---------- a finer spectrogram that keeps phase, for listening and separating ----------
   // windows of 512 samples every 128, so they overlap and the sound can be put back together exactly
@@ -925,23 +953,28 @@ def spectrogram(samples):
   // ---------- accuracy on all 1,000 test recordings, moved by (dt, dp), measured a little at a time ----------
   const ACC = {}, queue = [];
   const key = (dt, dp) => dt + "," + dp;
+  // ACC[key] = [convolutional, plain, trained with pitch shifts]
   function* measureMoved(dt, dp) {
-    let c = 0, m = 0;
+    const right = [0, 0, 0];
     for (let k = 0; k < DATA.test.n; k++) {
-      const s = dt || dp ? moved(specOf(DATA.test, k), dt, dp) : specOf(DATA.test, k), y = DATA.test.labels[k];
-      if (argmax(forward(NET, toInput(s)).at(-1).d) === y) c++; if (argmax(forward(PLAIN, toInput(s)).at(-1).d) === y) m++;
-      if (k % 40 === 39) yield;
+      const s = toInput(dt || dp ? moved(specOf(DATA.test, k), dt, dp) : specOf(DATA.test, k)), y = DATA.test.labels[k];
+      [NET, PLAIN, SHIFTED].forEach((net, i) => { if (argmax(forward(net, s).at(-1).d) === y) right[i]++; });
+      if (k % 4 === 3) yield;
     }
-    ACC[key(dt, dp)] = [c / DATA.test.n, m / DATA.test.n];
+    ACC[key(dt, dp)] = right.map((r) => r / DATA.test.n);
   }
   let running = null;
-  const want = (dt, dp, first) => { const k = key(dt, dp); if (ACC[k] || (running && running.key === k) || queue.includes(k)) return; if (first) queue.unshift(k); else queue.push(k); };
+  const want = (dt, dp, first) => {
+    const k = key(dt, dp); if (ACC[k] || (running && running.key === k)) return;
+    const at = queue.indexOf(k); if (at >= 0) { if (!first) return; queue.splice(at, 1); }
+    if (first) queue.unshift(k); else queue.push(k);
+  };
   function stepMeasure() {
     if (!running) { const k = queue.shift(); if (!k) return; const [dt, dp] = k.split(",").map(Number); running = { key: k, gen: measureMoved(dt, dp) }; }
     const t0 = performance.now();
     while (performance.now() - t0 < 6) if (running.gen.next().done) { const k = running.key; running = null; onMeasured(k); return; }
   }
-  function onMeasured(k) { if (k === "0,0") drawLadder(); if (k === key(QT.dt, QT.dp)) drawQuestion(); drawTP(); }
+  function onMeasured(k) { if (k === "0,0") drawLadder(); if (k === key(QT.dt, QT.dp)) drawQuestion(); drawTP(); film.render(); }
 
   // ---------- the problem: many voices, and the closest-average method ----------
   const VA = { d: 7, avgs: null, nearAcc: null, idx: [] };
@@ -980,8 +1013,9 @@ def spectrogram(samples):
 
   // ---------- the question: later in time or higher in pitch ----------
   const QT = { k: 0, dt: 0, dp: 0 };
+  const msOf = (cols) => `${cols < 0 ? "−" : ""}${Math.round(Math.abs(cols) * 31.25)} ms`; // one column is 31.25 ms
   function drawQuestion() {
-    $("qt-time-v").textContent = `${Math.round(QT.dt * 31.25)} ms`; $("qt-pitch-v").textContent = `${QT.dp > 0 ? "+" : ""}${QT.dp} band${Math.abs(QT.dp) === 1 ? "" : "s"}`;
+    $("qt-time-v").textContent = msOf(QT.dt); $("qt-pitch-v").textContent = `${QT.dp > 0 ? "+" : ""}${QT.dp} band${Math.abs(QT.dp) === 1 ? "" : "s"}`;
     if (!DATA.ready) { $("qt-read").textContent = FAILED || "Loading 9,000 recordings…"; return; }
     const s = moved(specOf(DATA.test, QT.k), QT.dt, QT.dp), pc = probsOf(NET, s), pp = probsOf(PLAIN, s);
     drawOne($("qt-img"), specTile(s));
@@ -1012,7 +1046,7 @@ def spectrogram(samples):
   function fade(s) { const n = 160, o = Float64Array.from(s); for (let i = 0; i < n; i++) { o[i] *= i / n; o[o.length - 1 - i] *= i / n; } return o; }
   function drawTool1() {
     document.querySelectorAll("#t1-sounds button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.s === T1.s)));
-    if (T1.s === "seven" && !DATA.ready) { $("t1-read").textContent = FAILED || "Loading 9,000 recordings…"; return; }
+    if (T1.s === "seven" && !DATA.ready) { $("t1-read").textContent = FAILED || "Loading 9,000 recordings…"; T1.audio = null; return; }
     const s = T1.s === "seven" ? SOUNDS.seven() : fade(SOUNDS[T1.s]());
     let loud = 0, at = RATE / 2; for (let i = 0; i < s.length; i += 80) { let e = 0; for (let j = i; j < Math.min(s.length, i + 320); j++) e += s[j] * s[j]; if (e > loud) { loud = e; at = i + 160; } }
     drawWave($("t1-wave"), s, { zoom: at });
@@ -1041,9 +1075,10 @@ def spectrogram(samples):
       ctx.fillStyle = rgba(C["ink-3"]); ctx.font = `11px ${MONO}`; ctx.textBaseline = "bottom"; ctx.textAlign = "left"; ctx.fillText("0 Hz", 2, H); ctx.textAlign = "right"; ctx.fillText("8,000 Hz", W - 2, H); }
     // 3. the mel bands in decibels
     const band = MEL.map((w) => { let p = 0; w.forEach((v, k) => { if (v) p += v * power[k]; }); return 10 * Math.log10(p + 1e-10); });
-    const spec = spectrogram(s), loud = Math.max(QUIET, ...band);
+    // the bars are this moment's column of the picture: decibels measured from the loudest point of the whole recording
+    const spec = spectrogram(s), col = Array.from({ length: BANDS }, (_, b) => spec.d[(BANDS - 1 - b) * FRAMES + T2.t]);
     { const cv = $("t2-mel"), [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-      const bw = W / BANDS; band.forEach((v, b) => { const h = Math.max(0, 1 + (v - loud) / 80) * (H - 16); ctx.fillStyle = rgba(C.ink, 0.85); ctx.fillRect(b * bw + 1, H - 14 - h, bw - 2, h); });
+      const bw = W / BANDS; col.forEach((v, b) => { const h = v * (H - 16); ctx.fillStyle = rgba(C.ink, 0.85); ctx.fillRect(b * bw + 1, H - 14 - h, bw - 2, h); });
       ctx.fillStyle = rgba(C["ink-3"]); ctx.font = `11px ${MONO}`; ctx.textBaseline = "bottom"; ctx.textAlign = "left"; ctx.fillText("low", 2, H); ctx.textAlign = "right"; ctx.fillText("high", W - 2, H); }
     // 4. the picture, with this moment marked
     const L = drawOne($("t2-pic"), specTile(spec)), c = L.s / 32; L.ctx.strokeStyle = rgba(C.pos); L.ctx.lineWidth = 2; L.ctx.strokeRect(T2.t * c + 1, 1, c - 2, L.s - 2);
@@ -1071,7 +1106,7 @@ def spectrogram(samples):
   const whenReady = (f) => (JOB.ready ? f() : onReady.push(f));
   function* measure(net, out) {
     let right = 0;
-    for (let k = 0; k < DATA.test.n; k++) { if (argmax(forward(net, toInput(specOf(DATA.test, k))).at(-1).d) === DATA.test.labels[k]) right++; if (k % 50 === 49) yield; }
+    for (let k = 0; k < DATA.test.n; k++) { if (argmax(forward(net, toInput(specOf(DATA.test, k))).at(-1).d) === DATA.test.labels[k]) right++; if (k % 5 === 4) yield; }
     out(right / DATA.test.n);
   }
   function* loadWork() {
@@ -1120,7 +1155,7 @@ def spectrogram(samples):
     for (const a of [0, 0.25, 0.5, 0.75, 1]) { const y = Math.round(Y(a)) + 0.5; ctx.strokeStyle = rgba(C.rule); ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - 10, y); ctx.stroke(); ctx.fillStyle = rgba(C["ink-3"]); ctx.fillText(pct(a), padL - 6, y); }
     ctx.textAlign = "center"; ctx.textBaseline = "top";
     for (const s of [-6, -4, -2, 0, 2, 4, 6]) ctx.fillText(String(s), X(s), padT + ih + 4);
-    ctx.fillText("moved by: columns of 31 ms (time) or bands (pitch); negative = earlier or lower", padL + iw / 2, H - 12);
+    ctx.fillText("moved by: columns of 31.25 ms (time) or bands (pitch); negative = earlier or lower", padL + iw / 2, H - 12);
     const series = (pts, axis, which, color, dash, wdt) => {
       const got = pts.map((s) => [s, ACC[axis === "t" ? key(s, 0) : key(0, s)]]).filter((x) => x[1]);
       if (got.length < 2) return;
@@ -1129,9 +1164,10 @@ def spectrogram(samples):
       ctx.fillStyle = color; got.forEach(([s, a]) => { ctx.beginPath(); ctx.arc(X(s), Y(a[which]), 3, 0, Math.PI * 2); ctx.fill(); });
     };
     series(TP_T, "t", 1, rgba(C["ink-3"], 0.7), [5, 4], 1.5); series(TP_P, "p", 1, rgba(C["ink-3"], 0.7), [2, 3], 1.5);
+    series(TP_P, "p", 2, rgba(C.neg, 0.55), [7, 4], 2.2);
     series(TP_T, "t", 0, rgba(C.pos), [], 2.2); series(TP_P, "p", 0, rgba(C.neg), [], 2.2);
     const done = TP_T.every((s) => ACC[key(s, 0)]) && TP_P.every((s) => ACC[key(0, s)]);
-    if (done) { const a = (k) => pct(ACC[k][0]); $("tp-read").innerHTML = `Two columns later: <b>${a("2,0")}</b>; six columns later (186 ms): <b>${a("6,0")}</b>. Two bands higher: <b>${a("0,2")}</b>; three bands higher: <b>${a("0,3")}</b>. Unmoved: ${a("0,0")}.`; }
+    if (done) { const a = (k, i = 0) => pct(ACC[k][i]); $("tp-read").innerHTML = `Two columns later: <b>${a("2,0")}</b>; six columns later (188 ms): <b>${a("6,0")}</b>. Two bands higher: <b>${a("0,2")}</b>; three bands higher: <b>${a("0,3")}</b>. Unmoved: ${a("0,0")}. Trained on pitch-shifted copies: <b>${a("0,2", 2)}</b> two bands higher and <b>${a("0,3", 2)}</b> three bands higher.`; }
     else if (DATA.ready) $("tp-read").textContent = "Measuring all 1,000 test recordings at each position…";
   }
 
@@ -1139,7 +1175,7 @@ def spectrogram(samples):
   const NO = { k: 0, level: 10, audio: null };
   function drawNoise() {
     if (!DATA.ready) { $("no-read").textContent = FAILED || "Loading 9,000 recordings…"; return; }
-    const c = clipFor("test", NO.k), r = mulberry32(7 + NO.k), sd = NO.level >= 99 ? 0 : rms(c.audio) / 10 ** (NO.level / 20);
+    const c = clipFor("test", NO.k), r = mulberry32(7 + NO.k), sd = NO.level >= 99 ? 0 : wordLevel(c.audio) / 10 ** (NO.level / 20);
     NO.audio = c.audio.map((v) => v + sd * gaussian(r));
     const spec = spectrogram(NO.audio), pc = probsOf(NET, spec), pp = probsOf(PLAIN, spec);
     drawOne($("no-img"), specTile(spec)); bars($("no-cnn"), pc); bars($("no-plain"), pp); $("no-cnn-g").innerHTML = wordGuess(pc); $("no-plain-g").innerHTML = wordGuess(pp);
@@ -1149,7 +1185,7 @@ def spectrogram(samples):
   $("no-play").addEventListener("click", () => { if (NO.audio) play(NO.audio); });
 
   // ---------- separation: painting a mask ----------
-  const SP = { mix: "hum", brush: 0, mask: null, painting: false };
+  const SP = { mix: "hum", brush: 0, mask: null };
   function prepareSeparation() {
     const word = clipFor("test", DATA.firstOf[7]).audio, threes = DATA.clips.filter((c) => c.set === "test" && c.label === 3), three = threes.reduce((a, c) => (rms(c.audio) > rms(a.audio) ? c : a));
     const hum = Float64Array.from({ length: RATE }, (_, i) => [1, 0.6, 0.45, 0.3, 0.2].reduce((a, w, h) => a + w * Math.sin((2 * Math.PI * 140 * (h + 1) * i) / RATE), 0));
@@ -1170,6 +1206,7 @@ def spectrogram(samples):
     const dim = new Uint8Array(FROWS * FFR);
     for (let r = 0; r < FROWS; r++) for (let t = 0; t < FFR; t++) { let s = 0; const [b0, b1] = ROWBINS[r]; for (let b = b0; b < b1; b++) s += SP.mask[t * FBINS + b]; dim[r * FFR + t] = s / (b1 - b0) < 0.5 ? 1 : 0; }
     drawGrid($("sp-canvas"), SP.img, FROWS, FFR, dim);
+    if (spPointer !== null) { $("sp-read").textContent = "Painting… (lift to hear and measure the result)"; return; }
     if (!SP.kept) SP.kept = istft(SP.S, SP.mask);
     let a = 0, e = 0; for (let i = 0; i < RATE; i++) { a += SP.word[i] ** 2; e += (SP.word[i] - SP.kept[i]) ** 2; }
     const q = 10 * Math.log10(a / e), removed = SP.mask.reduce((s, v) => s + (1 - v), 0) / SP.mask.length;
@@ -1177,18 +1214,23 @@ def spectrogram(samples):
     document.querySelectorAll("#sp-mix button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === SP.mix)));
     document.querySelectorAll("#sp-brush button").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.v) === SP.brush)));
   }
+  // paint a 5 × 5 brush at every cell along the line from the previous pointer position
+  let spPointer = null, spLast = null;
   function paintAt(e) {
-    const r = $("sp-canvas").getBoundingClientRect(), t = Math.floor(((e.clientX - r.left) / r.width) * FFR), row = Math.floor(((e.clientY - r.top) / r.height) * FROWS);
-    for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
-      const rr = row + dr, tt = t + dc; if (rr < 0 || rr >= FROWS || tt < 0 || tt >= FFR) continue;
-      const [b0, b1] = ROWBINS[rr]; for (let b = b0; b < b1; b++) SP.mask[tt * FBINS + b] = SP.brush;
+    const r = $("sp-canvas").getBoundingClientRect(), t = ((e.clientX - r.left) / r.width) * FFR, row = ((e.clientY - r.top) / r.height) * FROWS;
+    const [t0, r0] = spLast || [t, row], steps = Math.max(1, Math.ceil(Math.hypot(t - t0, row - r0)));
+    for (let s = 1; s <= steps; s++) {
+      const tc = Math.floor(t0 + ((t - t0) * s) / steps), rc = Math.floor(r0 + ((row - r0) * s) / steps);
+      for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
+        const rr = rc + dr, tt = tc + dc; if (rr < 0 || rr >= FROWS || tt < 0 || tt >= FFR) continue;
+        const [b0, b1] = ROWBINS[rr]; for (let b = b0; b < b1; b++) SP.mask[tt * FBINS + b] = SP.brush;
+      }
     }
-    SP.kept = null; SP.dirty = true;
+    spLast = [t, row]; SP.kept = null; SP.dirty = true;
   }
-  let spPointer = null;
-  $("sp-canvas").addEventListener("pointerdown", (e) => { if (!SP.S || spPointer !== null) return; spPointer = e.pointerId; $("sp-canvas").setPointerCapture(e.pointerId); paintAt(e); e.preventDefault(); });
+  $("sp-canvas").addEventListener("pointerdown", (e) => { if (!SP.S || spPointer !== null) return; spPointer = e.pointerId; spLast = null; $("sp-canvas").setPointerCapture(e.pointerId); paintAt(e); e.preventDefault(); });
   $("sp-canvas").addEventListener("pointermove", (e) => { if (e.pointerId === spPointer) paintAt(e); });
-  const spEnd = (e) => { if (e.pointerId === spPointer) { spPointer = null; SP.dirty = true; } };
+  const spEnd = (e) => { if (e.pointerId === spPointer) { spPointer = null; spLast = null; SP.dirty = true; } };
   $("sp-canvas").addEventListener("pointerup", spEnd); $("sp-canvas").addEventListener("pointercancel", spEnd);
   $("sp-mix").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b || !DATA.ready) return; SP.mix = b.dataset.v; SP.S = null; drawSeparation(); });
   $("sp-brush").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; SP.brush = Number(b.dataset.v); drawSeparation(); });
@@ -1202,14 +1244,14 @@ def spectrogram(samples):
   // ---------- the algorithm in words, math or code ----------
   const mi = (s) => `<i>${s}</i>`, sub = (s) => `<sub>${s}</sub>`;
   const ALGO = [
-    { title: "Sound as numbers", words: "A recording is a list of numbers, the microphone's readings, 16,000 every second, each between −1 and 1. The picture will have 32 moments (columns) and 32 bands (rows). QUIET is the level below which a recording counts as silence, so a quiet room does not turn into a bright picture.",
+    { title: "Sound as numbers", words: "A recording is a list of numbers, the microphone's readings, 16,000 every second, each between −1 and 1. The picture will have 32 moments (columns) and 32 bands (rows). A recording whose loudest point is quieter than QUIET is measured from QUIET instead, so near-silence is not stretched to fill the whole range.",
       math: [`16,000 samples per second, so 1 second = 16,000 numbers`, `a window: ${mi("N")} = 512 samples = 32 ms; a new window every 500 samples (31.25 ms), 32 windows in all`] },
     { title: "The Fourier transform, quickly", words: "The Fourier transform measures how much of each frequency a window contains, by comparing the window with waves of every frequency. Done directly that takes 512 × 512 multiplications; the fast Fourier transform (FFT) gets the same answer by splitting the window into halves, then halves of halves, and combining the pieces.",
       math: [`${mi("X")}(${mi("k")}) = Σ${sub(mi("n"))} ${mi("x")}(${mi("n")}) · e<sup>−2π${mi("i")}·${mi("k")}${mi("n")}/${mi("N")}</sup>,&emsp;${mi("k")} = 0, …, ${mi("N")} − 1`, `the power at frequency ${mi("k")} · 16,000/512 Hz is |${mi("X")}(${mi("k")})|² = re² + im²`, `257 frequencies from 0 to 8,000 Hz, 31.25 Hz apart`] },
-    { title: "Fading the window, and the mel bands", words: "Each window fades in and out (the Hann window), so its cut edges do not add frequencies that are not in the sound. The mel scale spaces pitch the way we hear it, so the 32 bands are narrow at low frequencies and wide at high ones; each band adds up the power under a triangle.",
+    { title: "Fading the window, and the mel bands", words: "Each window fades in and out (the Hann window), so its cut edges add far fewer frequencies that are not in the sound. The mel scale spaces pitch the way we hear it, so the 32 bands are narrow at low frequencies and wide at high ones; each band adds up the power under a triangle.",
       math: [`${mi("w")}(${mi("n")}) = 0.5 − 0.5 · cos(2π${mi("n")}/${mi("N")})`, `mel(${mi("f")}) = 2595 · log${sub("10")}(1 + ${mi("f")}/700)`, `band power${sub(mi("b"))} = Σ${sub(mi("k"))} triangle${sub(mi("b"))}(${mi("k")}) · |${mi("X")}(${mi("k")})|²`] },
-    { title: "The spectrogram", words: "For each of the 32 moments: window, Fourier transform, mel bands, and then decibels, a logarithm, because we hear loudness on a log scale too. Every value is measured from the loudest point of the recording, so quiet and loud recordings of the same word look alike, and rounded to 16 steps. The network then reads each value minus 0.5.",
-      math: [`dB = 10 · log${sub("10")}(power + 10<sup>−10</sup>)`, `value = max(0, 1 + (dB − loudest) / 80), rounded to 16 steps,&emsp;loudest = max(QUIET, the recording's largest dB)`, `the network's input: value − 0.5`] },
+    { title: "The spectrogram", words: "For each of the 32 moments: window, Fourier transform, mel bands, and then decibels, a logarithm, because we hear loudness on a log scale too. Every value is measured from the loudest point of the recording, so quiet and loud recordings of the same word look alike, and rounded to 16 levels. The network then reads each value minus 0.5.",
+      math: [`dB = 10 · log${sub("10")}(power + 10<sup>−10</sup>)`, `value = max(0, 1 + (dB − loudest) / 80), rounded to 16 levels,&emsp;loudest = max(QUIET, the recording's largest dB)`, `the network's input: value − 0.5`] },
   ];
   let AUDIO_SRC = "";
   function renderAlgo() {
@@ -1242,14 +1284,15 @@ def spectrogram(samples):
     function caption(k) {
       const a = assets();
       switch (k) {
-        case "wave": return "<b>A sound is numbers.</b> A microphone measures the air pressure 16,000 times a second. This is someone saying \"seven\": one second, 16,000 numbers. On the right, 20 ms of it, close up.";
+        case "wave": return "<b>A sound is numbers.</b> A microphone measures the air pressure thousands of times a second; these recordings, 16,000 times. This is someone saying \"seven\": one second, 16,000 numbers. On the right, 20 ms of it, close up.";
         case "pitches": return "<b>Which pitches, when.</b> Take 32 ms of the sound (the blue box), fade its edges, and the Fourier transform tells how strong each pitch is in it, from low on the left to high on the right.";
         case "picture": return "<b>A picture of the sound.</b> Add the pitches up into 32 bands and stack the moments side by side: time runs left to right, pitch bottom to top. This 32 × 32 picture is all the network gets.";
         case "stencil": return "<b>Chapter 5's stencils, on sound.</b> The same convolution slides a 5 × 5 stencil over the picture. This one learned to fire where quiet turns into loud: the moment a sound starts.";
         case "listens": return `<b>Where it listens.</b> The network hears "${WORDS[argmax(a.p)]}", ${sure(Math.max(...a.p))} sure. On the right, the spots of the picture its answer depends on most: the word itself, not the silence around it.`;
         case "timepitch": { const all = ACC["4,0"] && ACC["0,3"] ? ` Over all 1,000 test recordings, moving them 125 ms later leaves ${pct(ACC["4,0"][0])} recognized, and moving them three bands higher only ${pct(ACC["0,3"][0])}.` : "";
-          return `<b>Time is not pitch.</b> Moved 125 ms later (left), the network hears "${WORDS[argmax(a.pl)]}" (${sure(Math.max(...a.pl))}). Moved three bands higher in pitch (right), it hears "${WORDS[argmax(a.ph)]}" (${sure(Math.max(...a.ph))}).${all} When a sound happens matters little; which pitches it has matters a lot.`; }
-        case "short": return "<b>In short.</b> A spectrogram turns sound into a picture, so a convolutional network can listen. It learns to ignore when a word starts, but not which pitches it contains.";
+          const right = (p) => argmax(p) === 7, both = right(a.pl) && right(a.ph) ? " This recording survives both, the higher one less surely." : "";
+          return `<b>Time and pitch.</b> Moved 125 ms later (left), the network hears "${WORDS[argmax(a.pl)]}" (${sure(Math.max(...a.pl))}). Moved three bands higher (right), it hears "${WORDS[argmax(a.ph)]}" (${sure(Math.max(...a.ph))}).${both}${all} It learned to shrug off when a word starts, because its training recordings start at many moments; they rarely showed a word moved up in pitch.`; }
+        case "short": return "<b>In short.</b> A spectrogram turns sound into a picture, so a convolutional network can listen. It learns to shrug off the differences its training showed it, such as when a word starts, and no others.";
       }
       return "";
     }
@@ -1264,7 +1307,7 @@ def spectrogram(samples):
       }
       const a = assets();
       const sub2 = k === "wave" ? Math.floor(u * 60) : k === "pitches" || k === "picture" ? Math.min(31, Math.floor((u / 0.9) * 32)) : k === "stencil" ? Math.min(784, Math.floor((u / 0.85) * 784)) : 0;
-      const key2 = `${k}|${sub2}`;
+      const haveAll = !!(ACC["4,0"] && ACC["0,3"]), key2 = `${k}|${sub2}|${k === "timepitch" && haveAll}`;
       if (!force && key2 === drawn) return;
       drawn = key2;
       let lt = "", rt = "", ticker = "";
@@ -1283,9 +1326,8 @@ def spectrogram(samples):
           ctx.fillStyle = rgba(C["ink-3"]); ctx.font = `11px ${MONO}`; ctx.textBaseline = "bottom"; ctx.textAlign = "left"; ctx.fillText("low", 4, H - 2); ctx.textAlign = "right"; ctx.fillText("high pitch", W - 4, H - 2);
           lt = "The window"; rt = "Its pitches"; ticker = `moment ${sub2 + 1} of 32: ${Math.round((start / RATE) * 1000)} to ${Math.round(((start + WIN) / RATE) * 1000)} ms`;
         } else {
-          const power = Array.from({ length: WIN / 2 + 1 }, (_, q) => re[q] * re[q] + im[q] * im[q]), band = MEL.map((w) => 10 * Math.log10(w.reduce((s, v, q) => s + v * power[q], 0) + 1e-10)), loud = Math.max(QUIET, ...band);
           const cv = $("f-left"), [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-          const bh = H / BANDS; band.forEach((v, b) => { const w = Math.max(0, 1 + (v - loud) / 80) * (W - 8); ctx.fillStyle = rgba(C.ink, 0.85); ctx.fillRect(4, H - (b + 1) * bh + 1, w, bh - 2); });
+          const bh = H / BANDS; for (let b = 0; b < BANDS; b++) { const w = a.spec.d[(BANDS - 1 - b) * FRAMES + sub2] * (W - 8); ctx.fillStyle = rgba(C.ink, 0.85); ctx.fillRect(4, H - (b + 1) * bh + 1, w, bh - 2); }
           const shown = a.spec.d.map((v, q) => ((q % 32) <= sub2 ? v : 0));
           const L = drawOne($("f-right"), { data: shown, n: 32, kind: "ink" }), c = L.s / 32; L.ctx.strokeStyle = rgba(C.pos); L.ctx.lineWidth = 2; L.ctx.strokeRect(sub2 * c + 1, 1, c - 2, L.s - 2);
           lt = "This moment's 32 bands (low at the bottom)"; rt = "Moment by moment, the picture"; ticker = `column ${sub2 + 1} of 32`;
@@ -1309,7 +1351,8 @@ def spectrogram(samples):
         lt = "Stencils it taught itself"; rt = "The picture it listens to"; ticker = "sound → picture → chapter 5's network";
       }
       $("f-lt").textContent = lt; $("f-rt").textContent = rt; $("f-ticker").textContent = ticker;
-      if (k !== capKey) { capKey = k; $("f-cap").innerHTML = caption(k); }
+      const ck = k + (k === "timepitch" && haveAll ? "+" : "");
+      if (ck !== capKey) { capKey = ck; $("f-cap").innerHTML = caption(k); }
     }
     function tick(id, now) {
       if (!playing || id !== loop) return;
@@ -1334,8 +1377,9 @@ def spectrogram(samples):
 
   // ---------- the playground ----------
   const PG = { audio: null, spec: null, k: 0, which: "ref", T: null, seed: 1, running: false, evalJob: null, evalAcc: null, evalAt: 0, dirty: true, slowT: 0, preview: null, recording: false };
-  const pgNet = () => (PG.which === "own" ? (PG.T || (PG.T = trainer(PG.seed))).net : NET);
+  const pgNet = () => (PG.which === "own" ? (PG.T || (PG.T = trainer(PG.seed, makeCNN, PG.shift ? 3 : 0))).net : NET);
   function drawPlayground() {
+    if (!NET) return;
     if (PG.audio) drawWave($("pl-wave"), PG.audio); else { const [W, H] = sizeCanvas($("pl-wave")); $("pl-wave").getContext("2d").clearRect(0, 0, W * dpr, H * dpr); }
     const net = pgNet(), blank = new Array(10).fill(0);
     if (!PG.spec) {
@@ -1357,7 +1401,8 @@ def spectrogram(samples):
     document.querySelectorAll("#pl-net button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === PG.which)));
     ITN.tips.refresh();
   }
-  function useClip(k) { const c = clipFor("test", k); PG.k = k; PG.audio = c ? c.audio : null; PG.spec = c ? spectrogram(c.audio) : specOf(DATA.test, k); PG.dirty = true; }
+  // a test recording: its sound for listening, its stored spectrogram for the networks (the same as every other figure uses)
+  function useClip(k) { const c = clipFor("test", k); PG.audio = c ? c.audio : null; PG.spec = specOf(DATA.test, k); PG.dirty = true; }
   // the loudest second of a recording
   function loudestSecond(x) {
     if (x.length <= RATE) { const o = new Float64Array(RATE); o.set(x); return o; }
@@ -1367,32 +1412,40 @@ def spectrogram(samples):
   async function record() {
     if (PG.recording) return;
     const say = (m) => { $("pl-mic").textContent = m; };
+    if (!NET) { say(FAILED || "The trained networks did not load."); return; }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === "undefined") { say("This browser or page cannot use the microphone here. Pick a test recording instead."); return; }
+    PG.recording = true; $("pl-rec").textContent = "Starting the microphone…";
+    const done = () => { PG.recording = false; $("pl-rec").classList.remove("on"); $("pl-rec").textContent = "Record 1.5 seconds"; };
     let stream;
     try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 } }); }
-    catch (e) { say(e && e.name === "NotAllowedError" ? "The microphone was not allowed. You can allow it in the browser's address bar, or pick a test recording." : "No microphone could be opened. Pick a test recording instead."); return; }
-    const ac = audioCtx(), rec = new MediaRecorder(stream), parts = [];
-    PG.recording = true; $("pl-rec").classList.add("on"); $("pl-rec").textContent = "Listening…"; say("Say a digit now.");
-    rec.ondataavailable = (e) => { if (e.data && e.data.size) parts.push(e.data); };
-    rec.onstop = async () => {
-      stream.getTracks().forEach((tr) => tr.stop());
-      PG.recording = false; $("pl-rec").classList.remove("on"); $("pl-rec").textContent = "Record 1.5 seconds";
-      try {
-        const buf = await ac.decodeAudioData(await new Blob(parts, { type: rec.mimeType }).arrayBuffer());
-        const ch = buf.getChannelData(0), x = resample(Float64Array.from(ch), buf.sampleRate, RATE);
-        PG.audio = loudestSecond(x); PG.spec = spectrogram(PG.audio); PG.k = -1;
-        pickerPG && pickerPG.host.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", "false"));
-        say(rms(PG.audio) < 0.003 ? "That was very quiet. Try again, closer to the microphone." : "Here is the loudest second of what was recorded.");
-        PG.dirty = true;
-      } catch (e) { say("The recording could not be read in this browser. Pick a test recording instead."); }
-    };
-    rec.start(); setTimeout(() => { if (rec.state !== "inactive") rec.stop(); }, 1500);
+    catch (e) { done(); say(e && e.name === "NotAllowedError" ? "The microphone was not allowed. You can allow it in the browser's address bar, or pick a test recording." : "No microphone could be opened. Pick a test recording instead."); return; }
+    const ac = audioCtx(), parts = [], stop = () => stream.getTracks().forEach((tr) => tr.stop());
+    let rec;
+    try {
+      rec = new MediaRecorder(stream);
+      rec.ondataavailable = (e) => { if (e.data && e.data.size) parts.push(e.data); };
+      rec.onstop = async () => {
+        stop(); done();
+        try {
+          const buf = await ac.decodeAudioData(await new Blob(parts, { type: rec.mimeType }).arrayBuffer());
+          const x = resample(Float64Array.from(buf.getChannelData(0)), buf.sampleRate, RATE);
+          PG.audio = loudestSecond(x); PG.spec = spectrogram(PG.audio);
+          if (pickerPG) pickerPG.host.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", "false"));
+          say(wordLevel(PG.audio) < 0.005 ? "That was very quiet, so the picture is mostly background and the answer means little. Try again, closer to the microphone." : "Here is the loudest second of what was recorded.");
+          PG.dirty = true;
+        } catch (e) { say("The recording could not be read in this browser. Pick a test recording instead."); }
+      };
+      rec.start();
+    } catch (e) { stop(); done(); say("This browser could not record from the microphone. Pick a test recording instead."); return; }
+    $("pl-rec").classList.add("on"); $("pl-rec").textContent = "Listening…"; say("Say a digit now.");
+    setTimeout(() => { if (rec.state !== "inactive") rec.stop(); }, 1500);
   }
   let pickerPG = null;
   $("pl-rec").addEventListener("click", record);
   $("pl-play").addEventListener("click", () => { if (PG.audio) play(PG.audio); });
   $("pl-net").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; PG.which = b.dataset.v; PG.dirty = true; });
-  $("pl-train").addEventListener("click", () => { if (!DATA.ready) return; if (!PG.T) PG.T = trainer(PG.seed); PG.running = !PG.running; if (PG.running) PG.which = "own"; PG.dirty = true; });
+  $("pl-train").addEventListener("click", () => { if (!DATA.ready) return; if (!PG.T) PG.T = trainer(PG.seed, makeCNN, PG.shift ? 3 : 0); PG.running = !PG.running; if (PG.running) PG.which = "own"; PG.dirty = true; });
+  $("pl-shift").addEventListener("change", (e) => { PG.shift = e.target.checked; PG.running = false; PG.T = null; PG.evalJob = null; PG.evalAcc = null; PG.evalAt = 0; PG.dirty = true; });
   $("pl-reset").addEventListener("click", () => { PG.running = false; PG.seed++; PG.T = null; PG.evalJob = null; PG.evalAcc = null; PG.evalAt = 0; PG.dirty = true; });
 
   // ---------- one loop for everything that moves ----------
@@ -1431,9 +1484,9 @@ def spectrogram(samples):
     "lens-math": () => "<b>Math</b>: the same steps written as formulas.",
     "f-hear": () => "Play the recording the film follows.",
     "va-digit": () => "Show 24 speakers saying this digit, and the average of all 800 training recordings.",
-    "va-many": () => "Click one of the first three in a row (marked ▶) to hear it.",
-    "qt-time": () => `Move the picture right (later) or left (earlier), ${Math.round(QT.dt * 31.25)} ms now. New columns are silence.`,
-    "qt-pitch": () => "Move the picture up (every pitch higher) or down. New rows are silence.",
+    "va-many": () => "Click one of the three marked ▶ to hear it.",
+    "qt-time": () => `Move the picture right (later) or left (earlier), ${msOf(QT.dt)} now. New columns repeat the edge, as if the background went on.`,
+    "qt-pitch": () => "Move the picture up (every pitch higher) or down. New rows repeat the edge row.",
     "t1-tone": () => "One pure tone at 440 Hz.", "t1-chord": () => "Three tones at once: an A major chord.", "t1-glide": () => "A tone rising from 300 to 2,400 Hz.", "t1-click": () => "Four very short clicks.", "t1-seven": () => 'A real recording of "seven".',
     "t2-frame": () => "Choose which of the 32 moments to take apart.",
     "wh-play": () => "Play this recording.",
@@ -1442,7 +1495,7 @@ def spectrogram(samples):
     "sp-hum": () => "The seven mixed with a 140 Hz hum, equally loud.", "sp-voice": () => 'The seven mixed with another person saying "three", equally loud.',
     "sp-remove": () => "Paint to remove parts of the mix.", "sp-keep": () => "Paint to bring removed parts back.",
     "sp-canvas": () => (SP.brush ? "Paint to keep." : "Paint to remove."),
-    "sp-ideal": () => "Keep every spot where the seven is louder than the other sound: the mask a separation network tries to predict.",
+    "sp-ideal": () => "Keep every spot where the seven is louder than the other sound: the kind of mask a separation network learns to predict.",
     "sp-clear": () => "Remove nothing.",
     "sp-p-mix": () => "Play the mix.", "sp-p-kept": () => "Play what the mask keeps.", "sp-p-removed": () => "Play what the mask removes.", "sp-p-word": () => "Play the seven before it was mixed.",
     "pl-rec": () => "Record 1.5 seconds from your microphone, then use its loudest second. Nothing is sent anywhere.",
@@ -1451,6 +1504,7 @@ def spectrogram(samples):
     "net-ref": () => "The network trained in advance, used everywhere on this page.", "net-own": () => "The network you train below.",
     "pl-train": () => (PG.running ? "Pause training." : "Train a convolutional network from scratch on the 8,000 training recordings, in batches of 20."),
     "pl-reset": () => `Start over from new random weights (seed ${PG.seed} → ${PG.seed + 1}).`,
+    "pl-shift": () => "Each training picture is first moved up or down by up to 3 bands, so the network learns to shrug off pitch. Changing this starts training over.",
   });
 
   // ---------- resize, theme, boot ----------
