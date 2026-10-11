@@ -49,6 +49,20 @@ img { max-width: 100%; }
 .bars .bar.top i { background: var(--ink); }
 .guess { font: 600 15px/1.3 var(--font-display); color: var(--ink); margin: 0 0 6px; }
 .guess small { font: 13px var(--font-body); color: var(--ink-3); font-weight: 400; }
+/* the variety widget and the ladder */
+.va-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 560px) { .va-grid { grid-template-columns: minmax(0, 1fr); } .va-avg { max-width: 160px; } }
+.va-many { display: block; width: 100%; aspect-ratio: 8 / 3.1; }
+.va-miss { display: block; width: 100%; aspect-ratio: 8 / 1.06; }
+.ladder { display: grid; gap: 12px; }
+.lr { display: grid; grid-template-columns: minmax(0, 15em) minmax(0, 1fr) 3em; gap: 4px 12px; align-items: center; font: 14px/1.3 var(--font-display); color: var(--ink); }
+.lr .bar { height: 14px; background: var(--well); border-radius: 4px; overflow: hidden; }
+.lr .bar i { display: block; height: 100%; background: var(--ink-3); border-radius: 4px; }
+.lr.best .bar i { background: var(--ink); }
+.lr b { font: 600 14px var(--font-mono); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.lr small { display: block; font: 12.5px var(--font-body); color: var(--ink-3); }
+@media (max-width: 520px) { .lr { grid-template-columns: minmax(0, 1fr) 3em; grid-template-areas: "l v" "b b"; } .lr > span:first-child { grid-area: l; } .lr .bar { grid-area: b; } .lr b { grid-area: v; } }
+h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6px; }
 /* the shift widget */
 .sh-grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 5fr) minmax(0, 5fr); gap: 16px; align-items: start; }
 @media (max-width: 640px) { .sh-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .sh-grid > :first-child { grid-column: 1 / -1; max-width: 240px; } }
@@ -115,6 +129,42 @@ img { max-width: 100%; }
   </header>
 
   <main class="col intro">
+    <h2>The problem: getting a computer to see</h2>
+    <p>You recognize a handwritten 7 in a fraction of a second, without thinking about it. A computer gets only a grid of numbers, one per pixel. Turning those numbers into "this is a 7" is a problem from <b>computer vision</b>, the field that teaches computers to make sense of images. Deciding which of a fixed set of things a picture shows is called <b>image classification</b>, and reading handwritten digits is its classic first example.</p>
+
+    <h3>Why recognize anything?</h3>
+    <p>Because otherwise a person has to look. Reading handwritten digits used to be real work: post offices sorted letters by the zip codes written on them, and banks read the amounts written on checks. In 1989, Yann LeCun and colleagues at Bell Labs trained a convolutional network on handwritten zip codes from US mail, and by the late 1990s a descendant of it, LeNet-5, was at the heart of a system reading several million bank checks a day. Today the same kind of recognition finds the photos of dogs on your phone, reads street signs for cars, helps doctors look at medical scans, and describes pictures aloud to people who cannot see them.</p>
+
+    <h3>Why is it hard?</h3>
+    <p>Nobody writes a digit the same way twice. Try writing rules for a 7: a flat stroke on top and a slanted one down? Some 7s have a bar across the middle, some tops curve, some lean, some are thin or thick. And the rules would have to be written in pixel numbers, not words. These are real digits from the MNIST collection, written by employees of the US Census Bureau and by high-school students:</p>
+
+    <figure class="card" id="variety" aria-label="Many handwritten versions of one digit, and their average">
+      <div class="seg" role="group" aria-label="Digit" id="va-digits"></div>
+      <div class="va-grid" style="margin-top:12px">
+        <div><div class="ptitle" id="va-many-t">24 of the 600 training digits</div><canvas class="va-many" id="va-many" aria-label="24 handwritten examples of the chosen digit"></canvas></div>
+        <div><div class="ptitle">Their average</div><canvas class="cv va-avg" id="va-avg" aria-label="The average of all 600 training examples of the chosen digit"></canvas></div>
+      </div>
+      <p class="readout" id="va-read">Loading 7,000 digits…</p>
+      <p class="cap2" style="margin:14px 0 6px" id="va-miss-t">Misread by the averages, read correctly by the convolutional network</p>
+      <canvas class="va-miss" id="va-miss" aria-label="Test digits that the closest-average method misreads; the label on each is what the averages said"></canvas>
+    </figure>
+
+    <p>A simple idea that avoids rules is to compare: keep one picture per digit, the average of its 600 examples, and call each new digit by the average it is closest to. It reads 77% of our 1,000 test digits correctly. Each average is a blur of every way of writing that digit, so a digit written unlike most can end up closer to another digit's blur, and is misread.</p>
+
+    <h3>Why neural networks do so well</h3>
+    <ul class="tries">
+      <li><b>They learn from their mistakes.</b> The averages summarize each digit on its own; a network is trained to tell digits apart. It is shown thousands of labeled digits, and gradient descent (chapters 2 to 4) adjusts its weights so that its answers match the labels more and more often. Whatever tells a 7 from a 1, it finds by itself.</li>
+      <li><b>Convolution builds in what is true of pictures.</b> Nearby pixels belong together, so each stencil looks at a small patch; and a stroke looks the same wherever it is, so the same stencil is used everywhere. A stroke learned in one place is then found in every place without being learned again, so the same examples teach it more. This network's first layer computes 8 maps of 576 numbers each from just 208 weights; a plain layer computing as many numbers would need about 3.6 million.</li>
+      <li><b>Layers build big patterns out of small ones.</b> Strokes combine into corners and curves, and those into digits. It is the same idea as chapter 4, where layers built curves out of lines and shapes out of curves, now applied to pictures.</li>
+    </ul>
+
+    <figure class="card" aria-label="Three methods on the same 1,000 test digits">
+      <div class="ladder" id="ladder"></div>
+      <p class="cap2">Share of the 1,000 test digits read correctly, measured in your browser.</p>
+    </figure>
+
+    <p>The same recipe, scaled up, took computer vision from digits to photographs. In 2012 a large convolutional network called AlexNet won the ImageNet challenge, sorting photos into 1,000 categories after training on about 1.2 million of them. Its five best guesses missed the right category for 16% of the test photos, against 26% for the runner-up, which used features designed by hand. Since then, neural networks have become the standard way to recognize what is in an image.</p>
+
     <h2>What this is</h2>
     <p>This film follows one handwritten 7 through a small convolutional network, then shows three things the network learned that nobody told it, and one way it can be fooled.</p>
 
@@ -137,7 +187,7 @@ img { max-width: 100%; }
     </figure>
 
     <h2>The question</h2>
-    <p>Chapter 4's networks read two numbers per dot. A picture of a handwritten digit is 784 numbers, one per pixel. You could feed all 784 into the kind of network you already know. A plain network with one hidden layer of 8 neurons has 6,370 weights and biases, and after training it reads 88% of our 1,000 test digits correctly. The convolutional network in this chapter has fewer, 5,994, and reads 97% correctly. Both were trained on the same 6,000 digits, centered in the picture.</p>
+    <p>Chapter 4's networks read two numbers per dot; a digit is 784. The plain network in the ladder above is the kind you already know, fed all 784 pixels: one hidden layer of 8 neurons, 6,370 weights and biases in all, and it reads 88% of the test digits correctly. The convolutional network has fewer, 5,994, and reads 97%. Both were trained on the same 6,000 digits, centered in the picture.</p>
     <p>Now move the digits a couple of pixels. Shifted 2 pixels up, down, left or right, the plain network drops to 57% on average and the convolutional one to 83%. Try it:</p>
 
     <figure class="card" id="shift" aria-label="Two networks reading a digit you can move">
@@ -179,7 +229,7 @@ img { max-width: 100%; }
       <p class="readout" id="st-read"></p>
     </figure>
 
-    <p>The same 25 weights are used at all 576 positions, so a stencil that finds a horizontal stroke finds it anywhere in the picture. That is why the convolutional network needs so few weights, and part of why it copes better with a moved digit: the pattern is still found, just in a different place on the map.</p>
+    <p>The same 25 weights are used at all 576 positions, so a stencil that finds a horizontal stroke finds it anywhere in the picture. That is why a convolution needs so few weights for all the numbers it computes, and part of why the network copes better with a moved digit: the pattern is still found, just in a different place on the map.</p>
 
     <h2>Tool 2: layers of stencils</h2>
     <p>The network stacks two such layers. Layer 1 has 8 stencils, giving 8 feature maps; the activation ReLU (as in chapter 1) keeps the positive values and sets the rest to 0. Then <b>pooling</b> shrinks each map by keeping only the largest value in each 2 × 2 block, so a stroke that moves by a pixel often lands in the same block. Layer 2 has 16 stencils, each 5 × 5 but 8 layers deep, one layer per map (200 weights each), so each one looks at all 8 maps at once and can respond to combinations of strokes: a corner, a curve, a crossing. After another pooling, an ordinary dense layer weighs the 256 remaining numbers into 10 scores, one per digit.</p>
@@ -648,10 +698,10 @@ def train_step(net, batch, lr):
     return { s, ox, oy, gap, cols, ctx, W, H };
   }
   const drawOne = (cv, t) => drawTiles(cv, [t], 1, 0, false);
-  function label(ctx, text, x, y, align = "left") {
-    ctx.font = `600 13px ${MONO}`; ctx.textAlign = align; ctx.textBaseline = "top";
-    const w = ctx.measureText(text).width, px = align === "left" ? x : x - w;
-    ctx.fillStyle = rgba(C.sheet, 0.85); ctx.fillRect(px - 4, y - 3, w + 8, 20);
+  function label(ctx, text, x, y, align = "left", size = 13) {
+    ctx.font = `600 ${size}px ${MONO}`; ctx.textAlign = align; ctx.textBaseline = "top";
+    const w = ctx.measureText(text).width, px = align === "left" ? x : x - w, pad = Math.round(size * 0.3);
+    ctx.fillStyle = rgba(C.sheet, 0.85); ctx.fillRect(px - pad, y - pad + 1, w + 2 * pad, size + 2 * pad);
     ctx.fillStyle = rgba(C.ink); ctx.fillText(text, x, y);
   }
 
@@ -756,6 +806,7 @@ def train_step(net, batch, lr):
     }
     return frames;
   }
+  const AVGS = [], avgOf = (d) => AVGS[d] || (AVGS[d] = averageOf(d));
   function averageOf(digit) {
     const avg = new Float64Array(784); let n = 0;
     for (let k = 0; k < DATA.train.n; k++) if (DATA.train.labels[k] === digit) { n++; for (let p = 0; p < 784; p++) avg[p] += DATA.train.px[k * 784 + p] / 255; }
@@ -780,7 +831,7 @@ def train_step(net, batch, lr):
     JOB.seven = DATA.firstOf[7];
     const D = dreamer(3); JOB.dream.push(Float64Array.from(D.x.d));
     while (D.step < 300) { D.next(); if (D.step % 10 === 0) { JOB.dream.push(Float64Array.from(D.x.d)); yield; } }
-    JOB.avg3 = averageOf(3);
+    JOB.avg3 = avgOf(3);
     const seven = DATA.test[JOB.seven];
     JOB.foolFrames = fool(seven.image, seven.label, 0.15, -1);
     const T = trainer(1);
@@ -812,6 +863,43 @@ def train_step(net, batch, lr):
     return P;
   }
 
+  // ---------- the problem: many ways to write a digit, and the closest-average method ----------
+  const VA = { d: 7, near: null, nearAcc: null };
+  // the digit whose average picture is closest (smallest sum of squared pixel differences)
+  function nearestAverage(x) {
+    let best = 0, bd = Infinity;
+    for (let d = 0; d < 10; d++) { const a = avgOf(d); let s = 0; for (let p = 0; p < 784; p++) { const t = x[p] - a[p]; s += t * t; } if (s < bd) { bd = s; best = d; } }
+    return best;
+  }
+  function drawVariety() {
+    document.querySelectorAll("#va-digits button").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.v) === VA.d)));
+    if (!DATA.ready) { $("va-read").textContent = FAILED || "Loading 7,000 digits…"; return; }
+    if (!VA.near) { VA.near = DATA.test.map((e) => nearestAverage(e.image.d)); VA.nearAcc = VA.near.filter((k, i) => k === DATA.test[i].label).length / DATA.test.length; }
+    const idx = []; for (let k = 0; k < DATA.train.n; k++) if (DATA.train.labels[k] === VA.d) idx.push(k);
+    drawTiles($("va-many"), Array.from({ length: 24 }, (_, i) => ({ data: toImage(DATA.train.px, idx[i * 25]).d, n: 28, kind: "ink" })), 8, 4);
+    $("va-many-t").textContent = `24 of the 600 training ${VA.d}s`;
+    drawOne($("va-avg"), { data: avgOf(VA.d), n: 28, kind: "ink" });
+    const mine = DATA.test.map((e, i) => ({ e, i })).filter((o) => o.e.label === VA.d), ok = mine.filter((o) => VA.near[o.i] === VA.d).length;
+    const miss = mine.filter((o) => VA.near[o.i] !== VA.d && argmax(probsOf(NET, o.e.image)) === VA.d).slice(0, 8);
+    const L = drawTiles($("va-miss"), miss.map((o) => ({ data: o.e.image.d, n: 28, kind: "ink" })), 8, 6);
+    const fs = Math.round(Math.max(9, Math.min(13, L.s * 0.24)));
+    miss.forEach((o, n) => label(L.ctx, String(VA.near[o.i]), L.ox + n * (L.s + L.gap) + 3, L.oy + 3, "left", fs));
+    $("va-miss-t").textContent = miss.length ? `Test ${VA.d}s the averages misread (the label on each is what they said). The convolutional network reads every one of these correctly.` : `The averages read every test ${VA.d} that the convolutional network reads.`;
+    $("va-read").innerHTML = `The average ${VA.d} is a blur of every way people write it. Picking the closest of the 10 averages reads <b>${ok} of the 100</b> test ${VA.d}s correctly, and <b>${pct(VA.nearAcc)}</b> of all 1,000 test digits.`;
+    drawLadder();
+  }
+  $("va-digits").innerHTML = Array.from({ length: 10 }, (_, d) => `<button type="button" data-v="${d}" data-tip="va-digit" aria-pressed="${d === 7}">${d}</button>`).join("");
+  $("va-digits").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; VA.d = Number(b.dataset.v); drawVariety(); });
+  // three methods on the same 1,000 test digits; the networks' scores come from the shift widget's centered measurement
+  function drawLadder() {
+    const both = SH.acc["0,0"], rows = [
+      ["Closest average", "no learning beyond averaging", VA.nearAcc],
+      ["Plain network", "784 → 8 → 10, 6,370 parameters", both ? both[0] : null],
+      ["Convolutional network", "this chapter's, 5,994 parameters", both ? both[1] : null],
+    ];
+    $("ladder").innerHTML = rows.map(([a, b, v], i) => `<div class="lr${i === 2 ? " best" : ""}"><span>${a}<small>${b}</small></span><span class="bar"><i style="width:${v == null ? 0 : (100 * v).toFixed(1)}%"></i></span><b>${v == null ? "…" : pct(v)}</b></div>`).join("");
+  }
+
   // ---------- the question: two networks and a digit you can move ----------
   const SH = { k: 0, dx: 0, dy: 0, acc: {}, job: null, jobKey: "" };
   const moveText = (dx, dy) => {
@@ -838,7 +926,8 @@ def train_step(net, batch, lr):
     const key = SH.dx + "," + SH.dy, done = SH.acc[key];
     const same = SH.dx || SH.dy ? " moved the same way" : "";
     $("sh-read").innerHTML = `${moveText(SH.dx, SH.dy)}. ` + (done ? `On all 1,000 test digits${same}, the plain network reads <b>${pct(done[0])}</b> correctly and the convolutional network <b>${pct(done[1])}</b>.` : `Measuring all 1,000 test digits${same}…`);
-    if (!done && SH.jobKey !== key) { SH.jobKey = key; SH.job = shiftMeasure(SH.dx, SH.dy); }
+    // the centered measurement also feeds the ladder above, so a newer position waits for it to finish
+    if (!done && SH.jobKey !== key && SH.jobKey !== "0,0") { SH.jobKey = key; SH.job = shiftMeasure(SH.dx, SH.dy); }
   }
   document.querySelectorAll("#shift [data-mv]").forEach((b) => b.addEventListener("click", () => {
     const [dx, dy] = b.dataset.mv.split(",").map(Number);
@@ -927,10 +1016,10 @@ def train_step(net, batch, lr):
   }
 
   // ---------- Secret 2: dreams ----------
-  const DR = { d: 3, D: null, avg: {}, running: false };
+  const DR = { d: 3, D: null, running: false };
   function drawDream() {
     if (!DATA.ready) return;
-    const avg = DR.avg[DR.d] || (DR.avg[DR.d] = averageOf(DR.d)), pa = probsOf(NET, Object.assign(grid(1, 28, 28), { d: avg }));
+    const avg = avgOf(DR.d), pa = probsOf(NET, Object.assign(grid(1, 28, 28), { d: avg }));
     drawOne($("dr-avg"), { data: avg, n: 28, kind: "ink" });
     $("dr-avg-c").innerHTML = `The network: <b>${sure(pa[DR.d])}</b> sure this is a ${DR.d}`;
     const x = DR.D ? DR.D.x : grid(1, 28, 28), px = probsOf(NET, x);
@@ -1224,7 +1313,7 @@ def train_step(net, batch, lr):
       do { PG.T.next(); if (PG.T.step % 100 === 0) PG.evalJob = measure(copyNet(PG.T.net), ((at) => (a) => { PG.evalAcc = a; PG.evalAt = at; })(PG.T.step)); } while (performance.now() - t0 < 8);
       if (now - PG.lastUpdate > 120) PG.dirty = true;
     }
-    if (SH.job) { const t0 = performance.now(); while (performance.now() - t0 < 6) if (SH.job.next().done) { SH.job = null; SH.jobKey = ""; drawShift(); break; } }
+    if (SH.job) { const t0 = performance.now(); while (performance.now() - t0 < 6) if (SH.job.next().done) { SH.job = null; SH.jobKey = ""; drawShift(); drawLadder(); break; } }
     if (PG.evalJob) { const t0 = performance.now(); while (performance.now() - t0 < 4) if (PG.evalJob.next().done) { PG.evalJob = null; PG.dirty = true; break; } }
     if (PG.dirty) { PG.dirty = false; PG.canvasDirty = false; PG.lastUpdate = now; drawPlayground(); }
     else if (PG.canvasDirty) { PG.canvasDirty = false; drawCanvas(); }
@@ -1251,6 +1340,7 @@ def train_step(net, batch, lr):
   for (let i = 0; i < 7; i++) ITN.tips.add({ [`film-${i}`]: () => `${FILM_TIPS[i]} <span class="hint">Click to jump here</span>` });
   ITN.tips.add({
     "lens-math": () => "<b>Math</b>: the same steps written as formulas.",
+    "va-digit": () => "Show 24 handwritten examples of this digit and the average of all 600.",
     move: () => "Move the digit one pixel. Pixels pushed off the edge are lost; new ones are paper.",
     center: () => "Put the digit back where it was.",
     "st-cell": () => "Click to change this weight: positive → 0 → negative → positive.",
@@ -1278,7 +1368,7 @@ def train_step(net, batch, lr):
   });
 
   // ---------- resize, theme, boot ----------
-  function redrawAll() { film.render(true); drawShift(); drawStencil(); drawWalk(); drawLearn(); drawDream(); drawFool(); pickers.forEach((P) => P.paint()); PG.dirty = true; }
+  function redrawAll() { film.render(true); drawVariety(); drawShift(); drawStencil(); drawWalk(); drawLearn(); drawDream(); drawFool(); pickers.forEach((P) => P.paint()); PG.dirty = true; }
   // redraw when the page's width changes (not its height, which changes whenever a readout gets longer)
   let rq = 0, lastW = 0; new ResizeObserver(() => { const w = document.body.clientWidth; if (w === lastW) return; lastW = w; cancelAnimationFrame(rq); rq = requestAnimationFrame(redrawAll); }).observe(document.body);
   const retheme = () => { readTheme(); redrawAll(); };
@@ -1286,11 +1376,11 @@ def train_step(net, batch, lr):
   new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   ITN.pill();
   readTheme();
-  film.setLabel(); film.render(); drawStencil(); drawFool(); ITN.view.sync();
+  film.setLabel(); film.render(); drawLadder(); drawStencil(); drawFool(); ITN.view.sync();
   requestAnimationFrame(frame);
   whenReady(() => { film.render(true); drawLearn(); });
   progress.push(() => { drawLearn(); film.render(); });
-  const fail = (msg) => { FAILED = msg; for (const id of ["sh-read", "ln-read", "wk-read", "dr-read", "fo-read", "st-read"]) $(id).textContent = msg; $("f-ticker").textContent = msg; };
+  const fail = (msg) => { FAILED = msg; for (const id of ["va-read", "sh-read", "ln-read", "wk-read", "dr-read", "fo-read", "st-read"]) $(id).textContent = msg; $("f-ticker").textContent = msg; };
   if (!HAVE_FILES) fail("The digits or the trained weights did not load (digits.js, weights.js).");
   else if (typeof DecompressionStream === "undefined") fail("This browser cannot unpack the digits. A recent Chrome, Edge, Firefox or Safari can.");
   else loadDigits().then(() => {
@@ -1301,7 +1391,7 @@ def train_step(net, batch, lr):
     makePicker($("fo-pick"), FO.k, (k) => { FO.k = k; FO.frames = null; FO.mode = "orig"; drawFool(); });
     // the playground opens with a test digit, so it shows something before anything is drawn
     PG.testK = testPick = DATA.firstOf[2]; PG.source = "test"; PG.input = DATA.test[PG.testK].image;
-    drawShift(); drawStencil(); drawWalk(); drawLearn(); drawFool(); PG.dirty = true;
+    drawVariety(); drawShift(); drawStencil(); drawWalk(); drawLearn(); drawFool(); PG.dirty = true;
     gradientCheck();
     runLoad(loadWork());
     // Secret 2 opens with the film's finished dream of a 3, unless a dream was already started
