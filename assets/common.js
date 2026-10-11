@@ -175,7 +175,7 @@
   };
   ITN.tips.add({
     "lens-words": () => "<b>Words</b>: explain each step in plain sentences.",
-    "lens-math": () => "<b>Math</b>: the same steps as formulas, with the real numbers filled in.",
+    "lens-math": () => "<b>Math</b>: the same steps written as formulas.",
     "lens-code": () => "<b>Code</b>: the same steps as the code that does them.",
     "lens-all": () => "<b>All three</b>: words, math and code stacked, so you can see how they match line by line.",
     "lang-js": () => "<b>JavaScript</b>: the language this site runs in.",

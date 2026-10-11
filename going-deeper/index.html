@@ -1,0 +1,1001 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Why stacking layers helps: each layer gives every dot new coordinates, so a network builds curves out of lines and shapes out of curves, and what depth costs.">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; font: 14px system-ui, -apple-system, "Segoe UI", sans-serif; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>Going Deeper</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='8' cy='16' r='4' fill='%232a78d6'/%3E%3Ccircle cx='24' cy='9' r='4' fill='%23eb6834'/%3E%3Ccircle cx='24' cy='23' r='4' fill='%232a78d6'/%3E%3Cpath d='M11 15 21 10M11 17l10 5' stroke='%2314171c' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* Chapter 4: two-panel figures throughout; layer galleries are rows of neuron squares. */
+.pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 520px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+.panel { position: relative; min-width: 0; }
+.panel canvas { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; border-radius: 8px; border: 1px solid var(--rule); }
+.panel .ptitle { font: 600 11px/1.2 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 6px; min-height: 1.2em; }
+.ptitle .nc { text-transform: none; letter-spacing: 0; font-size: 12px; }
+.film-cap { min-height: 5.5em; }
+.readout { font: 16px/1.5 var(--font-body); color: var(--ink-2); margin: 10px 0 0; font-variant-numeric: tabular-nums; }
+.readout b { color: var(--ink); }
+.bar-row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+#race-chart { display: block; width: 100%; height: 120px; margin-top: 10px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font: 13px/1.3 var(--font-display); color: var(--ink-2); margin-top: 8px; }
+.legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.ln { display: inline-block; width: 20px; height: 0; border-top: 2.5px solid var(--ink); }
+.ln.dash { border-top: 2.5px dashed var(--ink-3); }
+#sp-blend { width: 100%; margin-top: 10px; }
+.status { font: 13px/1.4 var(--font-mono); color: var(--ink-3); margin: 8px 0 0; }
+/* layer galleries */
+.gallery { display: grid; gap: 12px; }
+.grow { display: grid; grid-template-columns: 6.2em minmax(0, 1fr); gap: 10px; align-items: center; }
+.grow .glab { font: 600 12px/1.25 var(--font-display); color: var(--ink-2); }
+.grow .glab small { display: block; font: 12px/1.3 var(--font-body); color: var(--ink-3); font-weight: 400; }
+.squares { display: flex; flex-wrap: wrap; gap: 5px; }
+.squares canvas { width: 46px; height: 46px; border-radius: 5px; box-shadow: 0 0 0 1px var(--rule); display: block; }
+.squares.small canvas { width: 30px; height: 30px; border-radius: 4px; }
+@media (max-width: 520px) { .grow { grid-template-columns: minmax(0, 1fr); gap: 4px; } .squares canvas { width: 38px; height: 38px; } }
+/* depth widget */
+#vg-cv { display: block; width: 100%; height: 220px; }
+/* playground */
+.pg-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 24px; padding-top: 18px; }
+@media (max-width: 899px) { .pg-grid { grid-template-columns: minmax(0, 1fr); } }
+#pl-plot { display: block; width: 100%; aspect-ratio: 1; border-radius: 10px; border: 1px solid var(--rule); }
+#pl-chart { display: block; width: 100%; height: 110px; margin-top: 8px; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.stat { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.stat b { font: 500 20px/1.1 var(--font-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.stat .cap { font: 12.5px/1.3 var(--font-body); color: var(--ink-3); }
+.layers { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.layers select { padding: 7px 6px; }
+.layers .arrow { color: var(--ink-3); font: 13px var(--font-mono); }
+.btn.small { padding: 7px 10px; font-size: 13px; }
+.phead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.ptitle2 { font: 600 15px/1.2 var(--font-display); color: var(--ink); }
+.hint { font: 13px/1.3 var(--font-display); color: var(--ink-3); }
+#pl-space { display: block; width: 100%; max-width: 360px; aspect-ratio: 1; border-radius: 10px; border: 1px solid var(--rule); }
+.space-box { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule); }
+.note { font: 15px/1.45 var(--font-body); color: var(--ink-3); margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<div class="page">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Inside the Network</a><span aria-hidden="true">›</span><span>Chapter 4</span></nav>
+  <header class="col">
+    <div class="eyebrow">Chapter 4</div>
+    <h1>Going deeper: why layers help</h1>
+    <p class="dek">One hidden layer can only add up straight edges. Stack layers, and each one gives every dot new coordinates for the next, so a network builds curves out of lines and shapes out of curves.</p>
+    <nav class="jump" aria-label="Page shortcuts">
+      <a class="btn primary" href="#playground">Skip to the playground ↓</a>
+      <span class="jump-note">or read the introduction below</span>
+    </nav>
+  </header>
+
+  <main class="col intro">
+    <h2>What this is</h2>
+    <p>This film races two small networks on four rings of dots, then opens one up to show what its layers do.</p>
+
+    <figure class="film" id="film" aria-label="Animation: one layer against two, then what each layer does">
+      <div class="film-stage">
+        <div class="pair">
+          <div class="panel"><div class="ptitle" id="f-lt"></div><canvas id="f-left" aria-label="Left panel of the film"></canvas></div>
+          <div class="panel"><div class="ptitle" id="f-rt"></div><canvas id="f-right" aria-label="Right panel of the film"></canvas></div>
+        </div>
+      </div>
+      <div class="film-ticker" id="f-ticker" aria-hidden="true"></div>
+      <div class="film-progress"><i id="f-fill"></i></div>
+      <div class="film-bar">
+        <button type="button" class="btn primary" id="f-play">Play</button>
+        <div class="chips" id="f-chips" role="group" aria-label="Jump to a scene">
+          <button type="button" data-i="0" data-tip="film-0">One layer</button><button type="button" data-i="1" data-tip="film-1">Two layers</button><button type="button" data-i="2" data-tip="film-2">Lines</button><button type="button" data-i="3" data-tip="film-3">Curves</button><button type="button" data-i="4" data-tip="film-4">New coordinates</button><button type="button" data-i="5" data-tip="film-5">The price</button><button type="button" data-i="6" data-tip="film-6">In short</button>
+        </div>
+      </div>
+      <p class="film-cap" id="f-cap" aria-live="polite"></p>
+    </figure>
+
+    <p>Chapter 1's network had a single hidden layer: each neuron drew one straight edge, and the output added the edges up. This chapter asks what changes when you stack a second layer on top, and what that costs.</p>
+
+    <h2>The question</h2>
+    <p>Here are four rings of dots, alternating blue and orange. Two networks race on them. One has a single hidden layer of 32 neurons, 129 parameters in all. The other has two hidden layers of 8 neurons each: 105 parameters, fewer than the first. Same dots, same kind of starting weights, the same learning rate η = 1, and 3,000 steps of gradient descent each.</p>
+
+    <figure class="card" id="race" aria-label="A race between one wide layer and two narrow layers">
+      <div class="bar-row">
+        <button type="button" class="btn primary" id="race-go" data-tip="race-go">Race</button>
+        <span class="readout" id="race-read" style="margin:0"></span>
+      </div>
+      <div class="pair">
+        <div class="panel"><div class="ptitle">One layer of 32 · 129 parameters</div><canvas id="race-a" aria-label="The one-layer network's boundary"></canvas></div>
+        <div class="panel"><div class="ptitle">Two layers of 8 · 105 parameters</div><canvas id="race-b" aria-label="The two-layer network's boundary"></canvas></div>
+      </div>
+      <canvas id="race-chart" aria-label="Accuracy of both networks over training"></canvas>
+      <div class="legend"><span><i class="ln dash"></i>one layer of 32</span><span><i class="ln"></i>two layers of 8</span></div>
+    </figure>
+
+    <p>The single layer stalls with parts of the rings still wrong; the two layers get every dot right in about 1,500 steps. That is not the luck of one draw. We ran both networks from 20 different random starts. The single layer of 32 never reached 95% within 3,000 steps; its best was 91%. The two layers of 8 reached 95% in 19 of the 20 runs, and got every dot right in 12. In principle, one hidden layer with enough neurons can approximate any boundary. In practice, stacking layers makes many shapes far easier to learn. Three ideas explain why.</p>
+
+    <h2>Tool 1: a layer gives every dot new coordinates</h2>
+    <p>A layer takes each dot's numbers and hands the next layer new ones: one number per neuron. When a layer has exactly two neurons, its two numbers can be drawn as coordinates on a new plane. This network, with layers of 8, 8 and 2 neurons, was trained on chapter 1's Spiral. On the left are the dots where they start. On the right, the same dots at their coordinates in the last hidden layer, the two-neuron one. Drag the slider to watch them move from one to the other.</p>
+
+    <figure class="card" id="space" aria-label="The spiral before and after the network's layers">
+      <div class="pair">
+        <div class="panel"><div class="ptitle">Where the dots start <span class="nc">(x₁, x₂)</span></div><canvas id="sp-in" aria-label="The spiral in its original coordinates"></canvas></div>
+        <div class="panel"><div class="ptitle" id="sp-ht">Their coordinates in the last hidden layer</div><canvas id="sp-h" aria-label="The spiral in the last hidden layer's coordinates"></canvas></div>
+      </div>
+      <input type="range" id="sp-blend" min="0" max="1000" value="1000" aria-label="Slide the dots from their starting coordinates to the layer's coordinates" data-tip="blend">
+      <p class="readout" id="sp-read"></p>
+    </figure>
+
+    <p>In the new coordinates the two arms no longer wind around each other, and the output neuron separates the colors with one straight line<span id="sp-q"></span>. That is what the layers before it did: they bent and folded the plane until a straight cut was enough. The faint grid shows the bending: straight lines on the left come out curved on the right.</p>
+
+    <h2>Tool 2: lines, then curves, then shapes</h2>
+    <p>Each layer builds on the one below it. Here is the two-layer network from the race after training. Every square shows one neuron's output across the whole plane, blue for positive and orange for negative.</p>
+
+    <figure class="card" aria-label="Every neuron of the trained two-layer network">
+      <div class="gallery" id="gal"></div>
+      <p class="status" id="gal-status"></p>
+    </figure>
+
+    <p>The first layer can only draw straight edges, exactly like chapter 1's neurons. The second layer combines them: its neurons respond to regions with curved edges, such as bulges, bands and arcs. The output combines those regions into one shape that puts every ring on its correct side. Lines, then curves, then the shape.</p>
+
+    <h2>Tool 3: the algorithm, layer by layer</h2>
+    <p>Training a deep network uses the same chain rule as chapter 3, organized layer by layer instead of operation by operation. Here it is in five short parts. The code is the JavaScript this page actually runs, or the same program in Python.</p>
+    <div class="lens" data-lens-ctl data-label="Explain with"></div>
+    <div class="annot" id="algo" data-reps></div>
+
+    <h2>The price of depth</h2>
+    <p>Depth has a cost, and part 4 above shows where it comes from. On the way back, the error is multiplied by the slope of every bend it passes. With many layers those slopes multiply together. σ's slope is never more than 0.25, so after six σ layers the slopes alone can shrink the error by a factor of 0.25⁶, about 1/4,000, before it reaches the first layer. This widget measures it on a fresh network with six hidden layers of six neurons, at the very start of training.</p>
+
+    <figure class="card" id="vg" aria-label="Average gradient size in each layer of a deep network">
+      <div class="bar-row">
+        <div class="seg" role="group" aria-label="Bend" id="vg-bend">
+          <button type="button" data-v="sigmoid" data-tip="vg-sigmoid" aria-pressed="true">σ</button>
+          <button type="button" data-v="tanh" data-tip="vg-tanh" aria-pressed="false">tanh</button>
+          <button type="button" data-v="relu" data-tip="vg-relu" aria-pressed="false">ReLU</button>
+        </div>
+        <div class="seg" role="group" aria-label="Starting weights" id="vg-scale">
+          <button type="button" data-v="1" data-tip="vg-scale-1" aria-pressed="true">well-scaled start</button>
+          <button type="button" data-v="0.5" data-tip="vg-scale-half" aria-pressed="false">half as big</button>
+        </div>
+      </div>
+      <canvas id="vg-cv" aria-label="Bar chart of the average gradient size per layer, on a logarithmic scale"></canvas>
+      <p class="readout" id="vg-read"></p>
+    </figure>
+
+    <p>This is called the <b>vanishing-gradient problem</b>, and it is why hidden layers today mostly use ReLU, whose slope is exactly 1 wherever a neuron is active, and why starting weights are scaled with care. tanh with well-scaled starting weights holds up at this depth; start the weights half as big and every layer's gradient shrinks.</p>
+
+    <h2>The playground</h2>
+    <p>Build a network: choose up to three hidden layers and their widths, pick a set of dots, and train. Every neuron's square is shown, layer by layer. Make the last hidden layer two neurons wide to see the plane it makes.</p>
+  </main>
+
+  <section class="bench" id="playground" aria-label="Deep network playground">
+    <div class="fig">
+      <div class="controls">
+        <div class="ctl">
+          <span class="lab">Training</span>
+          <div class="btns">
+            <button type="button" class="btn primary" id="pl-train" data-tip="train">Train</button>
+            <button type="button" class="btn" id="pl-step" data-tip="step">Step</button>
+            <button type="button" class="btn" id="pl-reset" data-tip="reset">Reset</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <span class="lab" id="lab-data">Data</span>
+          <div class="seg" role="group" aria-labelledby="lab-data" id="pl-data">
+            <button type="button" data-v="rings" data-tip="data-rings" aria-pressed="true">Rings</button>
+            <button type="button" data-v="spiral" data-tip="data-spiral" aria-pressed="false">Spiral</button>
+            <button type="button" data-v="checker" data-tip="data-checker" aria-pressed="false">Checkerboard</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <span class="lab">Hidden layers</span>
+          <div class="layers" id="pl-layers"></div>
+        </div>
+        <div class="ctl">
+          <span class="lab" id="lab-bend">Bend</span>
+          <div class="seg" role="group" aria-labelledby="lab-bend" id="pl-bend">
+            <button type="button" data-v="tanh" data-tip="bend-tanh" aria-pressed="true">tanh</button>
+            <button type="button" data-v="relu" data-tip="bend-relu" aria-pressed="false">ReLU</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <label class="lab" for="pl-lr">Learning rate <span class="nc">η</span></label>
+          <select id="pl-lr" data-tip="lr"><option value="0.1">0.1</option><option value="0.3">0.3</option><option value="1" selected>1</option><option value="3">3</option></select>
+        </div>
+        <div class="ctl">
+          <span class="lab" id="lab-speed">Speed</span>
+          <div class="seg" role="group" aria-labelledby="lab-speed" id="pl-speed">
+            <button type="button" data-v="1" data-tip="speed-slow" aria-pressed="false">Slow</button>
+            <button type="button" data-v="8" data-tip="speed-fast" aria-pressed="true">Fast</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <span class="lab">Try</span>
+          <div class="chips" id="pl-presets">
+            <button type="button" data-p="32" data-tip="preset-32">1 × 32</button><button type="button" data-p="8,8" data-tip="preset-88">2 × 8</button><button type="button" data-p="8,8,8" data-tip="preset-888">3 × 8</button><button type="button" data-p="8,8,2" data-tip="preset-882">8 → 8 → 2</button>
+          </div>
+        </div>
+      </div>
+      <div class="pg-grid">
+        <div>
+          <div class="phead"><span class="ptitle2">The dots</span><span class="hint" id="pl-arch"></span></div>
+          <canvas id="pl-plot" aria-label="The dots, shaded by the network's guess, with its boundary"></canvas>
+          <div class="stats">
+            <div class="stat" data-tip="st-step"><span class="lab">Step</span><b id="st-step">0</b><span class="cap">training rounds</span></div>
+            <div class="stat" data-tip="st-loss"><span class="lab">Loss</span><b id="st-loss">–</b><span class="cap">average, lower is better</span></div>
+            <div class="stat" data-tip="st-acc"><span class="lab">Accuracy</span><b id="st-acc">–</b><span class="cap">dots on the correct side</span></div>
+            <div class="stat" data-tip="st-params"><span class="lab">Parameters</span><b id="st-params">–</b><span class="cap">weights and biases</span></div>
+          </div>
+          <canvas id="pl-chart" aria-label="Accuracy over training"></canvas>
+        </div>
+        <div>
+          <div class="phead"><span class="ptitle2">Every neuron, layer by layer</span><span class="hint">each square: one neuron's output over the plane</span></div>
+          <div class="gallery" id="pl-gal"></div>
+          <div class="space-box">
+            <div class="phead"><span class="ptitle2">The plane the last layer makes</span></div>
+            <canvas id="pl-space" aria-label="The dots at their coordinates in the last hidden layer" hidden></canvas>
+            <p class="note" id="pl-space-note"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="col">
+    <h2>How to read the figures</h2>
+    <dl class="read">
+      <dt>Squares</dt>
+      <dd>Each square is one neuron's output for every point of the plane, on the same axes as the dots. Blue is positive, orange negative. The output square is the network's whole guess.</dd>
+      <dt>The dots</dt>
+      <dd>The shading behind the dots is the network's guess, deeper for more confident. The dark curve is the boundary, where the guess is 50%. Hollow dots are on the wrong side.</dd>
+      <dt>New coordinates</dt>
+      <dd>For a layer with two neurons: each dot is drawn at the layer's two numbers instead of its own x₁ and x₂. The straight line is where the output neuron's guess is 50%, and the faint grid is the original plane's grid, bent the same way.</dd>
+      <dt>Bars</dt>
+      <dd>The average size of the gradient for each layer's weights, on a logarithmic scale: each step down the axis is ten times smaller.</dd>
+    </dl>
+
+    <h2>Things to try</h2>
+    <ul class="tries">
+      <li>In the playground, train 1 × 32 on Rings, then 2 × 8. The single wide layer stalls; the two narrow layers usually get every dot right.</li>
+      <li>Choose 8 → 8 → 2 on Spiral and watch the plane the last layer makes while it trains: the arms slowly come apart until one straight line separates them. About half of all starting weights get stuck partway, with the arms still tangled; if yours do, press Reset for another start.</li>
+      <li>On Checkerboard, compare 2 × 8 with 3 × 8. In our runs the third layer roughly halved the steps needed to reach 95%.</li>
+      <li>Switch the bend to ReLU and look at the boundary. It is made of straight pieces, because a ReLU network is a patchwork of flat pieces stitched together.</li>
+      <li>In the price-of-depth widget, compare σ with tanh and ReLU, then halve the starting weights.</li>
+    </ul>
+
+    <h2>What runs where</h2>
+    <p>Everything runs in your browser, with no machine-learning library. This chapter trains with the layer-by-layer backward pass shown above, which is faster than chapter 3's operation-by-operation autograd for these bigger networks. When this page loaded it checked the two against each other on a network with three hidden layers: <span id="ag-check">the check is running…</span> The film, the race and the network in Tool 1 replay training that ran in your browser when the page loaded, from fixed random seeds. Browsers round a few math functions, such as e<sup>x</sup>, very slightly differently, and over thousands of steps those tiny differences grow, so the exact step counts can differ a little from one browser to another.</p>
+
+    <h2>Where this is going</h2>
+    <ol class="road">
+      <li><span class="n">1</span><span><a href="../">A network you can touch</a></span><span></span></li>
+      <li><span class="n">2</span><span><a href="../loss-and-gradients/">Loss and gradients: walking downhill</a></span><span></span></li>
+      <li><span class="n">3</span><span><a href="../backprop/">Backprop, one operation at a time</a></span><span></span></li>
+      <li class="here"><span class="n">4</span><span>Going deeper: why layers help</span><span class="tag">This page</span></li>
+      <li><span class="n">5</span><span>Seeing: convolutional networks</span><span></span></li>
+      <li class="branch"><span class="n">5′</span><span>Listening: spectrograms and sound</span><span class="tag">Branch</span></li>
+      <li><span class="n">6</span><span>Words as vectors: tokens and embeddings</span><span></span></li>
+      <li><span class="n">7</span><span>Attention</span><span></span></li>
+      <li><span class="n">8</span><span>A tiny GPT, trained in your browser</span><span></span></li>
+    </ol>
+    <nav class="chapnav" aria-label="Chapters"><a href="../backprop/">← Chapter 3: Backprop</a><span>Chapter 5: Seeing, coming next</span></nav>
+    <p class="foot">Working prototype, October 2026. Every figure on this page is a live computation.<br><a href="https://github.com/taoyiran/inside-the-network">Source on GitHub</a> · code under MIT, text and figures under CC BY 4.0.</p>
+  </section>
+  <a class="jump-pill" id="jump-pill" href="#playground" hidden>Playground ↓</a>
+</div>
+
+<script id="autograd" src="../assets/autograd.js"></script>
+<script src="../assets/common.js"></script>
+<script id="mlp">
+// A deep network, layer by layer. The forward pass keeps every layer's values;
+// the backward pass walks back through the layers, applying the chain rule.
+const sigma = (z) => (z >= 0 ? 1 / (1 + Math.exp(-z)) : Math.exp(z) / (1 + Math.exp(z)));
+const BENDS = {
+  tanh: { f: Math.tanh, slope: (z, h) => 1 - h * h },
+  relu: { f: (z) => (z > 0 ? z : 0), slope: (z) => (z > 0 ? 1 : 0) },
+  sigmoid: { f: sigma, slope: (z, h) => h * (1 - h) },
+};
+
+// One layer: each neuron weighs every value from the layer below, adds its bias, and bends.
+function layer(W, b, below, bend) {
+  const z = W.map((row, j) => row.reduce((sum, w, i) => sum + w * below[i], b[j]));
+  return { z, h: bend ? z.map(bend.f) : z };
+}
+
+// The forward pass: feed one dot through every layer. The output layer does not bend;
+// σ turns its single number into the probability of blue.
+function forwardPass(net, x) {
+  const values = [{ h: x }];
+  net.forEach((L, l) => values.push(layer(L.W, L.b, values[l].h, l < net.length - 1 ? BENDS[L.bend] : null)));
+  return values;
+}
+
+// The backward pass for one dot. Start from the output's error, σ(z) − y.
+// At each layer, record the gradient of every weight, then send the error down:
+// through the weights, and through the slope of the bend below.
+function backwardPass(net, values, y, grads) {
+  let delta = [sigma(values[net.length].z[0]) - y];
+  for (let l = net.length - 1; l >= 0; l--) {
+    const below = values[l].h;
+    delta.forEach((d, j) => { grads[l].b[j] += d; below.forEach((h, i) => { grads[l].W[j][i] += d * h; }); });
+    if (l === 0) break;
+    const slope = BENDS[net[l - 1].bend].slope, z = values[l].z;
+    delta = below.map((h, i) => slope(z[i], h) * delta.reduce((sum, d, j) => sum + d * net[l].W[j][i], 0));
+  }
+}
+
+// One step of gradient descent on all the dots: average the gradients, step against them.
+function trainStep(net, dots, lr) {
+  const grads = net.map((L) => ({ W: L.W.map((row) => row.map(() => 0)), b: L.b.map(() => 0) }));
+  let loss = 0, right = 0;
+  for (const { x1, x2, y } of dots) {
+    const values = forwardPass(net, [x1, x2]), z = values[net.length].z[0];
+    loss += Math.max(z, 0) - z * y + Math.log1p(Math.exp(-Math.abs(z)));
+    if ((z > 0 ? 1 : 0) === y) right++;
+    backwardPass(net, values, y, grads);
+  }
+  const n = dots.length;
+  net.forEach((L, l) => L.W.forEach((row, j) => { L.b[j] -= (lr * grads[l].b[j]) / n; row.forEach((w, i) => { row[i] -= (lr * grads[l].W[j][i]) / n; }); }));
+  return { loss: loss / n, accuracy: right / n, grads };
+}
+</script>
+<script type="text/plain" id="mlp-py">
+# A deep network, layer by layer. The forward pass keeps every layer's values;
+# the backward pass walks back through the layers, applying the chain rule.
+import math
+def sigma(z):
+    return 1 / (1 + math.exp(-z)) if z >= 0 else math.exp(z) / (1 + math.exp(z))
+BENDS = {
+    "tanh": (math.tanh, lambda z, h: 1 - h * h),
+    "relu": (lambda z: z if z > 0 else 0.0, lambda z, h: 1.0 if z > 0 else 0.0),
+    "sigmoid": (sigma, lambda z, h: h * (1 - h)),
+}
+
+# One layer: each neuron weighs every value from the layer below, adds its bias, and bends.
+def layer(W, b, below, bend):
+    z = [sum(w * x for w, x in zip(row, below)) + bj for row, bj in zip(W, b)]
+    return {"z": z, "h": [bend[0](v) for v in z] if bend else z}
+
+# The forward pass: feed one dot through every layer. The output layer does not bend;
+# σ turns its single number into the probability of blue.
+def forward_pass(net, x):
+    values = [{"h": x}]
+    for l, L in enumerate(net):
+        values.append(layer(L["W"], L["b"], values[l]["h"], BENDS[L["bend"]] if l < len(net) - 1 else None))
+    return values
+
+# The backward pass for one dot. Start from the output's error, σ(z) − y.
+# At each layer, record the gradient of every weight, then send the error down:
+# through the weights, and through the slope of the bend below.
+def backward_pass(net, values, y, grads):
+    delta = [sigma(values[len(net)]["z"][0]) - y]
+    for l in range(len(net) - 1, -1, -1):
+        below = values[l]["h"]
+        for j, d in enumerate(delta):
+            grads[l]["b"][j] += d
+            for i, h in enumerate(below):
+                grads[l]["W"][j][i] += d * h
+        if l == 0:
+            break
+        slope, z = BENDS[net[l - 1]["bend"]][1], values[l]["z"]
+        delta = [slope(z[i], h) * sum(d * net[l]["W"][j][i] for j, d in enumerate(delta)) for i, h in enumerate(below)]
+
+# One step of gradient descent on all the dots: average the gradients, step against them.
+def train_step(net, dots, lr):
+    grads = [{"W": [[0.0] * len(row) for row in L["W"]], "b": [0.0] * len(L["b"])} for L in net]
+    loss, right = 0.0, 0
+    for x1, x2, y in dots:
+        values = forward_pass(net, [x1, x2])
+        z = values[len(net)]["z"][0]
+        loss += max(z, 0.0) - z * y + math.log1p(math.exp(-abs(z)))
+        right += (1 if z > 0 else 0) == y
+        backward_pass(net, values, y, grads)
+    n = len(dots)
+    for l, L in enumerate(net):
+        for j, row in enumerate(L["W"]):
+            L["b"][j] -= lr * grads[l]["b"][j] / n
+            for i in range(len(row)):
+                row[i] -= lr * grads[l]["W"][j][i] / n
+    return loss / n, right / n
+</script>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const { fmt, sb } = ITN;
+  const reduceMotion = ITN.reduceMotion;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+  const UI = '"Bricolage Grotesque", system-ui, -apple-system, sans-serif';
+  const pct = (v) => Math.round(v * 100) + "%";
+
+  // ---------- theme ----------
+  const C = {};
+  function hexRGB(s) {
+    s = s.trim();
+    if (s[0] === "#") { if (s.length === 4) s = "#" + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]; const n = parseInt(s.slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+    const m = s.match(/[\d.]+/g); return m ? m.slice(0, 3).map(Number) : [128, 128, 128];
+  }
+  function makeLUT(strength) {
+    const lut = new Uint8ClampedArray(256 * 3);
+    for (let k = 0; k < 256; k++) {
+      const t = (k / 255) * 2 - 1, tg = t >= 0 ? C.pos : C.neg, a = Math.pow(Math.abs(t), 0.85) * strength;
+      for (let c = 0; c < 3; c++) lut[k * 3 + c] = C.sheet[c] + (tg[c] - C.sheet[c]) * a;
+    }
+    return lut;
+  }
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement);
+    for (const k of ["sheet", "ink", "ink-2", "ink-3", "rule", "pos", "neg", "well"]) C[k] = hexRGB(cs.getPropertyValue("--" + k));
+    C.lutPlot = makeLUT(0.58); C.lutNode = makeLUT(0.92);
+  }
+  const rgba = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  function sizeCanvas(cv) {
+    const cw = cv.clientWidth, ch = cv.clientHeight, w = Math.max(1, Math.round(cw * dpr)), h = Math.max(1, Math.round(ch * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    return [cw, ch];
+  }
+  const lut = (t) => Math.round((Math.max(-1, Math.min(1, t)) + 1) * 127.5) * 3;
+
+  // ---------- dots and starting weights (seeded: every visitor gets the same) ----------
+  function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function gaussian(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+  const N = 160, D = 1.15;
+  const DATA_SEED = { rings: 73, spiral: 51, checker: 61 };
+  function makeData(kind) {
+    const r = mulberry32(DATA_SEED[kind]), pts = [];
+    for (let i = 0; i < N; i++) {
+      let x1, x2, y;
+      if (kind === "spiral") { y = i % 2; const t = Math.floor(i / 2) / (N / 2), rad = 0.1 + 0.85 * t, a = t * 3.1 * Math.PI + y * Math.PI; x1 = rad * Math.cos(a) + gaussian(r) * 0.035; x2 = rad * Math.sin(a) + gaussian(r) * 0.035; }
+      else if (kind === "checker") { x1 = r() * 2 - 1; x2 = r() * 2 - 1; y = (Math.floor((x1 + 1) * 2) + Math.floor((x2 + 1) * 2)) % 2; }
+      else { y = i % 2; const a = r() * Math.PI * 2, ring = Math.floor(r() * 2), rad = y ? (ring ? 0.18 : 0.62) + 0.12 * r() : (ring ? 0.4 : 0.84) + 0.12 * r(); x1 = rad * Math.cos(a); x2 = rad * Math.sin(a); }
+      pts.push({ x1: Math.max(-1, Math.min(1, x1)), x2: Math.max(-1, Math.min(1, x2)), y });
+    }
+    return pts;
+  }
+  const DATA = { rings: makeData("rings"), spiral: makeData("spiral"), checker: makeData("checker") };
+  // starting weights scaled by 1/√(inputs), ×√2 for ReLU, small random biases, output bias 0
+  function makeNet(widths, bend, seed, scale = 1) {
+    const r = mulberry32(seed), sizes = [2, ...widths, 1];
+    return sizes.slice(1).map((nout, l) => {
+      const nin = sizes[l], hidden = l < sizes.length - 2, std = (scale / Math.sqrt(nin)) * (bend === "relu" && hidden ? Math.SQRT2 : 1);
+      return { W: Array.from({ length: nout }, () => Array.from({ length: nin }, () => gaussian(r) * std)), b: Array.from({ length: nout }, () => (hidden ? gaussian(r) * 0.1 : 0)), bend };
+    });
+  }
+  const copyNet = (net) => net.map((L) => ({ W: L.W.map((row) => row.slice()), b: L.b.slice(), bend: L.bend }));
+  const nParams = (net) => net.reduce((s, L) => s + L.W.length * (L.W[0].length + 1), 0);
+  const outZ = (net, x1, x2) => forwardPass(net, [x1, x2])[net.length].z[0];
+  const accuracy = (net, dots) => dots.filter((p) => (outZ(net, p.x1, p.x2) > 0 ? 1 : 0) === p.y).length / dots.length;
+
+  // ---------- drawing the dots and a network's guess ----------
+  const toX = (x, W) => ((x + D) / (2 * D)) * W, toY = (y, H) => ((D - y) / (2 * D)) * H;
+  const GP = 57, heat = document.createElement("canvas"); heat.width = heat.height = GP;
+  const hctx = heat.getContext("2d"), heatImg = hctx.createImageData(GP, GP), gridP = new Float64Array(GP * GP);
+  function contour(ctx, W, H, grid, G) {
+    const f = (r, c) => grid[r * G + c] - 0.5, X = (c) => (c / (G - 1)) * W, Y = (r) => (r / (G - 1)) * H;
+    ctx.beginPath();
+    for (let r = 0; r < G - 1; r++) for (let c = 0; c < G - 1; c++) {
+      const a = f(r, c), b = f(r, c + 1), e = f(r + 1, c + 1), d = f(r + 1, c), pts = [];
+      if (a > 0 !== b > 0) pts.push([X(c + a / (a - b)), Y(r)]);
+      if (b > 0 !== e > 0) pts.push([X(c + 1), Y(r + b / (b - e))]);
+      if (d > 0 !== e > 0) pts.push([X(c + d / (d - e)), Y(r + 1)]);
+      if (a > 0 !== d > 0) pts.push([X(c), Y(r + a / (a - d))]);
+      if (pts.length >= 2) { ctx.moveTo(pts[0][0], pts[0][1]); ctx.lineTo(pts[1][0], pts[1][1]); }
+      if (pts.length === 4) { ctx.moveTo(pts[2][0], pts[2][1]); ctx.lineTo(pts[3][0], pts[3][1]); }
+    }
+    ctx.stroke();
+  }
+  function drawDots(ctx, W, H, dots, isRight, pr) {
+    dots.forEach((p, k) => {
+      const col = p.y ? C.pos : C.neg, right = isRight ? isRight[k] : true;
+      ctx.beginPath(); ctx.arc(toX(p.x1, W), toY(p.x2, H), pr, 0, Math.PI * 2);
+      if (right) { ctx.fillStyle = rgba(col); ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = rgba(C.sheet); ctx.stroke(); }
+      else { ctx.fillStyle = rgba(C.sheet); ctx.fill(); ctx.lineWidth = 1.8; ctx.strokeStyle = rgba(col); ctx.stroke(); }
+    });
+  }
+  function drawPlot(cv, net, dots) {
+    const [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = rgba(C.sheet); ctx.fillRect(0, 0, W, H);
+    if (net) {
+      for (let r = 0; r < GP; r++) { const x2 = D - (2 * D * r) / (GP - 1); for (let c = 0; c < GP; c++) gridP[r * GP + c] = ITN.sig(outZ(net, -D + (2 * D * c) / (GP - 1), x2)); }
+      const t = C.lutPlot, d = heatImg.data;
+      for (let k = 0; k < GP * GP; k++) { const li = lut(gridP[k] * 2 - 1); d[k * 4] = t[li]; d[k * 4 + 1] = t[li + 1]; d[k * 4 + 2] = t[li + 2]; d[k * 4 + 3] = 255; }
+      hctx.putImageData(heatImg, 0, 0);
+      const cw = W / (GP - 1);
+      ctx.imageSmoothingEnabled = true; ctx.drawImage(heat, -cw / 2, -cw / 2, W + cw, H + cw);
+      ctx.strokeStyle = rgba(C.ink, 0.8); ctx.lineWidth = 1.6; contour(ctx, W, H, gridP, GP);
+    }
+    const right = net ? dots.map((p) => (outZ(net, p.x1, p.x2) > 0 ? 1 : 0) === p.y) : null;
+    drawDots(ctx, W, H, dots, right, Math.max(2.6, Math.min(4.2, W / 95)));
+  }
+
+  // ---------- every neuron's output over the plane ----------
+  const GN = 30, tiny = document.createElement("canvas"); tiny.width = tiny.height = GN;
+  const tctx = tiny.getContext("2d"), tinyImg = tctx.createImageData(GN, GN);
+  // the outputs of every neuron in every layer at GN × GN points; the output layer as 2σ(z) − 1
+  function neuronGrids(net) {
+    const grids = net.map((L) => L.W.map(() => new Float64Array(GN * GN)));
+    for (let r = 0; r < GN; r++) {
+      const x2 = D - (2 * D * r) / (GN - 1);
+      for (let c = 0; c < GN; c++) {
+        const vals = forwardPass(net, [-D + (2 * D * c) / (GN - 1), x2]);
+        for (let l = 0; l < net.length; l++) {
+          const h = vals[l + 1].h;
+          for (let j = 0; j < h.length; j++) grids[l][j][r * GN + c] = l === net.length - 1 ? 2 * ITN.sig(h[j]) - 1 : h[j];
+        }
+      }
+    }
+    return grids;
+  }
+  function paintSquare(cv, grid, relu) {
+    const px = Math.round(cv.clientWidth * dpr) || 60;
+    if (cv.width !== px) { cv.width = cv.height = px; }
+    let m = 1; if (relu) { m = 1e-9; for (const v of grid) m = Math.max(m, v); }
+    const t = C.lutNode, d = tinyImg.data;
+    for (let k = 0; k < GN * GN; k++) { const li = lut(grid[k] / m); d[k * 4] = t[li]; d[k * 4 + 1] = t[li + 1]; d[k * 4 + 2] = t[li + 2]; d[k * 4 + 3] = 255; }
+    tctx.putImageData(tinyImg, 0, 0);
+    const ctx = cv.getContext("2d"), cw = px / (GN - 1);
+    ctx.imageSmoothingEnabled = true; ctx.drawImage(tiny, -cw / 2, -cw / 2, px + cw, px + cw);
+  }
+  // build (or reuse) a gallery's rows and paint them
+  function drawGallery(host, net, small) {
+    const shape = net.map((L) => L.W.length).join(",") + (small ? "s" : "");
+    if (host.dataset.shape !== shape) {
+      host.dataset.shape = shape;
+      host.innerHTML = net.map((L, l) => {
+        const last = l === net.length - 1;
+        return `<div class="grow"><div class="glab">${last ? "Output" : `Layer ${l + 1}`}<small>${last ? "the whole guess" : `${L.W.length} neuron${L.W.length > 1 ? "s" : ""}`}</small></div><div class="squares${small ? " small" : ""}">${L.W.map(() => "<canvas></canvas>").join("")}</div></div>`;
+      }).join("");
+    }
+    const grids = neuronGrids(net), rows = host.querySelectorAll(".squares");
+    net.forEach((L, l) => { const cvs = rows[l].querySelectorAll("canvas"); L.W.forEach((_, j) => paintSquare(cvs[j], grids[l][j], L.bend === "relu" && l < net.length - 1)); });
+  }
+
+  // ---------- the plane a two-neuron layer makes ----------
+  // Each dot is drawn at (1 − u)·(x₁, x₂) + u·(h₁, h₂), where h is the last hidden layer.
+  function lastHidden(net, x1, x2) { return forwardPass(net, [x1, x2])[net.length - 1].h; }
+  function drawSpace(cv, net, dots, u) {
+    const [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = rgba(C.sheet); ctx.fillRect(0, 0, W, H);
+    const out = net[net.length - 1], v = out.W[0], c = out.b[0];
+    const P = (x1, x2) => { const h = lastHidden(net, x1, x2); return [(1 - u) * x1 + u * h[0], (1 - u) * x2 + u * h[1]]; };
+    if (u > 0.98) { // the output's guess as a function of the two coordinates is a plain gradient with a straight 50% line
+      const G = 40, t = C.lutPlot;
+      for (let r = 0; r < G; r++) for (let q = 0; q < G; q++) {
+        const h1 = -D + (2 * D * (q + 0.5)) / G, h2 = D - (2 * D * (r + 0.5)) / G, li = lut(2 * ITN.sig(v[0] * h1 + v[1] * h2 + c) - 1);
+        ctx.fillStyle = `rgb(${t[li]},${t[li + 1]},${t[li + 2]})`; ctx.fillRect((q * W) / G, (r * H) / G, W / G + 1, H / G + 1);
+      }
+    }
+    // the original plane's grid, carried along
+    ctx.strokeStyle = rgba(C.ink, 0.16); ctx.lineWidth = 1;
+    for (let g = -4; g <= 4; g++) {
+      const k = g / 4;
+      for (const vertical of [true, false]) {
+        ctx.beginPath();
+        for (let s = 0; s <= 48; s++) { const t2 = -1 + (2 * s) / 48, q = vertical ? P(k, t2) : P(t2, k); const X = toX(q[0], W), Y = toY(q[1], H); if (s) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); }
+        ctx.stroke();
+      }
+    }
+    if (u > 0.98 && Math.hypot(v[0], v[1]) > 1e-9) { // v₁h₁ + v₂h₂ + c = 0
+      const n = Math.hypot(v[0], v[1]), dx = -v[1] / n, dy = v[0] / n, px0 = (-c * v[0]) / (n * n), py0 = (-c * v[1]) / (n * n);
+      ctx.beginPath(); ctx.moveTo(toX(px0 - dx * 4, W), toY(py0 - dy * 4, H)); ctx.lineTo(toX(px0 + dx * 4, W), toY(py0 + dy * 4, H));
+      ctx.strokeStyle = rgba(C.ink, 0.85); ctx.lineWidth = 1.8; ctx.stroke();
+    }
+    const pr = Math.max(2.4, Math.min(3.8, W / 100));
+    dots.forEach((p) => {
+      const q = P(p.x1, p.x2), right = (v[0] * lastHidden(net, p.x1, p.x2)[0] + v[1] * lastHidden(net, p.x1, p.x2)[1] + c > 0 ? 1 : 0) === p.y, col = p.y ? C.pos : C.neg;
+      ctx.beginPath(); ctx.arc(toX(q[0], W), toY(q[1], H), pr, 0, Math.PI * 2);
+      if (right || u < 0.98) { ctx.fillStyle = rgba(col); ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = rgba(C.sheet); ctx.stroke(); }
+      else { ctx.fillStyle = rgba(C.sheet); ctx.fill(); ctx.lineWidth = 1.7; ctx.strokeStyle = rgba(col); ctx.stroke(); }
+    });
+    ctx.font = `11px ${MONO}`; ctx.fillStyle = rgba(C["ink-3"]); ctx.textBaseline = "alphabetic";
+    ctx.textAlign = "right"; ctx.fillText(u > 0.5 ? "h₁ →" : "x₁ →", W - 6, H - 6);
+    ctx.textAlign = "left"; ctx.fillText(u > 0.5 ? "h₂ ↑" : "x₂ ↑", 6, 14);
+  }
+  function drawInputGrid(cv, dots) {
+    const [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = rgba(C.sheet); ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = rgba(C.ink, 0.16); ctx.lineWidth = 1;
+    for (let g = -4; g <= 4; g++) { const k = g / 4; ctx.beginPath(); ctx.moveTo(toX(k, W), toY(-1, H)); ctx.lineTo(toX(k, W), toY(1, H)); ctx.moveTo(toX(-1, W), toY(k, H)); ctx.lineTo(toX(1, W), toY(k, H)); ctx.stroke(); }
+    drawDots(ctx, W, H, dots, null, Math.max(2.4, Math.min(3.8, W / 100)));
+    ctx.font = `11px ${MONO}`; ctx.fillStyle = rgba(C["ink-3"]); ctx.textAlign = "right"; ctx.fillText("x₁ →", W - 6, H - 6); ctx.textAlign = "left"; ctx.fillText("x₂ ↑", 6, 14);
+  }
+
+  // ---------- gradient size per layer, at the start of training ----------
+  const VG_WIDTHS = [6, 6, 6, 6, 6, 6];
+  function gradSizes(bend, scale) {
+    const net = makeNet(VG_WIDTHS, bend, 3, scale), { grads } = trainStep(net, DATA.spiral, 0);
+    return grads.map((g) => { let s = 0, n = 0; g.W.forEach((row) => row.forEach((x) => { s += Math.abs(x) / N; n++; })); return s / n; });
+  }
+  function drawBars(cv, sizes, title) {
+    const [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    const lo = -9, hi = -1, padL = 46, padB = 34, padT = title ? 24 : 10, iw = W - padL - 8, ih = H - padT - padB;
+    const Y = (v) => padT + ih - ((Math.log10(Math.max(v, 1e-12)) - lo) / (hi - lo)) * ih;
+    ctx.font = `11px ${MONO}`; ctx.textBaseline = "middle"; ctx.textAlign = "right";
+    for (let e = lo; e <= hi; e += 2) { const y = Math.round(Y(10 ** e)) + 0.5; ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - 8, y); ctx.stroke(); ctx.fillStyle = rgba(C["ink-3"]); ctx.fillText(`10${String(e).replace("-", "⁻").replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[d])}`, padL - 6, y); }
+    if (title) { ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = rgba(C.ink); ctx.font = `600 12px ${UI}`; ctx.fillText(title, padL, 14); }
+    const n = sizes.length, bw = Math.min(46, (iw / n) * 0.62);
+    sizes.forEach((v, l) => {
+      const x = padL + (iw / n) * (l + 0.5), y = Y(v);
+      ctx.fillStyle = rgba(C.ink, l === 0 ? 1 : 0.55); ctx.fillRect(x - bw / 2, y, bw, padT + ih - y);
+      ctx.fillStyle = rgba(C["ink-3"]); ctx.font = `11px ${MONO}`; ctx.textAlign = "center"; ctx.textBaseline = "top";
+      ctx.fillText(l === n - 1 ? "out" : String(l + 1), x, padT + ih + 6);
+    });
+    ctx.textBaseline = "alphabetic"; ctx.textAlign = "center"; ctx.fillText("layer (1 is nearest the input)", padL + iw / 2, H - 2);
+  }
+
+  // ---------- accuracy curves ----------
+  // series: [{ acc: [...], every: steps per point, dashed }]
+  function drawCurves(cv, series, xmax) {
+    const [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    const padL = 40, padB = 18, padT = 8, iw = W - padL - 6, ih = H - padT - padB;
+    const X = (s) => padL + (s / xmax) * iw, Y = (a) => padT + ih - ((a - 0.4) / 0.6) * ih;
+    ctx.font = `11px ${MONO}`; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (const a of [0.4, 0.7, 1]) { const y = Math.round(Y(a)) + 0.5; ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - 6, y); ctx.stroke(); ctx.fillStyle = rgba(C["ink-3"]); ctx.fillText(pct(a), padL - 6, y); }
+    ctx.textBaseline = "alphabetic"; ctx.textAlign = "left"; ctx.fillText("0", padL, H - 3); ctx.textAlign = "right"; ctx.fillText(`${xmax.toLocaleString("en-US")} steps`, W - 6, H - 3);
+    for (const s of series) {
+      if (!s.acc.length) continue;
+      ctx.beginPath(); s.acc.forEach((a, k) => { const x = X(k * s.every), y = Y(Math.max(0.4, a)); if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+      ctx.setLineDash(s.dashed ? [6, 4] : []); ctx.strokeStyle = rgba(s.dashed ? C["ink-3"] : C.ink); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+
+  // ---------- training that runs once when the page loads ----------
+  // Each job trains a network from a fixed seed and keeps snapshots, so the film, the race and
+  // Tool 1 can replay real training. The work is spread over many short slices to keep the page responsive.
+  const JOBS = {
+    A: { data: "rings", widths: [32], seed: 4, steps: 3000, every: 30 },
+    B: { data: "rings", widths: [8, 8], seed: 4, steps: 3000, every: 30 },
+    E: { data: "spiral", widths: [8, 8, 2], seed: 1, steps: 2400, every: 30 },
+  };
+  for (const j of Object.values(JOBS)) { j.net = makeNet(j.widths, "tanh", j.seed); j.snaps = [copyNet(j.net)]; j.acc = [accuracy(j.net, DATA[j.data])]; j.done = 0; j.reach = -1; }
+  let jobsReady = false;
+  const onReady = [];
+  function runJobs() {
+    const t0 = performance.now();
+    for (const j of Object.values(JOBS)) {
+      while (j.done < j.steps && performance.now() - t0 < 12) {
+        const r = trainStep(j.net, DATA[j.data], 1); j.done++;
+        if (j.reach < 0 && r.accuracy >= 0.95) j.reach = j.done - 1;
+        if (j.done % j.every === 0) { j.snaps.push(copyNet(j.net)); j.acc.push(accuracy(j.net, DATA[j.data])); }
+      }
+      if (j.done < j.steps) { setTimeout(runJobs, 0); return; }
+    }
+    // Tool 1 shows the spiral network at its best snapshot: at η = 1 its accuracy wobbles near the end
+    const E = JOBS.E; E.best = E.acc.indexOf(Math.max(...E.acc));
+    jobsReady = true; onReady.forEach((f) => f());
+  }
+  const whenReady = (f) => (jobsReady ? f() : onReady.push(f));
+
+  // ---------- the race ----------
+  const race = { t: 0, playing: false };
+  const reachText = (J, who) => (J.reach >= 0 ? `${who} first passed 95% at step ${J.reach.toLocaleString("en-US")}` : `${who} never reached 95%`);
+  function drawRace() {
+    const A = JOBS.A, B = JOBS.B, k = Math.min(A.snaps.length - 1, Math.round(race.t * (A.snaps.length - 1)));
+    drawPlot($("race-a"), jobsReady ? A.snaps[k] : null, DATA.rings);
+    drawPlot($("race-b"), jobsReady ? B.snaps[k] : null, DATA.rings);
+    drawCurves($("race-chart"), jobsReady ? [{ acc: A.acc.slice(0, k + 1), every: A.every, dashed: true }, { acc: B.acc.slice(0, k + 1), every: B.every }] : [], 3000);
+    const step = k * A.every;
+    $("race-read").innerHTML = !jobsReady ? "Preparing the race…" : race.t === 0 ? "Press <b>Race</b> to train both networks for 3,000 steps."
+      : `Step ${step.toLocaleString("en-US")}: one layer <b>${pct(A.acc[k])}</b>, two layers <b>${pct(B.acc[k])}</b>${race.t >= 1 ? `. ${reachText(B, "The two layers")}; ${reachText(A, "the single layer")}.` : ""}`;
+  }
+  function raceTick(t0) {
+    return (now) => {
+      if (!race.playing) return;
+      race.t = Math.min(1, (now - t0) / 7000);
+      drawRace();
+      if (race.t < 1) requestAnimationFrame(raceTick(t0)); else { race.playing = false; $("race-go").textContent = "Race again"; }
+    };
+  }
+  $("race-go").addEventListener("click", () => whenReady(() => { race.playing = true; race.t = 0; $("race-go").textContent = "Racing…"; requestAnimationFrame(raceTick(performance.now())); }));
+
+  // ---------- Tool 1: new coordinates ----------
+  function drawSpaceFigure() {
+    drawInputGrid($("sp-in"), DATA.spiral);
+    const E = JOBS.E, u = Number($("sp-blend").value) / 1000;
+    if (!jobsReady) { $("sp-read").textContent = "Training the network in your browser…"; return; }
+    const net = E.snaps[E.best], wrong = Math.round(N * (1 - E.acc[E.best]));
+    drawSpace($("sp-h"), net, DATA.spiral, u);
+    $("sp-ht").textContent = u > 0.98 ? "Their coordinates in the last hidden layer" : u < 0.02 ? "Where the dots start (slide right)" : "On their way to the new coordinates";
+    $("sp-read").innerHTML = `Shown: the network at step ${(E.best * E.every).toLocaleString("en-US")}, its best moment in ${E.steps.toLocaleString("en-US")} steps of training, with <b>${N - wrong} of the ${N} dots</b> on the correct side. ${u > 0.98 ? "In its last layer's coordinates, the output neuron's boundary is one straight line." : "Slide all the way right to see the line the output neuron draws."}`;
+    $("sp-q").textContent = wrong ? `, all but ${wrong} of the ${N} dots` : "";
+  }
+  $("sp-blend").addEventListener("input", drawSpaceFigure);
+
+  // ---------- Tool 2: the gallery ----------
+  function drawGalleryFigure() {
+    if (!jobsReady) { $("gal-status").textContent = "Training the network in your browser…"; return; }
+    const B = JOBS.B;
+    drawGallery($("gal"), B.snaps[B.snaps.length - 1], false);
+    $("gal-status").textContent = `Two layers of 8 after ${B.steps.toLocaleString("en-US")} steps on Rings: ${pct(B.acc[B.acc.length - 1])} of the dots right.`;
+  }
+
+  // ---------- Tool 3: the algorithm in words, math or code ----------
+  const mi = (s) => `<i>${s}</i>`, sup = (s) => `<sup>(${s})</sup>`;
+  const ALGO = [
+    { title: "The bends and their slopes",
+      words: "Each hidden neuron bends its sum with tanh, ReLU or σ. The backward pass needs each bend's slope, so it is written right next to the bend.",
+      math: [`tanh′(${mi("z")}) = 1 − ${mi("h")}²&emsp;ReLU′(${mi("z")}) = 1 if ${mi("z")} > 0, else 0&emsp;σ′(${mi("z")}) = ${mi("h")}(1 − ${mi("h")})`, `where ${mi("h")} is the bend's output for that ${mi("z")}`] },
+    { title: "One layer",
+      words: "Each neuron in a layer weighs every value from the layer below, adds its bias, and bends the result. A layer of 8 neurons turns a dot's values into 8 new numbers.",
+      math: [`${mi("z")}${sup("l")}<sub>${mi("j")}</sub> = Σ<sub>${mi("i")}</sub> ${mi("W")}${sup("l")}<sub>${mi("ji")}</sub> ${mi("h")}${sup("l−1")}<sub>${mi("i")}</sub> + ${mi("b")}${sup("l")}<sub>${mi("j")}</sub>`, `${mi("h")}${sup("l")}<sub>${mi("j")}</sub> = bend(${mi("z")}${sup("l")}<sub>${mi("j")}</sub>)`] },
+    { title: "The forward pass",
+      words: "Feed the dot's two coordinates in as layer 0, then apply the layers one after another. The last layer gives one number, z, and σ(z) is the probability of blue.",
+      math: [`${mi("h")}${sup("0")} = (${mi("x")}₁, ${mi("x")}₂)`, `${mi("h")}${sup("l")} = bend(${mi("W")}${sup("l")} ${mi("h")}${sup("l−1")} + ${mi("b")}${sup("l")})&emsp;for each hidden layer ${mi("l")}`, `${mi("z")} = ${mi("W")}${sup("out")} ${mi("h")}${sup("last")} + ${mi("b")}${sup("out")},&emsp;${mi("ŷ")} = σ(${mi("z")})`, `where ${mi("h")}${sup("last")} is the last hidden layer's output`] },
+    { title: "The backward pass",
+      words: "Start from the output's error, σ(z) − y. At each layer, a weight's gradient is the error arriving at its neuron times the value on its wire. To pass the error one layer down, send it back through the same weights, then multiply by the slope of the bend. That multiplication, once per layer, is where gradients can vanish.",
+      math: [`δ${sup("out")} = ${mi("ŷ")} − ${mi("y")}`, `∂${mi("L")}/∂${mi("W")}${sup("l")}<sub>${mi("ji")}</sub> = δ${sup("l")}<sub>${mi("j")}</sub> · ${mi("h")}${sup("l−1")}<sub>${mi("i")}</sub>,&emsp;∂${mi("L")}/∂${mi("b")}${sup("l")}<sub>${mi("j")}</sub> = δ${sup("l")}<sub>${mi("j")}</sub>`, `δ${sup("l−1")}<sub>${mi("i")}</sub> = bend′(${mi("z")}${sup("l−1")}<sub>${mi("i")}</sub>) · Σ<sub>${mi("j")}</sub> ${mi("W")}${sup("l")}<sub>${mi("ji")}</sub> δ${sup("l")}<sub>${mi("j")}</sub>`] },
+    { title: "One step of training",
+      words: "Run every dot forward and backward, add up the gradients, average them, and move every weight a small step against its gradient.",
+      math: [`${mi("W")} ← ${mi("W")} − η · (1/${mi("N")}) Σ<sub>dots</sub> ∂${mi("L")}/∂${mi("W")}`, `and the same for every bias`] },
+  ];
+  let MLP_SRC = "";
+  function renderAlgo() {
+    if (!MLP_SRC) return;
+    const js = MLP_SRC.split(/\n\s*\n/), py = $("mlp-py").textContent.trim().split(/\n\s*\n/), ok = js.length === ALGO.length && py.length === ALGO.length;
+    if (!ok) console.warn(`renderAlgo: expected ${ALGO.length} sections, got ${js.length} (JS) and ${py.length} (Python)`);
+    $("algo").innerHTML = ALGO.map((a, i) => `<div class="ablock"><div class="atitle"><span class="n">${i + 1}</span>${a.title}</div>${ITN.view.reps({ words: a.words, math: a.math, js: ok ? js[i] : js.join("\n\n"), py: ok ? py[i] : py.join("\n\n") })}</div>`).join("");
+  }
+  ITN.source("mlp").then((t) => { MLP_SRC = t; renderAlgo(); });
+  ITN.view.onChange(renderAlgo);
+
+  // ---------- the price of depth ----------
+  const VG = { bend: "sigmoid", scale: 1 };
+  function drawVG() {
+    const s = gradSizes(VG.bend, VG.scale), ratio = s[s.length - 1] / s[0];
+    drawBars($("vg-cv"), s);
+    const name = { sigmoid: "σ", tanh: "tanh", relu: "ReLU" }[VG.bend];
+    const how = ratio >= 1.5 ? `${Math.round(ratio).toLocaleString("en-US")}× smaller than` : ratio > 1 / 1.5 ? "about the same size as" : `${Math.round(1 / ratio).toLocaleString("en-US")}× larger than`;
+    $("vg-read").innerHTML = `With ${name} and ${VG.scale === 1 ? "well-scaled" : "half-size"} starting weights, the first layer's gradients are <b>${how}</b> the output layer's${ratio >= 50 ? ", so the first layers would barely learn" : ""}. The largest bar is ${Math.max(...s).toExponential(1)}, the smallest ${Math.min(...s).toExponential(1)}.`;
+  }
+  for (const [id, key] of [["vg-bend", "bend"], ["vg-scale", "scale"]]) $(id).addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-v]"); if (!b) return;
+    $(id).querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+    VG[key] = key === "scale" ? Number(b.dataset.v) : b.dataset.v; drawVG();
+  });
+
+  // ---------- the film ----------
+  const film = (() => {
+    const SC = [{ k: "one", d: 9000 }, { k: "two", d: 9000 }, { k: "lines", d: 6500 }, { k: "curves", d: 6500 }, { k: "coords", d: 10000 }, { k: "price", d: 8000 }, { k: "short", d: 6500 }];
+    const TOTAL = SC.reduce((a, x) => a + x.d, 0), startOf = (i) => SC.slice(0, i).reduce((a, x) => a + x.d, 0);
+    const at = (t) => { let i = 0; while (i < SC.length - 1 && t >= SC[i].d) { t -= SC[i].d; i++; } return { i, u: Math.min(1, t / SC[i].d) }; };
+    const sm = (u) => u * u * (3 - 2 * u);
+    let t = 0, playing = false, last = 0, started = false, autoPaused = false, capKey = "";
+    const chips = [...$("f-chips").querySelectorAll("button")];
+    const setLabel = () => { $("f-play").textContent = playing ? "Pause" : t >= TOTAL ? "Replay" : t > 0 ? "Resume" : "Play"; };
+    let vgS = null, vgR = null;
+    function caption(k) {
+      const A = JOBS.A, B = JOBS.B;
+      switch (k) {
+        case "one": return `<b>One layer.</b> Four rings of dots, alternating blue and orange. A network with one hidden layer of 32 neurons trains for 3,000 steps. Its guess is a sum of 32 soft straight edges. ${A.reach >= 0 ? `It passes 95% at step ${A.reach.toLocaleString("en-US")}` : "It never reaches 95%"} and ends at ${pct(A.acc[A.acc.length - 1])}.`;
+        case "two": return `<b>Two layers.</b> Now two hidden layers of 8 neurons each, with fewer parameters in total (105 against 129). Same dots, same learning rate. ${B.reach >= 0 ? `It passes 95% at step ${B.reach.toLocaleString("en-US")}` : "It never reaches 95%"} and ends at ${pct(B.acc[B.acc.length - 1])}.`;
+        case "lines": return "<b>The first layer draws lines.</b> Each square is one first-layer neuron's output across the plane. Like chapter 1's neurons, each can only draw a straight edge.";
+        case "curves": return "<b>The second layer draws curves.</b> Each second-layer neuron combines the first layer's edges into a region with curved edges. The output combines those regions into one shape that separates the rings.";
+        case "coords": { const wrong = Math.round(N * (1 - JOBS.E.acc[JOBS.E.best])); return `<b>A layer gives new coordinates.</b> A different network, with layers of 8, 8 and 2, trained on chapter 1's spiral. Each dot slides to its coordinates in the last, two-neuron layer. There the arms come apart, and one straight line separates the colors${wrong ? `, all but ${wrong} of the ${N} dots` : ""}.`; }
+        case "price": return `<b>The price of depth.</b> On the way back, the error is multiplied by one bend's slope per layer. In a fresh network with six σ layers (left), the first layer's gradients are about ${Math.round(vgS[vgS.length - 1] / vgS[0]).toLocaleString("en-US")}× smaller than the output layer's. With ReLU (right) they are about ${Math.round(vgR[vgR.length - 1] / vgR[0]).toLocaleString("en-US")}× smaller.`;
+        case "short": return "<b>Depth in one sentence.</b> Each layer reshapes the plane for the next, so lines become curves and curves become shapes, as long as the gradient can still reach the early layers.";
+      }
+      return "";
+    }
+    function render() {
+      const { i, u } = at(t), k = SC[i].k, A = JOBS.A, B = JOBS.B, E = JOBS.E;
+      if (!vgS) { vgS = gradSizes("sigmoid", 1); vgR = gradSizes("relu", 1); }
+      chips.forEach((c, n) => c.classList.toggle("on", n === i));
+      $("f-fill").style.width = (100 * t) / TOTAL + "%";
+      if (!jobsReady) { $("f-ticker").textContent = "training the film's networks in your browser…"; drawPlot($("f-left"), null, DATA.rings); drawPlot($("f-right"), null, DATA.spiral); return; }
+      let lt = "", rt = "", ticker = "";
+      if (k === "one" || k === "two") {
+        const J = k === "one" ? A : B, x = Math.min(J.snaps.length - 1, Math.floor((u / 0.9) * (J.snaps.length - 1)));
+        drawPlot($("f-left"), J.snaps[x], DATA.rings);
+        drawCurves($("f-right"), k === "one" ? [{ acc: A.acc.slice(0, x + 1), every: A.every, dashed: true }] : [{ acc: A.acc, every: A.every, dashed: true }, { acc: B.acc.slice(0, x + 1), every: B.every }], 3000);
+        lt = k === "one" ? "One layer of 32" : "Two layers of 8"; rt = k === "one" ? "Accuracy while training" : "Accuracy: one layer dashed, two layers solid";
+        ticker = `step ${(x * J.every).toLocaleString("en-US")}   accuracy ${pct(J.acc[x])}`;
+      } else if (k === "lines" || k === "curves") {
+        const net = B.snaps[B.snaps.length - 1];
+        drawPlot($("f-left"), net, DATA.rings);
+        const grids = neuronGrids(net), l = k === "lines" ? 0 : 1;
+        drawSquareGrid($("f-right"), grids[l], 4);
+        lt = "Two layers of 8, trained"; rt = k === "lines" ? "The 8 neurons of layer 1" : "The 8 neurons of layer 2";
+        ticker = k === "lines" ? "layer 1: each neuron sees the plane and draws one straight edge" : "layer 2: each neuron sees layer 1's 8 edges and combines them";
+      } else if (k === "coords") {
+        const net = E.snaps[E.best], m = sm(Math.min(1, Math.max(0, (u - 0.1) / 0.6)));
+        drawInputGrid($("f-left"), DATA.spiral); drawSpace($("f-right"), net, DATA.spiral, m);
+        lt = "Where the dots start"; rt = m > 0.98 ? "In the last hidden layer's coordinates" : "On their way to new coordinates";
+        ticker = m > 0.98 ? "in the new coordinates, the output's boundary is one straight line" : "each dot moves from (x₁, x₂) to (h₁, h₂)";
+      } else if (k === "price") {
+        drawBars($("f-left"), vgS); drawBars($("f-right"), vgR);
+        lt = 'Gradient size per layer, <span class="nc">σ</span>'; rt = "Gradient size per layer, ReLU"; ticker = "each step down the axis is 10× smaller";
+      } else {
+        drawPlot($("f-left"), B.snaps[B.snaps.length - 1], DATA.rings); drawSpace($("f-right"), E.snaps[E.best], DATA.spiral, 1);
+        lt = "Rings, two layers"; rt = "Spiral, in new coordinates"; ticker = "lines → curves → shapes";
+      }
+      $("f-lt").innerHTML = lt; $("f-rt").innerHTML = rt; $("f-ticker").textContent = ticker;
+      if (k !== capKey) { capKey = k; $("f-cap").innerHTML = caption(k); }
+    }
+    function tick(now) {
+      if (!playing) return;
+      t = Math.min(TOTAL, t + Math.min(64, now - last)); last = now;
+      if (t >= TOTAL) { playing = false; setLabel(); }
+      render();
+      if (playing) requestAnimationFrame(tick);
+    }
+    function play() { if (t >= TOTAL) t = 0; playing = true; started = true; autoPaused = false; last = performance.now(); setLabel(); requestAnimationFrame(tick); }
+    $("f-play").addEventListener("click", () => { if (playing) { playing = false; setLabel(); render(); } else play(); });
+    chips.forEach((c, n) => c.addEventListener("click", () => { t = startOf(n); capKey = ""; if (!playing) play(); else render(); }));
+    new IntersectionObserver((en) => {
+      const vis = en[0].isIntersecting;
+      if (vis && !started && !reduceMotion) whenReady(play);
+      else if (vis && autoPaused) play();
+      else if (!vis && playing) { playing = false; autoPaused = true; setLabel(); }
+    }, { threshold: 0.5 }).observe($("film"));
+    return { render, setLabel };
+  })();
+  // a grid of neuron squares drawn into one canvas (for the film)
+  function drawSquareGrid(cv, grids, cols) {
+    const [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.fillStyle = rgba(C.sheet); ctx.fillRect(0, 0, cv.width, cv.height);
+    const rows = Math.ceil(grids.length / cols), gap = 8 * dpr, s = Math.min((cv.width - gap * (cols + 1)) / cols, (cv.height - gap * (rows + 1)) / rows);
+    const ox = (cv.width - (cols * s + (cols - 1) * gap)) / 2, oy = (cv.height - (rows * s + (rows - 1) * gap)) / 2, t = C.lutNode, d = tinyImg.data;
+    grids.forEach((g, n) => {
+      for (let k = 0; k < GN * GN; k++) { const li = lut(g[k]); d[k * 4] = t[li]; d[k * 4 + 1] = t[li + 1]; d[k * 4 + 2] = t[li + 2]; d[k * 4 + 3] = 255; }
+      tctx.putImageData(tinyImg, 0, 0);
+      const x = ox + (n % cols) * (s + gap), y = oy + Math.floor(n / cols) * (s + gap);
+      ctx.save(); ctx.beginPath(); ctx.rect(x, y, s, s); ctx.clip(); ctx.imageSmoothingEnabled = true; ctx.drawImage(tiny, x - s / (2 * (GN - 1)), y - s / (2 * (GN - 1)), s + s / (GN - 1), s + s / (GN - 1)); ctx.restore();
+      ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = dpr; ctx.strokeRect(x + 0.5, y + 0.5, s - 1, s - 1);
+    });
+  }
+
+  // ---------- the playground ----------
+  const PG = { data: "rings", widths: [8, 8], bend: "tanh", lr: 1, speed: 8, seed: 4, running: false, step: 0, hist: [], net: null, last: null, dirty: true };
+  const WIDTHS = [2, 4, 6, 8, 16, 32];
+  function pgNew() { PG.net = makeNet(PG.widths, PG.bend, PG.seed); PG.step = 0; PG.hist = [accuracy(PG.net, DATA[PG.data])]; PG.last = null; PG.dirty = true; renderLayers(); }
+  function renderLayers() {
+    $("pl-layers").innerHTML = PG.widths.map((w, l) => `${l ? '<span class="arrow">→</span>' : ""}<select data-l="${l}" aria-label="Neurons in hidden layer ${l + 1}" data-tip="width">${WIDTHS.map((v) => `<option value="${v}"${v === w ? " selected" : ""}>${v}</option>`).join("")}</select>`).join("") +
+      ` <button type="button" class="btn small" id="pl-add" data-tip="add-layer"${PG.widths.length >= 3 ? " disabled" : ""}>+ layer</button><button type="button" class="btn small" id="pl-rem" data-tip="remove-layer"${PG.widths.length <= 1 ? " disabled" : ""}>− layer</button>`;
+    $("pl-arch").textContent = `2 → ${PG.widths.join(" → ")} → 1`;
+    document.querySelectorAll("#pl-presets button").forEach((b) => b.classList.toggle("on", b.dataset.p === PG.widths.join(",")));
+  }
+  $("pl-layers").addEventListener("change", (e) => { const s = e.target.closest("select[data-l]"); if (!s) return; PG.widths[Number(s.dataset.l)] = Number(s.value); stopPG(); pgNew(); });
+  $("pl-layers").addEventListener("click", (e) => {
+    if (e.target.id === "pl-add" && PG.widths.length < 3) { PG.widths.push(8); stopPG(); pgNew(); }
+    if (e.target.id === "pl-rem" && PG.widths.length > 1) { PG.widths.pop(); stopPG(); pgNew(); }
+  });
+  function pgStep() {
+    const r = trainStep(PG.net, DATA[PG.data], PG.lr); PG.step++; PG.last = r;
+    if (PG.step % 10 === 0) PG.hist.push(accuracy(PG.net, DATA[PG.data]));
+  }
+  function pgRender() {
+    const net = PG.net, dots = DATA[PG.data];
+    drawPlot($("pl-plot"), net, dots);
+    drawGallery($("pl-gal"), net, net.some((L) => L.W.length > 8));
+    const acc = accuracy(net, dots);
+    $("st-step").textContent = PG.step.toLocaleString("en-US");
+    $("st-loss").textContent = PG.last ? fmt(PG.last.loss, 3) : "–";
+    $("st-acc").textContent = pct(acc);
+    $("st-params").textContent = nParams(net);
+    drawCurves($("pl-chart"), [{ acc: PG.hist, every: 10 }], Math.max(1000, Math.ceil((PG.step + 1) / 1000) * 1000));
+    const two = PG.widths[PG.widths.length - 1] === 2;
+    $("pl-space").hidden = !two;
+    if (two) { drawSpace($("pl-space"), net, dots, 1); $("pl-space-note").textContent = "Each dot at the two numbers of the last hidden layer. The straight line is the output's 50% boundary."; }
+    else $("pl-space-note").innerHTML = `The last hidden layer has ${PG.widths[PG.widths.length - 1]} neurons, too many to draw as a plane. Set it to 2, or try the <b>8 → 8 → 2</b> preset.`;
+    $("pl-train").textContent = PG.running ? "Pause" : "Train";
+    ITN.tips.refresh();
+  }
+  function stopPG() { PG.running = false; }
+  function frame() {
+    if (PG.running) {
+      const t0 = performance.now(); let n = 0;
+      while (n < PG.speed && performance.now() - t0 < 10) { pgStep(); n++; }
+      PG.dirty = true;
+    }
+    if (PG.dirty) { PG.dirty = false; pgRender(); }
+    requestAnimationFrame(frame);
+  }
+  $("pl-train").addEventListener("click", () => { PG.running = !PG.running; PG.dirty = true; });
+  $("pl-step").addEventListener("click", () => { stopPG(); pgStep(); PG.dirty = true; });
+  $("pl-reset").addEventListener("click", () => { stopPG(); PG.seed++; pgNew(); });
+  for (const [id, key] of [["pl-data", "data"], ["pl-bend", "bend"], ["pl-speed", "speed"]]) $(id).addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-v]"); if (!b) return;
+    $(id).querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+    PG[key] = key === "speed" ? Number(b.dataset.v) : b.dataset.v;
+    if (key !== "speed") { stopPG(); pgNew(); }
+  });
+  $("pl-lr").addEventListener("change", (e) => { PG.lr = Number(e.target.value); });
+  $("pl-presets").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-p]"); if (!b) return;
+    PG.widths = b.dataset.p.split(",").map(Number);
+    if (b.dataset.p === "8,8,2") { PG.data = "spiral"; PG.seed = 1; document.querySelectorAll("#pl-data button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.v === "spiral"))); }
+    stopPG(); pgNew();
+  });
+
+  // ---------- check the layer-by-layer backward pass against the series' autograd ----------
+  function checkAgainstAutograd() {
+    const net = makeNet([4, 3, 2], "tanh", 9), dots = DATA.spiral.slice(0, 12);
+    const grads = net.map((L) => ({ W: L.W.map((row) => row.map(() => 0)), b: L.b.map(() => 0) }));
+    for (const p of dots) backwardPass(net, forwardPass(net, [p.x1, p.x2]), p.y, grads);
+    const V = net.map((L) => ({ W: L.W.map((row) => row.map((w) => new Value(w))), b: L.b.map((b) => new Value(b)) }));
+    TAPE = [];
+    let total = null;
+    for (const p of dots) {
+      let h = [new Value(p.x1), new Value(p.x2)];
+      V.forEach((L, l) => {
+        const z = L.W.map((row, j) => row.reduce((s, w, i) => add(s, mul(w, h[i])), L.b[j]));
+        h = l < V.length - 1 ? z.map((v) => tanh(v)) : z;
+      });
+      const loss = bceWithLogits(h[0], p.y);
+      total = total ? add(total, loss) : loss;
+    }
+    backward(total); TAPE = null;
+    let worst = 0;
+    V.forEach((L, l) => { L.W.forEach((row, j) => row.forEach((w, i) => { worst = Math.max(worst, Math.abs(w.grad - grads[l].W[j][i])); })); L.b.forEach((b, j) => { worst = Math.max(worst, Math.abs(b.grad - grads[l].b[j])); }); });
+    $("ag-check").textContent = worst < 1e-10 ? `they agree, with the largest difference between any two gradients ${worst.toExponential(0)}.` : `they differ by up to ${worst.toExponential(1)}.`;
+  }
+
+  // ---------- descriptions on hover, keyboard focus, or after a tap ----------
+  const FILM_TIPS = ["One wide hidden layer on the rings.", "Two narrow hidden layers on the same rings.", "What the first layer's neurons draw.", "What the second layer's neurons draw.", "A layer as new coordinates for each dot.", "Why very deep networks are hard to train.", "The chapter in one sentence."];
+  ITN.tips.add({
+    "race-go": () => "Train both networks for 3,000 steps from the same kind of starting weights, side by side.",
+    blend: () => "Slide each dot between its own coordinates (left) and the last hidden layer's coordinates (right).",
+    "vg-sigmoid": () => "<b>σ</b> in every hidden layer. Its slope is at most 0.25.",
+    "vg-tanh": () => "<b>tanh</b> in every hidden layer. Its slope is at most 1.",
+    "vg-relu": () => "<b>ReLU</b> in every hidden layer. Its slope is exactly 1 wherever a neuron is active, and 0 elsewhere.",
+    "vg-scale-1": () => "Starting weights scaled by 1/√(number of inputs), times √2 for ReLU: the usual choice.",
+    "vg-scale-half": () => "Starting weights half that size.",
+    train: () => (PG.running ? "<b>Pause</b> training." : "<b>Train</b> continuously, on all 160 dots each step."),
+    step: () => "<b>Step</b>: one round of gradient descent.",
+    reset: () => `<b>Reset</b> to new random starting weights (seed ${PG.seed} → ${PG.seed + 1}).`,
+    "data-rings": () => "<b>Rings</b>: four concentric rings, alternating colors. One wide layer struggles; two layers handle it.",
+    "data-spiral": () => "<b>Spiral</b>: chapter 1's two arms. Try 8 → 8 → 2 to see the arms pulled apart.",
+    "data-checker": () => "<b>Checkerboard</b>: a 4 × 4 board. A third layer helps.",
+    "bend-tanh": () => "<b>tanh</b> in every hidden layer: smooth boundaries.",
+    "bend-relu": () => "<b>ReLU</b> in every hidden layer: boundaries made of straight pieces.",
+    lr: () => `<b>Learning rate η = ${PG.lr}.</b> Each step moves every weight by η × its gradient.`,
+    "speed-slow": () => "<b>Slow</b>: one step per screen refresh.",
+    "speed-fast": () => "<b>Fast</b>: up to 8 steps per screen refresh.",
+    width: () => "Neurons in this hidden layer. Changing it starts training over.",
+    "add-layer": () => "Add a hidden layer of 8 neurons on top (up to 3).",
+    "remove-layer": () => "Remove the top hidden layer.",
+    "preset-32": () => "One hidden layer of 32 neurons: 129 parameters.",
+    "preset-88": () => "Two hidden layers of 8: 105 parameters.",
+    "preset-888": () => "Three hidden layers of 8: 177 parameters.",
+    "preset-882": () => "Layers of 8, 8 and 2 on Spiral: the last layer's two numbers can be drawn as a plane.",
+    "st-step": () => `${PG.step.toLocaleString("en-US")} steps of gradient descent so far.`,
+    "st-loss": () => "The average cross-entropy over all dots, from the last step.",
+    "st-acc": () => "The share of dots on the correct side of the boundary.",
+    "st-params": () => `Every weight and bias in a ${PG.widths.join(" → ")} network: for each layer, (inputs + 1) × neurons.`,
+  });
+  for (let i = 0; i < 7; i++) ITN.tips.add({ [`film-${i}`]: () => `${FILM_TIPS[i]} <span class="hint">Click to jump here</span>` });
+
+  // ---------- resize, theme, boot ----------
+  const redrawAll = () => { film.render(); drawRace(); drawSpaceFigure(); drawGalleryFigure(); drawVG(); PG.dirty = true; };
+  let rq = 0; new ResizeObserver(() => { cancelAnimationFrame(rq); rq = requestAnimationFrame(redrawAll); }).observe(document.body);
+  const retheme = () => { readTheme(); redrawAll(); };
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  ITN.pill();
+  readTheme();
+  pgNew(); film.setLabel(); film.render(); drawRace(); drawSpaceFigure(); drawGalleryFigure(); drawVG(); ITN.view.sync();
+  requestAnimationFrame(frame);
+  whenReady(() => { film.render(); drawRace(); drawSpaceFigure(); drawGalleryFigure(); });
+  setTimeout(runJobs, 50);
+  setTimeout(checkAgainstAutograd, 30);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
+})();
+</script>
+</body>
+</html>
