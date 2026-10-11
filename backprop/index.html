@@ -174,11 +174,24 @@ ol.seq > li { counter-increment: seq; display: grid; grid-template-columns: 30px
 ol.seq > li::before { content: counter(seq); width: 22px; height: 22px; margin-top: 4px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--sheet); font: 500 12px/1 var(--font-mono); }
 
 /* annotated code */
-.annot { display: grid; gap: 0; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; background: var(--sheet); margin: 14px 0 20px; }
-.ablock { display: grid; grid-template-columns: minmax(0, 1fr); border-top: 1px solid var(--rule); }
+.annot { display: grid; gap: 0; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; background: var(--sheet); margin: 8px 0 20px; }
+.ablock { display: grid; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--rule); min-width: 0; }
 .ablock:first-child { border-top: 0; }
-.ablock pre { margin: 0; padding: 12px 14px; overflow-x: auto; font: 12.5px/1.55 var(--font-mono); color: var(--ink); background: var(--sheet); }
-.ablock .note { padding: 12px 14px; font: 15px/1.45 var(--font-body); color: var(--ink-2); background: var(--well); }
+.atitle { font: 600 15px/1.3 var(--font-display); color: var(--ink); display: flex; gap: 10px; align-items: baseline; }
+.atitle .n { font: 500 12px var(--font-mono); color: var(--ink-3); }
+/* one idea, three ways to say it */
+.lens { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 14px 0 8px; }
+.ctl .lens { margin: 0; }
+.rep { min-width: 0; }
+.rep-lab { display: none; font: 600 10.5px/1 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
+.show-all .rep-lab { display: block; }
+.rep.words p { font: 16.5px/1.5 var(--font-body); color: var(--ink-2); margin: 0; }
+.rep.words p b { color: var(--ink); }
+.rep.math .mb { font: 17px/1.8 var(--font-body); color: var(--ink); background: var(--well); border-radius: 8px; padding: 9px 12px; overflow-x: auto; font-variant-numeric: tabular-nums; }
+.rep.math .mb span { display: block; white-space: nowrap; }
+.rep.math i { font-style: italic; }
+.rep.code pre { margin: 0; background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; overflow-x: auto; font: 12.5px/1.6 var(--font-mono); color: var(--ink); font-variant-ligatures: none; }
+.explain .rep + .rep { margin-top: 12px; }
 
 /* playground */
 .fig { background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; padding: 18px 20px 20px; box-shadow: 0 1px 2px var(--shadow), 0 10px 30px var(--shadow); }
@@ -191,8 +204,7 @@ ol.seq > li::before { content: counter(seq); width: 22px; height: 22px; margin-t
 .pg-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 18px 28px; margin-top: 12px; padding-top: 16px; border-top: 1px solid var(--rule); }
 @media (max-width: 899px) { .pg-grid { grid-template-columns: minmax(0, 1fr); } }
 .explain { background: var(--well); border-radius: 10px; padding: 14px 16px; }
-.explain p { font: 17px/1.5 var(--font-body); color: var(--ink-2); margin: 0; }
-.explain p b { color: var(--ink); }
+.explain .rep.words p { font-size: 17px; }
 pre.ecode { margin: 12px 0 0; background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; overflow-x: auto; font: 12.5px/1.6 var(--font-mono); color: var(--ink); }
 .insp h3 { font: 620 20px/1.2 var(--font-display); margin: 6px 0 2px; }
 .insp .kind { font: 15px/1.4 var(--font-body); color: var(--ink-3); margin: 0 0 8px; }
@@ -366,7 +378,16 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
       <li><div><b>Multiply and pass back.</b> Each operation takes the gradient it has received, multiplies it by its local slope for each input, and sends the result to that input.</div></li>
       <li><div><b>Add what arrives.</b> If a value is used in several places, its gradient is the sum of everything that comes back to it.</div></li>
     </ol>
-    <p>To walk backward you need to know the order things happened in. So during the forward pass, every operation writes itself onto a list called the <b>tape</b>. The backward pass reads the tape in reverse. Here is the complete code. It is chapter 1's autograd, with σ and −log kept as separate operations so you can watch each one:</p>
+    <p>To walk backward you need to know the order things happened in. So during the forward pass, every operation writes itself onto a list called the <b>tape</b>. The backward pass reads the tape in reverse. Here is the complete algorithm in six short parts. Choose how you want it explained: in words, in math, or as code. The code is the JavaScript this page runs, or the same program in Python. Chapter 1 fused σ and −log into one step; here they stay separate so you can watch each.</p>
+    <div class="lens" data-lens-ctl>
+        <span class="lab">Explain with</span>
+        <div class="seg" role="group" aria-label="Explain with">
+          <button type="button" data-lens="words" data-tip="lens-words" aria-pressed="true">Words</button><button type="button" data-lens="math" data-tip="lens-math" aria-pressed="false">Math</button><button type="button" data-lens="code" data-tip="lens-code" aria-pressed="false">Code</button><button type="button" data-lens="all" data-tip="lens-all" aria-pressed="false">All three</button>
+        </div>
+        <div class="seg lang" role="group" aria-label="Code language" hidden>
+          <button type="button" data-lang="js" data-tip="lang-js" aria-pressed="true">JavaScript</button><button type="button" data-lang="py" data-tip="lang-py" aria-pressed="false">Python</button>
+        </div>
+      </div>
     <div class="annot" id="annot"></div>
 
     <h2>The playground</h2>
@@ -397,6 +418,15 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
           <span class="lab">Show</span>
           <label class="tog" for="pg-slopes" data-tip="slopes"><input type="checkbox" id="pg-slopes" checked>local slopes on the wires</label>
         </div>
+        <div class="ctl"><div class="lens" data-lens-ctl>
+        <span class="lab">Explain each step with</span>
+        <div class="seg" role="group" aria-label="Explain with">
+          <button type="button" data-lens="words" data-tip="lens-words" aria-pressed="true">Words</button><button type="button" data-lens="math" data-tip="lens-math" aria-pressed="false">Math</button><button type="button" data-lens="code" data-tip="lens-code" aria-pressed="false">Code</button><button type="button" data-lens="all" data-tip="lens-all" aria-pressed="false">All three</button>
+        </div>
+        <div class="seg lang" role="group" aria-label="Code language" hidden>
+          <button type="button" data-lang="js" data-tip="lang-js" aria-pressed="true">JavaScript</button><button type="button" data-lang="py" data-tip="lang-py" aria-pressed="false">Python</button>
+        </div>
+      </div></div>
       </div>
       <div class="pg-head">
         <span class="formula" id="pg-formula"></span>
@@ -404,10 +434,7 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
       </div>
       <div class="gwrap" id="pg-graph"></div>
       <div class="pg-grid">
-        <div class="explain" aria-live="polite">
-          <p id="pg-explain"></p>
-          <pre class="ecode" id="pg-code"></pre>
-        </div>
+        <div class="explain" aria-live="polite" id="pg-explain"></div>
         <div class="insp" id="pg-insp">
           <div class="eyebrow" id="i-eyebrow"></div>
           <h3 id="i-title"></h3>
@@ -459,7 +486,7 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
     </ul>
 
     <h2>What runs where</h2>
-    <p>Everything runs in this page's JavaScript on your CPU, in 64-bit floats. The playground builds every graph with the code shown above. Its Step button performs one pass of <code class="i">backward()</code>'s loop per click, and the nudge test compares the result with the real <code class="i">backward()</code> and with a measured slope, (L(x + ε) − L(x − ε)) / 2ε with ε = 0.0001.</p>
+    <p>Everything runs in this page's JavaScript on your CPU, in 64-bit floats. The playground builds every graph with the code shown above. The Python shown beside it is a line-by-line translation of the same program, and the PyTorch example computes the playground's neuron with a real library. Its Step button performs one pass of <code class="i">backward()</code>'s loop per click, and the nudge test compares the result with the real <code class="i">backward()</code> and with a measured slope, (L(x + ε) − L(x − ε)) / 2ε with ε = 0.0001.</p>
 
     <h2>Where this is going</h2>
     <ol class="road">
@@ -521,6 +548,63 @@ function backward(loss) {
     }
   }
 }
+</script>
+
+<script type="text/plain" id="autograd-py">
+# A tape-based autograd, small enough to read in one sitting.
+# Every operation creates a Value and records, for each input,
+# the local derivative d(output)/d(input). backward() walks the
+# tape in reverse and applies the chain rule.
+TAPE = None
+
+class Value:
+    def __init__(self, data, inputs=None, local=None, op=""):
+        self.data = data      # the number itself
+        self.grad = 0.0       # dL/d(this), filled in by backward()
+        self.inputs = inputs  # the Values this one was computed from
+        self.local = local    # d(this)/d(input), one entry per input
+        self.op = op          # a label, only used for drawing
+        if TAPE is not None:
+            TAPE.append(self)
+
+def add(a, b): return Value(a.data + b.data, [a, b], [1.0, 1.0], "+")
+def mul(a, b): return Value(a.data * b.data, [a, b], [b.data, a.data], "×")
+
+import math
+def tanh(a):
+    t = math.tanh(a.data)
+    return Value(t, [a], [1 - t * t], "tanh")
+def sigmoid(a):
+    s = 1 / (1 + math.exp(-a.data))
+    return Value(s, [a], [s * (1 - s)], "σ")
+def neglog(a): return Value(-math.log(a.data), [a], [-1 / a.data], "−log")
+def square(a): return Value(a.data * a.data, [a], [2 * a.data], "²")
+
+def backward(loss):
+    loss.grad = 1.0
+    for v in reversed(TAPE):
+        if v.inputs is None:
+            continue
+        for inp, slope in zip(v.inputs, v.local):
+            inp.grad += slope * v.grad   # the chain rule
+</script>
+<script type="text/plain" id="example-js">
+TAPE = [];
+const w1 = new Value(-1), w2 = new Value(1.5), b = new Value(0.2);
+const x1 = new Value(0.6), x2 = new Value(-0.4);
+const L = neglog(sigmoid(add(add(mul(w1, x1), mul(w2, x2)), b)));
+backward(L);
+console.log(w1.grad);   // -0.4386
+</script>
+<script type="text/plain" id="example-py">
+import torch
+w1 = torch.tensor(-1.0, requires_grad=True)
+w2 = torch.tensor(1.5, requires_grad=True)
+b = torch.tensor(0.2, requires_grad=True)
+x1, x2 = 0.6, -0.4
+L = -torch.log(torch.sigmoid(w1 * x1 + w2 * x2 + b))
+L.backward()
+print(w1.grad)   # tensor(-0.4386)
 </script>
 
 <script>
@@ -779,35 +863,109 @@ function backward(loss) {
     return { node: null, kind: "" };
   }
 
+  // the same step said three ways; code names drop subscripts so the code is valid
+  const cn = (name) => name.replace(/[₀-₉]/g, (d) => String(SUBS.indexOf(d))).replace("ŷ", "yhat");
+  const fc = (v, d = 3) => { const x = Number(v.toFixed(d)); return (Object.is(x, -0) ? 0 : x).toFixed(d); };
+  const mi = (name) => `<i>${name}</i>`;
+  function mathExpr(v, nums) {
+    const A = nums ? par(v.inputs[0].data) : mi(v.inputs[0].name), B = v.inputs[1] ? (nums ? par(v.inputs[1].data) : mi(v.inputs[1].name)) : "";
+    switch (v.op) {
+      case "+": return `${A} + ${B}`;
+      case "×": return nums ? `${A} × ${B}` : `${A} · ${B}`;
+      case "σ": return `σ(${A})`;
+      case "tanh": return `tanh(${A})`;
+      case "−log": return `−log ${A}`;
+      case "²": return `${A}²`;
+    }
+    return "";
+  }
+  function mathSlope(v, i) {
+    switch (v.op) {
+      case "+": return "1";
+      case "×": return mi(v.inputs[1 - i].name);
+      case "σ": return `${mi(v.name)}(1 − ${mi(v.name)})`;
+      case "tanh": return `1 − ${mi(v.name)}²`;
+      case "−log": return `−1/${mi(v.inputs[0].name)}`;
+      case "²": return `2${mi(v.inputs[0].name)}`;
+    }
+    return "";
+  }
+  const dd = (top, bot) => `∂${mi(top)}/∂${mi(bot)}`;
   function explain(g, p) {
     const T = g.tape.length;
-    if (p === 0) return { text: "Nothing is computed yet: only the starting numbers are known. Press <b>Step</b> to run the first operation.", code: "TAPE = [];   // switch the tape on" };
+    if (p === 0) return {
+      words: "Nothing is computed yet: only the starting numbers are known. Press <b>Step</b> to run the first operation.",
+      math: [`${mi("L")} = ${PRESETS[PG.key].formula.split("   ")[0].replace(/^L = /, "")}`, "nothing evaluated yet"],
+      js: "TAPE = [];   // switch the tape on", py: "TAPE = []   # switch the tape on",
+    };
     if (p <= T) {
       const v = g.tape[p - 1];
       const slopes = v.inputs.map((inp, i) => `∂${v.name}/∂${inp.name} = ${slopeRule(v, i)} = ${fmt(v.local[i])}`).join(", and ");
-      const args = v.inputs.map((x) => x.name).join(", ");
-      let text = `<b>Forward, operation ${p} of ${T}.</b> ${v.name} = ${opExpr(v, false)} = ${opExpr(v, true)} = ${fmt(v.data)}. The tape also records the local slope${v.inputs.length > 1 ? "s" : ""}: ${slopes}.`;
-      if (p === T) text += " The forward pass is done. Press <b>Step</b> again to start backward.";
-      return { text, code: `const ${v.name} = ${FN_NAME[v.op]}(${args});   // data ${fmt(v.data)}, local [${v.local.map((x) => fmt(x)).join(", ")}]` };
+      let words = `<b>Forward, operation ${p} of ${T}.</b> ${v.name} = ${opExpr(v, false)} = ${opExpr(v, true)} = ${fmt(v.data)}. The tape also records the local slope${v.inputs.length > 1 ? "s" : ""}: ${slopes}.`;
+      if (p === T) words += " The forward pass is done. Press <b>Step</b> again to start backward.";
+      const args = v.inputs.map((x) => cn(x.name)).join(", "), loc = v.local.map((x) => fc(x, 2)).join(", ");
+      return {
+        words,
+        math: [`${mi(v.name)} = ${mathExpr(v, false)} = ${mathExpr(v, true)} = ${fmt(v.data, 3)}`, v.inputs.map((inp, i) => `${dd(v.name, inp.name)} = ${mathSlope(v, i)} = ${fmt(v.local[i], 3)}`).join("&emsp;")],
+        js: `const ${cn(v.name)} = ${FN_NAME[v.op]}(${args});   // data ${fc(v.data)}, local [${loc}]`,
+        py: `${cn(v.name)} = ${FN_NAME[v.op]}(${args})   # data ${fc(v.data)}, local [${loc}]`,
+      };
     }
-    if (p === T + 1) return { text: `<b>Backward begins at the loss.</b> ∂L/∂L = 1: nudge L by a little and L changes by exactly that much. Every other gradient will be built from this 1.`, code: "loss.grad = 1;" };
+    if (p === T + 1) return {
+      words: "<b>Backward begins at the loss.</b> ∂L/∂L = 1: nudge L by a little and L changes by exactly that much. Every other gradient will be built from this 1.",
+      math: [`${dd("L", "L")} = 1`],
+      js: `${cn(g.root.name)}.grad = 1;   // backward(${cn(g.root.name)}) starts here`, py: `${cn(g.root.name)}.grad = 1.0   # backward(${cn(g.root.name)}) starts here`,
+    };
     const j = p - T - 1, v = g.tape[T - j];
     applyGrads(g, p - T - 1);
     const before = new Map(g.nodes.map((n) => [n, { g: n.grad, t: n.touched }]));
     applyGrads(g, p - T);
     const G = fmt(v.grad, 3), msgs = v.inputs.map((inp, i) => v.local[i] * v.grad);
-    let text = `<b>Backward, step ${j} of ${T}: ${v.name} = ${opExpr(v, false)}.</b> ${v.name} has collected its gradient, ∂L/∂${v.name} = ${G}. `;
-    if (v.op === "+") text += `Addition's slope is 1 for both inputs, so it passes ${G} straight back to ${v.inputs[0].name} and ${v.inputs[1].name}.`;
-    else if (v.op === "×") text += `Multiplication's slope for each input is the other input. ${v.inputs[0].name} gets ${G} × ${fmt(v.local[0], 3)} = ${fmt(msgs[0], 3)}, and ${v.inputs[1].name} gets ${G} × ${fmt(v.local[1], 3)} = ${fmt(msgs[1], 3)}.`;
-    else text += `Its local slope is ${slopeRule(v, 0)} = ${fmt(v.local[0], 3)}, so it sends ${G} × ${fmt(v.local[0], 3)} = ${fmt(msgs[0], 3)} back to ${v.inputs[0].name}.`;
+    let words = `<b>Backward, step ${j} of ${T}: ${v.name} = ${opExpr(v, false)}.</b> ${v.name} has collected its gradient, ∂L/∂${v.name} = ${G}. `;
+    if (v.op === "+") words += `Addition's slope is 1 for both inputs, so it passes ${G} straight back to ${v.inputs[0].name} and ${v.inputs[1].name}.`;
+    else if (v.op === "×") words += `Multiplication's slope for each input is the other input. ${v.inputs[0].name} gets ${G} × ${fmt(v.local[0], 3)} = ${fmt(msgs[0], 3)}, and ${v.inputs[1].name} gets ${G} × ${fmt(v.local[1], 3)} = ${fmt(msgs[1], 3)}.`;
+    else words += `Its local slope is ${slopeRule(v, 0)} = ${fmt(v.local[0], 3)}, so it sends ${G} × ${fmt(v.local[0], 3)} = ${fmt(msgs[0], 3)} back to ${v.inputs[0].name}.`;
+    const math = [];
     v.inputs.forEach((inp, i) => {
-      const b = before.get(inp);
-      if (b.t) text += ` <b>${inp.name} already held ${fmt(b.g, 3)}</b> from its other use, so rule 3 adds: ${fmt(b.g, 3)} + ${fmt(msgs[i], 3)} = ${fmt(inp.grad, 3)}.`;
+      const bf = before.get(inp), chain = `${dd("L", v.name)} · ${dd(v.name, inp.name)}`, nums = `(${fmt(v.grad, 3)})(${fmt(v.local[i], 3)})`;
+      if (bf.t) {
+        words += ` <b>${inp.name} already held ${fmt(bf.g, 3)}</b> from its other use, so rule 3 adds: ${fmt(bf.g, 3)} + ${fmt(msgs[i], 3)} = ${fmt(inp.grad, 3)}.`;
+        math.push(`${dd("L", inp.name)} = ${fmt(bf.g, 3)} + ${chain} = ${fmt(bf.g, 3)} + ${nums} = ${fmt(inp.grad, 3)}`);
+      } else math.push(`${dd("L", inp.name)} = ${chain} = ${nums} = ${fmt(inp.grad, 3)}`);
     });
-    if (p === 2 * T + 1) text += " <b>Done.</b> Every starting number now has its gradient.";
-    const code = v.inputs.map((inp, i) => `${inp.name}.grad += ${fmt(v.local[i], 3)} * ${fmt(v.grad, 3)};   // ${inp.name}.grad is now ${fmt(inp.grad, 3)}`).join("\n");
-    return { text, code };
+    if (p === 2 * T + 1) words += " <b>Done.</b> Every starting number now has its gradient.";
+    return {
+      words, math,
+      js: v.inputs.map((inp, i) => `${cn(inp.name)}.grad += ${fc(v.local[i])} * ${fc(v.grad)};   // ${cn(inp.name)}.grad is now ${fc(inp.grad)}`).join("\n"),
+      py: v.inputs.map((inp, i) => `${cn(inp.name)}.grad += ${fc(v.local[i])} * ${fc(v.grad)}   # ${cn(inp.name)}.grad is now ${fc(inp.grad)}`).join("\n"),
+    };
   }
+  // ---------- the Words · Math · Code switch, shared by the whole page ----------
+  const VIEW = { mode: "words", lang: "js" };
+  try { const saved = JSON.parse(localStorage.getItem("itn-lens") || "null"); if (saved && ["words", "math", "code", "all"].includes(saved.mode)) Object.assign(VIEW, { mode: saved.mode, lang: saved.lang === "py" ? "py" : "js" }); } catch (e) { /* storage unavailable */ }
+  const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  function reps(r) {
+    const want = (m) => VIEW.mode === "all" || VIEW.mode === m;
+    let h = "";
+    if (want("words")) h += `<div class="rep words"><div class="rep-lab">Words</div><p>${r.words}</p></div>`;
+    if (want("math")) h += `<div class="rep math"><div class="rep-lab">Math</div><div class="mb">${r.math.map((l) => `<span>${l}</span>`).join("")}</div></div>`;
+    if (want("code")) h += `<div class="rep code"><div class="rep-lab">Code · ${VIEW.lang === "py" ? "Python" : "JavaScript"}</div><pre>${esc(VIEW.lang === "py" ? r.py : r.js)}</pre></div>`;
+    return h;
+  }
+  function syncLensControls() {
+    document.querySelectorAll("[data-lens-ctl]").forEach((c) => {
+      c.querySelectorAll("[data-lens]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lens === VIEW.mode)));
+      c.querySelectorAll("[data-lang]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === VIEW.lang)));
+      c.querySelector(".lang").hidden = !(VIEW.mode === "code" || VIEW.mode === "all");
+    });
+    document.querySelectorAll("#annot, #pg-explain").forEach((el) => el.classList.toggle("show-all", VIEW.mode === "all"));
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-lens], [data-lang]"); if (!b) return;
+    if (b.dataset.lens) VIEW.mode = b.dataset.lens; else VIEW.lang = b.dataset.lang;
+    try { localStorage.setItem("itn-lens", JSON.stringify(VIEW)); } catch (err) { /* storage unavailable */ }
+    syncLensControls(); renderAlgo(); pgRender();
+  });
 
   const KIND = { param: "a weight: the network learns it", input: "an input: it gets a gradient, but training never changes it", op: "" };
   function pgInspector() {
@@ -855,7 +1013,7 @@ function backward(loss) {
       fwd, slopes: $("pg-slopes").checked, active: act.node, kind: act.kind, sel: PG.sel,
       pulse: PG.anim && PG.anim.to ? { to: PG.anim.to, f: PG.anim.f, back: PG.anim.back } : null,
     });
-    $("pg-explain").innerHTML = ex.text; $("pg-code").textContent = ex.code;
+    $("pg-explain").innerHTML = reps(ex);
     $("pg-formula").textContent = PRESETS[PG.key].formula;
     $("pg-progress").textContent = p === 0 ? "start" : p <= T ? `forward ${p} / ${T}` : p === T + 1 ? "backward: seed" : `backward ${p - T - 1} / ${T}`;
     $("pg-step").disabled = p >= lastP(); $("pg-finish").disabled = p >= lastP();
@@ -1096,24 +1254,44 @@ function backward(loss) {
   $("chain-x").addEventListener("input", drawChain);
 
   // ---------- the annotated code ----------
-  (function annotate() {
-    const NOTES = [
-      "The tape starts empty. While it is switched on, every new Value adds itself to the end, so the tape lists every operation in the order it happened.",
-      "A Value is one number in the graph. Besides the number, it remembers where it came from (inputs) and its local slopes (local). grad starts at 0 and is filled in on the way back.",
-      "Addition and multiplication, with their slope rules written right in: [1, 1] for addition, and the other input for multiplication.",
-      "One-input operations. Each computes its result and its slope together. Chapter 1 fused σ and −log into one step; here they stay separate so you can watch each.",
-      "The backward pass. Seed the loss with 1 (rule 1), then walk the tape from the end. Each entry multiplies its gradient by each local slope and pushes the result into that input (rule 2). The += is rule 3: contributions from several uses add up.",
-    ];
-    const blocks = $("autograd").textContent.trim().split(/\n\s*\n/);
-    const host = $("annot");
-    if (blocks.length !== NOTES.length) { const pre = document.createElement("pre"); pre.textContent = blocks.join("\n\n"); host.appendChild(pre); return; }
-    blocks.forEach((code, i) => {
-      const row = document.createElement("div"); row.className = "ablock";
-      const pre = document.createElement("pre"); pre.textContent = code;
-      const note = document.createElement("div"); note.className = "note"; note.textContent = NOTES[i];
-      row.append(note, pre); host.appendChild(row);
-    });
-  })();
+  const ALGO = [
+    {
+      title: "The tape",
+      words: "Keep a list called the tape. While it is switched on, every new number adds itself to the end, so the tape lists every operation in the order it happened.",
+      math: [`The forward pass computes a sequence ${mi("v")}₁, ${mi("v")}₂, …, ${mi("v")}<sub>n</sub> = ${mi("L")}.`, `Each ${mi("v")}<sub>k</sub> is computed from values that come earlier in the sequence.`],
+    },
+    {
+      title: "A value",
+      words: "Every number in the graph carries four things: its value; its gradient, which starts at 0 and is filled in on the way back; the numbers it was computed from; and its local slope for each of them.",
+      math: [`Each node ${mi("v")} stores its value, its inputs ${mi("u")}<sub>i</sub>, the local slopes ${dd("v", "u")}<sub>i</sub>,`, `and its gradient ${dd("L", "v")}, which starts at 0.`],
+    },
+    {
+      title: "Addition and multiplication",
+      words: "Addition passes a nudge straight through, so its slopes are 1 and 1. Multiplication's slope for each input is the other input.",
+      math: [`${mi("v")} = ${mi("a")} + ${mi("b")}:&emsp;${dd("v", "a")} = 1,&ensp;${dd("v", "b")} = 1`, `${mi("v")} = ${mi("a")} · ${mi("b")}:&emsp;${dd("v", "a")} = ${mi("b")},&ensp;${dd("v", "b")} = ${mi("a")}`],
+    },
+    {
+      title: "One-input operations",
+      words: "tanh, σ, −log and squaring each work out their result and their slope at the same moment, using the rules in the table above.",
+      math: [`tanh′(${mi("a")}) = 1 − tanh²(${mi("a")})&emsp;σ′(${mi("a")}) = σ(${mi("a")})(1 − σ(${mi("a")}))`, `(−log ${mi("a")})′ = −1/${mi("a")}&emsp;(${mi("a")}²)′ = 2${mi("a")}`],
+    },
+    {
+      title: "The backward pass",
+      words: "Give the loss a gradient of 1. Then read the tape from the end to the start. For each entry, multiply its gradient by each local slope and add the result to that input's gradient. Adding instead of replacing is rule 3.",
+      math: [`${dd("L", "L")} = 1`, `for ${mi("k")} = ${mi("n")}, …, 1:&emsp;${dd("L", "u")} += ${dd("L", "v")}<sub>k</sub> · ∂${mi("v")}<sub>k</sub>/∂${mi("u")}&ensp;for each input ${mi("u")} of ${mi("v")}<sub>k</sub>`, `so in the end ${dd("L", "u")} = Σ ${dd("L", "v")} · ${dd("v", "u")}, summed over every ${mi("v")} that uses ${mi("u")}: the chain rule.`],
+    },
+    {
+      title: "In a real library",
+      words: "Real libraries such as PyTorch run this same algorithm on graphs with billions of operations. You write the forward pass, call backward(), and every weight's gradient appears. For the playground's neuron they agree with this page: ∂L/∂w₁ = −0.4386.",
+      math: [`Same graph, same rules, same number:`, `${dd("L", "w₁")} = (${mi("ŷ")} − 1) · ${mi("x")}₁ = (0.2689 − 1)(0.6) = −0.4386`],
+    },
+  ];
+  function renderAlgo() {
+    const js = $("autograd").textContent.trim().split(/\n\s*\n/), py = $("autograd-py").textContent.trim().split(/\n\s*\n/);
+    js.push($("example-js").textContent.trim()); py.push($("example-py").textContent.trim());
+    const ok = js.length === ALGO.length && py.length === ALGO.length;
+    $("annot").innerHTML = ALGO.map((a, i) => `<div class="ablock"><div class="atitle"><span class="n">${i + 1}</span>${a.title}</div>${reps({ words: a.words, math: a.math, js: ok ? js[i] : js.join("\n\n"), py: ok ? py[i] : py.join("\n\n") })}</div>`).join("");
+  }
 
   // ---------- descriptions on hover, keyboard focus, or after a tap ----------
   const FILM_TIPS = ["The neuron, drawn as a graph.", "Values flow forward and onto the tape.", "Each operation's local slopes.", "Gradients flow backward.", "Every weight's gradient.", "Why this matters for big networks."];
@@ -1131,6 +1309,12 @@ function backward(loss) {
     finish: () => "<b>Finish</b>: jump to the end, with every value and gradient computed.",
     restart: () => "<b>Restart</b> from nothing: only the starting numbers are known.",
     slopes: () => "Show each wire's local slope: the number the backward pass multiplies by on that wire.",
+    "lens-words": () => "<b>Words</b>: explain each step in plain sentences.",
+    "lens-math": () => "<b>Math</b>: the same steps as formulas, with the real numbers filled in.",
+    "lens-code": () => "<b>Code</b>: the same steps as the code that does them.",
+    "lens-all": () => "<b>All three</b>: words, math and code stacked, so you can see how they match line by line.",
+    "lang-js": () => "<b>JavaScript</b>: the code this page actually runs.",
+    "lang-py": () => "<b>Python</b>: the same program translated line by line, in the language most machine-learning work uses.",
     "preset-warm": () => "<b>Warm-up</b>: (a·b + c)·f. Only multiplication and addition.",
     "preset-neuron": () => "<b>One neuron</b> judging a blue dot, the same as in the film.",
     "preset-twouse": () => "<b>One value, two uses</b>: h feeds two wires, so its gradient is the sum of two contributions (rule 3).",
@@ -1212,6 +1396,7 @@ function backward(loss) {
 
   // ---------- boot ----------
   readTheme();
+  syncLensControls(); renderAlgo();
   pgBuild(false); PG.p = nT(); lastW = $("pg-graph").clientWidth; pgRender();
   setCost(17); $("cost-n-range").value = Math.round(((Math.log10(17) - LOGMIN) / (LOGMAX - LOGMIN)) * 1000);
   drawLens(); drawChain();
