@@ -1899,7 +1899,8 @@ function backward(loss) {
   const tt = document.createElement("div");
   tt.className = "tt"; tt.id = "tt"; tt.setAttribute("role", "tooltip"); tt.setAttribute("aria-hidden", "true");
   document.body.appendChild(tt);
-  let tipEl = null, tipPoint = null, tipTimer = 0, tipHide = 0;
+  // tipMode says what opened the tip: "hover", "focus" or "touch"
+  let tipEl = null, tipPoint = null, tipTimer = 0, tipHide = 0, tipMode = "";
   const tipHtml = (el) => { const f = TIPS[el.dataset.tip]; return f ? f(el) : ""; };
   function placeTip() {
     const w = tt.offsetWidth, h = tt.offsetHeight;
@@ -1909,57 +1910,82 @@ function backward(loss) {
     tt.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, x)) + "px";
     tt.style.top = Math.max(8, y) + "px";
   }
-  function showTip(el, point) {
-    clearTimeout(tipTimer); clearTimeout(tipHide);
+  function showTip(el, point, mode) {
+    clearTimeout(tipHide);
     if (tipEl && tipEl !== el) tipEl.removeAttribute("aria-describedby");
-    tipEl = el; tipPoint = point && el.hasAttribute("data-follow") ? point : null;
+    tipEl = el; tipMode = mode; tipPoint = point && el.hasAttribute("data-follow") ? point : null;
     const html = tipHtml(el); if (!html) return;
     tt.innerHTML = html; tt.classList.add("on"); tt.setAttribute("aria-hidden", "false");
     el.setAttribute("aria-describedby", "tt");
     placeTip();
   }
   function hideTip() {
-    clearTimeout(tipTimer); clearTimeout(tipHide);
+    clearTimeout(tipHide);
     if (tipEl) tipEl.removeAttribute("aria-describedby");
-    tipEl = null; tipPoint = null; tt.classList.remove("on"); tt.setAttribute("aria-hidden", "true");
+    tipEl = null; tipPoint = null; tipMode = ""; tt.classList.remove("on"); tt.setAttribute("aria-hidden", "true");
+  }
+
+  // Hover is tracked by pointer position, not by enter/leave events. The playground redraws
+  // and rebuilds parts of itself under a still mouse; those events then fire constantly and
+  // would keep restarting the delay. A control is identified by what it is, not which node it is.
+  let mouse = null, hoverKey = "";
+  const keyOf = (el) => (el ? `${el.dataset.tip}|${el.dataset.sel || ""}|${el.id}` : "");
+  function tipTargetAt(pt) {
+    const hit = pt && document.elementFromPoint(pt[0], pt[1]);
+    return hit && hit.closest ? hit.closest("[data-tip]") : null;
+  }
+  function hoverCheck() {
+    if (!mouse) return;
+    const el = tipTargetAt(mouse), key = keyOf(el);
+    if (key !== hoverKey) {
+      hoverKey = key; clearTimeout(tipTimer);
+      if (tipMode === "hover") hideTip();
+      if (el) tipTimer = setTimeout(() => {
+        const now = tipTargetAt(mouse);
+        if (now && keyOf(now) === hoverKey && tipMode !== "focus") showTip(now, mouse, "hover");
+      }, el.hasAttribute("data-fast") ? 120 : 450);
+    } else if (el && tipMode === "hover" && tipEl !== el) {
+      tipEl = el; // the same control, rebuilt under the mouse: keep the tip on the new node
+    }
   }
   // called every frame the page redraws, so open tips show live values
-  function refreshTip() { if (tipEl && tt.classList.contains("on")) { tt.innerHTML = tipHtml(tipEl); placeTip(); } }
+  function refreshTip() {
+    hoverCheck();
+    if (tipEl && tipEl.isConnected && tt.classList.contains("on")) { tt.innerHTML = tipHtml(tipEl); placeTip(); }
+  }
 
-  document.addEventListener("pointerover", (e) => {
-    if (e.pointerType !== "mouse") return;
-    const el = e.target.closest("[data-tip]");
-    if (!el) return;
-    if (el === tipEl && tt.classList.contains("on")) return;
-    clearTimeout(tipTimer);
-    const point = [e.clientX, e.clientY];
-    tipTimer = setTimeout(() => showTip(el, point), el.hasAttribute("data-fast") ? 120 : 450);
-  });
-  document.addEventListener("pointerout", (e) => {
-    if (e.pointerType !== "mouse") return;
-    const el = e.target.closest("[data-tip]");
-    if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
-    clearTimeout(tipTimer);
-    if (el === tipEl) hideTip();
-  });
   document.addEventListener("pointermove", (e) => {
-    if (tipEl && tipPoint && e.pointerType === "mouse") { tipPoint = [e.clientX, e.clientY]; placeTip(); }
+    if (e.pointerType !== "mouse") return;
+    mouse = [e.clientX, e.clientY];
+    hoverCheck();
+    if (tipEl && tipPoint && tipMode === "hover") { tipPoint = mouse; placeTip(); }
+  });
+  document.documentElement.addEventListener("pointerleave", (e) => {
+    if (e.pointerType !== "mouse") return;
+    mouse = null; hoverKey = ""; clearTimeout(tipTimer);
+    if (tipMode === "hover") hideTip();
   });
   // on touch there is no hover: describe what was just tapped, briefly
   document.addEventListener("click", (e) => {
     const el = e.target.closest("[data-tip]");
     if (!el) return;
     if (e.pointerType === "touch" || (!e.pointerType && matchMedia("(hover: none)").matches)) {
-      requestAnimationFrame(() => { showTip(el, null); tipHide = setTimeout(hideTip, 2600); });
+      requestAnimationFrame(() => { showTip(el, null, "touch"); tipHide = setTimeout(hideTip, 2600); });
     } else if (el === tipEl) requestAnimationFrame(refreshTip);
   });
   document.addEventListener("focusin", (e) => {
     const el = e.target.closest("[data-tip]");
-    if (el && e.target.matches(":focus-visible")) showTip(el, null);
+    if (el && e.target.matches(":focus-visible")) { clearTimeout(tipTimer); showTip(el, null, "focus"); }
   });
-  document.addEventListener("focusout", (e) => { if (tipEl && tipEl.contains(e.target) && !tipPoint) hideTip(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideTip(); });
-  window.addEventListener("scroll", () => { if (tipEl) hideTip(); }, { passive: true });
+  document.addEventListener("focusout", () => { if (tipMode === "focus") hideTip(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { hideTip(); hoverKey = ""; } });
+  // scrolling moves the page under a still mouse: re-check what is under it, then re-anchor
+  window.addEventListener("scroll", () => {
+    if (tipMode === "touch") hideTip();
+    if (tipPoint) hideTip();
+    hoverCheck();
+    if (tipEl && tipEl.isConnected) placeTip();
+  }, { passive: true });
 
   // ---------- main loop ----------
   function frame() {
