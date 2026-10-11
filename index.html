@@ -270,6 +270,8 @@ a.btn { text-decoration: none; }
 .intro a { color: var(--ink); text-underline-offset: 3px; }
 .foot a { color: var(--ink-2); text-underline-offset: 3px; }
 
+.chapnav { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 20px; margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--rule); font: 15px/1.4 var(--font-display); color: var(--ink-3); }
+.chapnav a, ol.road a { color: var(--ink); text-underline-offset: 3px; }
 /* hover and focus descriptions */
 .tt { position: fixed; left: 0; top: 0; z-index: 30; max-width: min(300px, calc(100vw - 24px)); background: var(--ink); color: var(--sheet); font: 13px/1.45 var(--font-display); padding: 8px 11px; border-radius: 8px; box-shadow: 0 6px 22px var(--shadow); pointer-events: none; opacity: 0; transform: translateY(3px); transition: opacity 0.12s ease, transform 0.12s ease; }
 .tt.on { opacity: 1; transform: none; }
@@ -553,7 +555,7 @@ a.btn { text-decoration: none; }
     <h2>Where this is going</h2>
     <ol class="road">
       <li class="here"><span class="n">1</span><span>A network you can touch</span><span class="tag">This page</span></li>
-      <li><span class="n">2</span><span>Backprop, one operation at a time</span><span></span></li>
+      <li><span class="n">2</span><span><a href="chapter-2/">Backprop, one operation at a time</a></span><span class="tag">New</span></li>
       <li><span class="n">3</span><span>Going deeper: why layers help</span><span></span></li>
       <li><span class="n">4</span><span>Seeing: convolutional networks</span><span></span></li>
       <li class="branch"><span class="n">4′</span><span>Listening: spectrograms and sound</span><span class="tag">Branch</span></li>
@@ -561,6 +563,7 @@ a.btn { text-decoration: none; }
       <li><span class="n">6</span><span>Attention</span><span></span></li>
       <li><span class="n">7</span><span>A tiny GPT, trained in your browser</span><span></span></li>
     </ol>
+    <nav class="chapnav" aria-label="Chapters"><span>This is chapter 1</span><a href="chapter-2/">Next: Chapter 2, Backprop, one operation at a time →</a></nav>
     <p class="foot">Working prototype, October 2026. Every figure on this page is a live computation.<br><a href="https://github.com/taoyiran/inside-the-network">Source on GitHub</a> · code under MIT, text and figures under CC BY 4.0.</p>
   </section>
   <a class="jump-pill" id="jump-pill" href="#playground" hidden>Playground ↓</a>

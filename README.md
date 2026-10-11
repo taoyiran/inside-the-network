@@ -14,6 +14,10 @@ A two-input network with one hidden layer learns to tell blue dots from orange o
 
 Everything runs on a ~40-line tape-based autograd written in plain JavaScript, in 64-bit floats with a fixed random seed, so every visitor sees the same numbers.
 
+## Chapter 2: Backprop, one operation at a time
+
+What happens inside the Backward click. A film follows one neuron's gradients backward operation by operation; three tools (local slopes, the chain rule, the tape) build up the algorithm; and a playground steps through computation graphs one operation per click, explaining each step in words, numbers and code, with a nudge test that checks every gradient the slow way.
+
 ## Run it locally
 
 Open `index.html` in a browser. To serve it locally instead:
@@ -26,7 +30,7 @@ python3 -m http.server 8000
 ## Roadmap
 
 1. A network you can touch *(this chapter)*
-2. Backprop, one operation at a time
+2. [Backprop, one operation at a time](https://taoyiran.github.io/inside-the-network/chapter-2/)
 3. Going deeper: why layers help
 4. Seeing: convolutional networks
    - 4′. Listening: spectrograms and sound
