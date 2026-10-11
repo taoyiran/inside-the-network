@@ -1763,7 +1763,7 @@ a.btn { text-decoration: none; }
     step: () => S.anim
       ? `<b>${$("b-step").textContent}.</b> ${NEXT_STAGE[S.anim.stage]}`
       : "<b>Step</b> through one round of training, one stage per click: forward pass, loss, backward pass, update.",
-    reset: () => `<b>Reset</b> to new random starting weights (seed ${S.seed} → ${S.seed + 1}). The dots stay the same. A fixed seed means every visitor sees the same numbers.`,
+    reset: () => `<b>Reset</b> to new random starting weights (seed ${S.seed} → ${S.seed + 1}). The dots stay the same. A fixed seed means every visitor gets the same starting weights.`,
     "data-clusters": () => "<b>Clusters</b>: two blobs. One straight line separates all but one dot, so even 1 hidden neuron is enough. The easy warm-up.",
     "data-xor": () => "<b>XOR</b>: blue in two opposite corners, orange in the other two. No single line works, so it needs at least 2 hidden neurons, and 3 to get every dot right. This is the puzzle from the top of the page.",
     "data-circle": () => "<b>Circle</b>: blue inside, orange in a ring around it. It takes at least 3 lines, so 3 hidden neurons, to fence in the middle.",

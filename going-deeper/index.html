@@ -73,7 +73,7 @@ img { max-width: 100%; }
   <header class="col">
     <div class="eyebrow">Chapter 4</div>
     <h1>Going deeper: why layers help</h1>
-    <p class="dek">One hidden layer can only add up straight edges. Stack layers, and each one gives every dot new coordinates for the next, so a network builds curves out of lines and shapes out of curves.</p>
+    <p class="dek">One hidden layer builds its guess by adding up soft straight edges. Stack layers, and each one gives every dot new coordinates for the next, so a network builds curves out of lines and shapes out of curves.</p>
     <nav class="jump" aria-label="Page shortcuts">
       <a class="btn primary" href="#playground">Skip to the playground ↓</a>
       <span class="jump-note">or read the introduction below</span>
@@ -120,7 +120,7 @@ img { max-width: 100%; }
       <div class="legend"><span><i class="ln dash"></i>one layer of 32</span><span><i class="ln"></i>two layers of 8</span></div>
     </figure>
 
-    <p>The single layer stalls with parts of the rings still wrong; the two layers get every dot right in about 1,500 steps. That is not the luck of one draw. We ran both networks from 20 different random starts. The single layer of 32 never reached 95% within 3,000 steps; its best was 91%. The two layers of 8 reached 95% in 19 of the 20 runs, and got every dot right in 12. In principle, one hidden layer with enough neurons can approximate any boundary. In practice, stacking layers makes many shapes far easier to learn. Three ideas explain why.</p>
+    <p>After 3,000 steps the single layer still has parts of the rings wrong; the two layers get every dot right in about 1,500 steps. That is not the luck of one draw. We ran both networks from 20 different random starts. Within 3,000 steps the single layer of 32 never reached 95% (its best was 91%), while the two layers of 8 reached 95% in 19 of the 20 runs. Given many more steps the single layer does get there: it reached 95% in all 20 runs, but needed a median of about 5,700 steps, nearly four times the two layers' 1,500. In principle, one hidden layer with enough neurons can approximate any boundary. In practice, stacking layers often makes shapes like these much faster to learn, with fewer parameters. Two ideas explain why, and a third shows how such a network is trained.</p>
 
     <h2>Tool 1: a layer gives every dot new coordinates</h2>
     <p>A layer takes each dot's numbers and hands the next layer new ones: one number per neuron. When a layer has exactly two neurons, its two numbers can be drawn as coordinates on a new plane. This network, with layers of 8, 8 and 2 neurons, was trained on chapter 1's Spiral. On the left are the dots where they start. On the right, the same dots at their coordinates in the last hidden layer, the two-neuron one. Drag the slider to watch them move from one to the other.</p>
@@ -134,7 +134,7 @@ img { max-width: 100%; }
       <p class="readout" id="sp-read"></p>
     </figure>
 
-    <p>In the new coordinates the two arms no longer wind around each other, and the output neuron separates the colors with one straight line<span id="sp-q"></span>. That is what the layers before it did: they bent and folded the plane until a straight cut was enough. The faint grid shows the bending: straight lines on the left come out curved on the right.</p>
+    <p>In the new coordinates the two arms no longer wind around each other, and the output neuron separates the colors with one straight line<span id="sp-q"></span>. That is what the layers before it did: they bent and folded the plane until a straight cut was enough. The faint grid shows the bending: straight lines on the left come out bent and squeezed on the right. tanh never goes past −1 or 1, so much of the grid is pressed against the edges.</p>
 
     <h2>Tool 2: lines, then curves, then shapes</h2>
     <p>Each layer builds on the one below it. Here is the two-layer network from the race after training. Every square shows one neuron's output across the whole plane, blue for positive and orange for negative.</p>
@@ -152,11 +152,11 @@ img { max-width: 100%; }
     <div class="annot" id="algo" data-reps></div>
 
     <h2>The price of depth</h2>
-    <p>Depth has a cost, and part 4 above shows where it comes from. On the way back, the error is multiplied by the slope of every bend it passes. With many layers those slopes multiply together. σ's slope is never more than 0.25, so after six σ layers the slopes alone can shrink the error by a factor of 0.25⁶, about 1/4,000, before it reaches the first layer. This widget measures it on a fresh network with six hidden layers of six neurons, at the very start of training.</p>
+    <p>Depth has a cost, and part 4 above shows where it comes from. On the way back, the error is multiplied by the slope of every bend it passes. With many layers those slopes multiply together. σ's slope is never more than 0.25, so on its way back through six σ layers the slopes alone multiply the error by at most 0.25⁶, about 1/4,000; the weights can shrink it further. This widget measures it on fresh networks with six hidden layers of six neurons, at the very start of training, averaged over 20 random starting weights.</p>
 
     <figure class="card" id="vg" aria-label="Average gradient size in each layer of a deep network">
       <div class="bar-row">
-        <div class="seg" role="group" aria-label="Bend" id="vg-bend">
+        <div class="seg" role="group" aria-label="Activation" id="vg-bend">
           <button type="button" data-v="sigmoid" data-tip="vg-sigmoid" aria-pressed="true">σ</button>
           <button type="button" data-v="tanh" data-tip="vg-tanh" aria-pressed="false">tanh</button>
           <button type="button" data-v="relu" data-tip="vg-relu" aria-pressed="false">ReLU</button>
@@ -170,7 +170,7 @@ img { max-width: 100%; }
       <p class="readout" id="vg-read"></p>
     </figure>
 
-    <p>This is called the <b>vanishing-gradient problem</b>, and it is why hidden layers today mostly use ReLU, whose slope is exactly 1 wherever a neuron is active, and why starting weights are scaled with care. tanh with well-scaled starting weights holds up at this depth; start the weights half as big and every layer's gradient shrinks.</p>
+    <p>This is called the <b>vanishing-gradient problem</b>, and σ is the worst case. tanh's slope reaches 1 near zero, and ReLU's slope is exactly 1 wherever a neuron is active, so with well-scaled starting weights both keep the first layer's gradients within a small factor of the output layer's at this depth, as the widget shows. That is why hidden layers today use ReLU or close relatives of it rather than σ, and why starting weights are scaled with care: in the widget, starting weights half as big make every layer's gradient shrink, with any of the three bends, and the first layer's falls further behind the output layer's.</p>
 
     <h2>The playground</h2>
     <p>Build a network: choose up to three hidden layers and their widths, pick a set of dots, and train. Every neuron's square is shown, layer by layer. Make the last hidden layer two neurons wide to see the plane it makes.</p>
@@ -200,7 +200,7 @@ img { max-width: 100%; }
           <div class="layers" id="pl-layers"></div>
         </div>
         <div class="ctl">
-          <span class="lab" id="lab-bend">Bend</span>
+          <span class="lab" id="lab-bend">Activation</span>
           <div class="seg" role="group" aria-labelledby="lab-bend" id="pl-bend">
             <button type="button" data-v="tanh" data-tip="bend-tanh" aria-pressed="true">tanh</button>
             <button type="button" data-v="relu" data-tip="bend-relu" aria-pressed="false">ReLU</button>
@@ -259,20 +259,21 @@ img { max-width: 100%; }
       <dt>New coordinates</dt>
       <dd>For a layer with two neurons: each dot is drawn at the layer's two numbers instead of its own x₁ and x₂. The straight line is where the output neuron's guess is 50%, and the faint grid is the original plane's grid, bent the same way.</dd>
       <dt>Bars</dt>
-      <dd>The average size of the gradient for each layer's weights, on a logarithmic scale: each step down the axis is ten times smaller.</dd>
+      <dd>The average size of the gradient for each layer's weights, on a logarithmic scale: each gridline down the axis is ten times smaller than the one above it. The values are averaged over 20 random starting weights.</dd>
     </dl>
 
     <h2>Things to try</h2>
     <ul class="tries">
-      <li>In the playground, train 1 × 32 on Rings, then 2 × 8. The single wide layer stalls; the two narrow layers usually get every dot right.</li>
-      <li>Choose 8 → 8 → 2 on Spiral and watch the plane the last layer makes while it trains: the arms slowly come apart until one straight line separates them. About half of all starting weights get stuck partway, with the arms still tangled; if yours do, press Reset for another start.</li>
-      <li>On Checkerboard, compare 2 × 8 with 3 × 8. In our runs the third layer roughly halved the steps needed to reach 95%.</li>
-      <li>Switch the bend to ReLU and look at the boundary. It is made of straight pieces, because a ReLU network is a patchwork of flat pieces stitched together.</li>
+      <li>In the playground, train 1 × 32 on Rings, then 2 × 8. The two narrow layers usually pass 95% within about 2,000 steps. The single wide layer gets there too, but typically needs about four times as many.</li>
+      <li>In chapter 1, one hidden layer struggled with Spiral. Choose Spiral, set a single hidden layer of 8 (press − layer), and train; then try 8 → 8. In our tests from 20 starts, 8 → 8 got every dot right within about 3,200 steps every time, while one layer of 8 never did within 6,000.</li>
+      <li>Choose 8 → 8 → 2 on Spiral and watch the plane the last layer makes while it trains: the arms slowly come apart until one straight line separates them. This network is hard to train, because two neurons is a tight squeeze. From most starting weights it gets stuck with the arms still tangled: in our tests, only 4 of 20 starts passed 95% within 3,000 steps, while 8 → 8 without the two-neuron layer got every dot right from all 20. The preset begins from one that works; press Reset to see how other starts fare.</li>
+      <li>On Checkerboard, compare 2 × 8 with 3 × 8. In our tests from 20 starts, the third layer reached 95% sooner in 16 of them, typically in about 1,200 steps instead of about 1,700. Some starts go the other way, so try a few with Reset.</li>
+      <li>Switch the activation to ReLU and look at the boundary. It is made of straight pieces: before σ, a ReLU network computes a patchwork of flat, tilted pieces stitched together, so the line where it crosses zero is made of straight segments.</li>
       <li>In the price-of-depth widget, compare σ with tanh and ReLU, then halve the starting weights.</li>
     </ul>
 
     <h2>What runs where</h2>
-    <p>Everything runs in your browser, with no machine-learning library. This chapter trains with the layer-by-layer backward pass shown above, which is faster than chapter 3's operation-by-operation autograd for these bigger networks. When this page loaded it checked the two against each other on a network with three hidden layers: <span id="ag-check">the check is running…</span> The film, the race and the network in Tool 1 replay training that ran in your browser when the page loaded, from fixed random seeds. Browsers round a few math functions, such as e<sup>x</sup>, very slightly differently, and over thousands of steps those tiny differences grow, so the exact step counts can differ a little from one browser to another.</p>
+    <p>Everything runs in your browser, with no machine-learning library. This chapter trains with the layer-by-layer backward pass shown above, which is faster than chapter 3's operation-by-operation autograd for these bigger networks. When this page loaded it checked the two against each other on a network with three hidden layers: <span id="ag-check">the check is running…</span> The film, the race and the network in Tool 1 replay training that ran in your browser when the page loaded, from fixed random seeds. Browsers round a few math functions, such as e<sup>x</sup>, very slightly differently, and over thousands of steps those tiny differences grow, so exact numbers such as step counts and final accuracies can differ from one browser to another.</p>
 
     <h2>Where this is going</h2>
     <ol class="road">
@@ -411,7 +412,7 @@ def train_step(net, dots, lr):
 (function () {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  const { fmt, sb } = ITN;
+  const { fmt } = ITN;
   const reduceMotion = ITN.reduceMotion;
   const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
   const UI = '"Bricolage Grotesque", system-ui, -apple-system, sans-serif';
@@ -434,7 +435,7 @@ def train_step(net, dots, lr):
   }
   function readTheme() {
     const cs = getComputedStyle(document.documentElement);
-    for (const k of ["sheet", "ink", "ink-2", "ink-3", "rule", "pos", "neg", "well"]) C[k] = hexRGB(cs.getPropertyValue("--" + k));
+    for (const k of ["sheet", "ink", "ink-2", "ink-3", "rule", "pos", "neg"]) C[k] = hexRGB(cs.getPropertyValue("--" + k));
     C.lutPlot = makeLUT(0.58); C.lutNode = makeLUT(0.92);
   }
   const rgba = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
@@ -517,6 +518,7 @@ def train_step(net, dots, lr):
     }
     const right = net ? dots.map((p) => (outZ(net, p.x1, p.x2) > 0 ? 1 : 0) === p.y) : null;
     drawDots(ctx, W, H, dots, right, Math.max(2.6, Math.min(4.2, W / 95)));
+    return right ? right.filter(Boolean).length : 0;
   }
 
   // ---------- every neuron's output over the plane ----------
@@ -563,40 +565,52 @@ def train_step(net, dots, lr):
 
   // ---------- the plane a two-neuron layer makes ----------
   // Each dot is drawn at (1 − u)·(x₁, x₂) + u·(h₁, h₂), where h is the last hidden layer.
+  // The view slides with the dots: from the input plane's window to a window around the layer's values.
+  // tanh keeps those values inside (−1, 1); ReLU's are never negative and can grow large, so its window is fitted to them.
   function lastHidden(net, x1, x2) { return forwardPass(net, [x1, x2])[net.length - 1].h; }
   function drawSpace(cv, net, dots, u) {
     const [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = rgba(C.sheet); ctx.fillRect(0, 0, W, H);
-    const out = net[net.length - 1], v = out.W[0], c = out.b[0];
-    const P = (x1, x2) => { const h = lastHidden(net, x1, x2); return [(1 - u) * x1 + u * h[0], (1 - u) * x2 + u * h[1]]; };
-    if (u > 0.98) { // the output's guess as a function of the two coordinates is a plain gradient with a straight 50% line
+    const out = net[net.length - 1], v = out.W[0], c = out.b[0], full = u > 0.98;
+    const pair = (x1, x2) => [x1, x2, ...lastHidden(net, x1, x2)];
+    const pts = dots.map((p) => pair(p.x1, p.x2));
+    let hw = [-D, D, -D, D];
+    if (net[net.length - 2].bend !== "tanh") {
+      let a = Infinity, b = -Infinity, e = Infinity, f = -Infinity;
+      for (const q of pts) { a = Math.min(a, q[2]); b = Math.max(b, q[2]); e = Math.min(e, q[3]); f = Math.max(f, q[3]); }
+      const half = (Math.max(b - a, f - e, 0.2) * 1.15) / 2, m1 = (a + b) / 2, m2 = (e + f) / 2;
+      hw = [m1 - half, m1 + half, m2 - half, m2 + half];
+    }
+    const win = [-D, D, -D, D].map((x, k) => (1 - u) * x + u * hw[k]);
+    const sx = (x) => ((x - win[0]) / (win[1] - win[0])) * W, sy = (y) => ((win[3] - y) / (win[3] - win[2])) * H;
+    const at = (q) => [sx((1 - u) * q[0] + u * q[2]), sy((1 - u) * q[1] + u * q[3])];
+    if (full) { // the output's guess as a function of the two coordinates: a plain slope with a straight 50% line
       const G = 40, t = C.lutPlot;
       for (let r = 0; r < G; r++) for (let q = 0; q < G; q++) {
-        const h1 = -D + (2 * D * (q + 0.5)) / G, h2 = D - (2 * D * (r + 0.5)) / G, li = lut(2 * ITN.sig(v[0] * h1 + v[1] * h2 + c) - 1);
+        const h1 = win[0] + ((win[1] - win[0]) * (q + 0.5)) / G, h2 = win[3] - ((win[3] - win[2]) * (r + 0.5)) / G, li = lut(2 * ITN.sig(v[0] * h1 + v[1] * h2 + c) - 1);
         ctx.fillStyle = `rgb(${t[li]},${t[li + 1]},${t[li + 2]})`; ctx.fillRect((q * W) / G, (r * H) / G, W / G + 1, H / G + 1);
       }
     }
     // the original plane's grid, carried along
     ctx.strokeStyle = rgba(C.ink, 0.16); ctx.lineWidth = 1;
     for (let g = -4; g <= 4; g++) {
-      const k = g / 4;
       for (const vertical of [true, false]) {
         ctx.beginPath();
-        for (let s = 0; s <= 48; s++) { const t2 = -1 + (2 * s) / 48, q = vertical ? P(k, t2) : P(t2, k); const X = toX(q[0], W), Y = toY(q[1], H); if (s) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); }
+        for (let s = 0; s <= 48; s++) { const t2 = -1 + (2 * s) / 48, [X, Y] = at(vertical ? pair(g / 4, t2) : pair(t2, g / 4)); if (s) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); }
         ctx.stroke();
       }
     }
-    if (u > 0.98 && Math.hypot(v[0], v[1]) > 1e-9) { // v₁h₁ + v₂h₂ + c = 0
-      const n = Math.hypot(v[0], v[1]), dx = -v[1] / n, dy = v[0] / n, px0 = (-c * v[0]) / (n * n), py0 = (-c * v[1]) / (n * n);
-      ctx.beginPath(); ctx.moveTo(toX(px0 - dx * 4, W), toY(py0 - dy * 4, H)); ctx.lineTo(toX(px0 + dx * 4, W), toY(py0 + dy * 4, H));
+    if (full && Math.hypot(v[0], v[1]) > 1e-9) { // v₁h₁ + v₂h₂ + c = 0
+      const n = Math.hypot(v[0], v[1]), dx = -v[1] / n, dy = v[0] / n, px0 = (-c * v[0]) / (n * n), py0 = (-c * v[1]) / (n * n), L = 4 * (win[1] - win[0]);
+      ctx.beginPath(); ctx.moveTo(sx(px0 - dx * L), sy(py0 - dy * L)); ctx.lineTo(sx(px0 + dx * L), sy(py0 + dy * L));
       ctx.strokeStyle = rgba(C.ink, 0.85); ctx.lineWidth = 1.8; ctx.stroke();
     }
     const pr = Math.max(2.4, Math.min(3.8, W / 100));
-    dots.forEach((p) => {
-      const q = P(p.x1, p.x2), right = (v[0] * lastHidden(net, p.x1, p.x2)[0] + v[1] * lastHidden(net, p.x1, p.x2)[1] + c > 0 ? 1 : 0) === p.y, col = p.y ? C.pos : C.neg;
-      ctx.beginPath(); ctx.arc(toX(q[0], W), toY(q[1], H), pr, 0, Math.PI * 2);
-      if (right || u < 0.98) { ctx.fillStyle = rgba(col); ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = rgba(C.sheet); ctx.stroke(); }
+    dots.forEach((p, k) => {
+      const q = pts[k], [X, Y] = at(q), right = (v[0] * q[2] + v[1] * q[3] + c > 0 ? 1 : 0) === p.y, col = p.y ? C.pos : C.neg;
+      ctx.beginPath(); ctx.arc(X, Y, pr, 0, Math.PI * 2);
+      if (right || !full) { ctx.fillStyle = rgba(col); ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = rgba(C.sheet); ctx.stroke(); }
       else { ctx.fillStyle = rgba(C.sheet); ctx.fill(); ctx.lineWidth = 1.7; ctx.strokeStyle = rgba(col); ctx.stroke(); }
     });
     ctx.font = `11px ${MONO}`; ctx.fillStyle = rgba(C["ink-3"]); ctx.textBaseline = "alphabetic";
@@ -614,19 +628,35 @@ def train_step(net, dots, lr):
   }
 
   // ---------- gradient size per layer, at the start of training ----------
-  const VG_WIDTHS = [6, 6, 6, 6, 6, 6];
+  // the average |∂L/∂W| of each layer, over 20 fresh networks (seeds 1–20): one network alone varies a lot
+  const VG_WIDTHS = [6, 6, 6, 6, 6, 6], VG_STARTS = 20;
+  const gradCache = {};
   function gradSizes(bend, scale) {
-    const net = makeNet(VG_WIDTHS, bend, 3, scale), { grads } = trainStep(net, DATA.spiral, 0);
-    return grads.map((g) => { let s = 0, n = 0; g.W.forEach((row) => row.forEach((x) => { s += Math.abs(x) / N; n++; })); return s / n; });
+    const key = bend + scale;
+    if (gradCache[key]) return gradCache[key];
+    const total = VG_WIDTHS.concat(1).map(() => 0);
+    for (let seed = 1; seed <= VG_STARTS; seed++) {
+      const { grads } = trainStep(makeNet(VG_WIDTHS, bend, seed, scale), DATA.spiral, 0);
+      grads.forEach((g, l) => { let s = 0, n = 0; g.W.forEach((row) => row.forEach((x) => { s += Math.abs(x) / N; n++; })); total[l] += s / n / VG_STARTS; });
+    }
+    return (gradCache[key] = total);
   }
-  function drawBars(cv, sizes, title) {
+  // 10⁻³ written with superscripts, and numbers rounded for reading
+  const supNum = (e) => String(e).replace("-", "⁻").replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[d]);
+  const sci = (x) => { const [m, e] = x.toExponential(1).split("e"); return `${m} × 10${supNum(Number(e))}`; };
+  const approx = (x) => { if (x < 100) return String(Math.round(x)); const p = 10 ** (Math.floor(Math.log10(x)) - 1); return (Math.round(x / p) * p).toLocaleString("en-US"); };
+  function drawBars(cv, sizes) {
     const [W, H] = sizeCanvas(cv), ctx = cv.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-    const lo = -9, hi = -1, padL = 46, padB = 34, padT = title ? 24 : 10, iw = W - padL - 8, ih = H - padT - padB;
+    const lo = -9, hi = -1, padL = 46, padB = 34, padT = 10, iw = W - padL - 8, ih = H - padT - padB;
     const Y = (v) => padT + ih - ((Math.log10(Math.max(v, 1e-12)) - lo) / (hi - lo)) * ih;
     ctx.font = `11px ${MONO}`; ctx.textBaseline = "middle"; ctx.textAlign = "right";
-    for (let e = lo; e <= hi; e += 2) { const y = Math.round(Y(10 ** e)) + 0.5; ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - 8, y); ctx.stroke(); ctx.fillStyle = rgba(C["ink-3"]); ctx.fillText(`10${String(e).replace("-", "⁻").replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[d])}`, padL - 6, y); }
-    if (title) { ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = rgba(C.ink); ctx.font = `600 12px ${UI}`; ctx.fillText(title, padL, 14); }
+    // a gridline at every power of ten; a label on each one when there is room, otherwise on every other one
+    const every = ih / (hi - lo) >= 18 ? 1 : 2;
+    for (let e = lo; e <= hi; e++) {
+      const y = Math.round(Y(10 ** e)) + 0.5; ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - 8, y); ctx.stroke();
+      if ((e - hi) % every === 0) { ctx.fillStyle = rgba(C["ink-3"]); ctx.fillText(`10${supNum(e)}`, padL - 6, y); }
+    }
     const n = sizes.length, bw = Math.min(46, (iw / n) * 0.62);
     sizes.forEach((v, l) => {
       const x = padL + (iw / n) * (l + 0.5), y = Y(v);
@@ -683,14 +713,14 @@ def train_step(net, dots, lr):
 
   // ---------- the race ----------
   const race = { t: 0, playing: false };
-  const reachText = (J, who) => (J.reach >= 0 ? `${who} first passed 95% at step ${J.reach.toLocaleString("en-US")}` : `${who} never reached 95%`);
+  const reachText = (J, who) => (J.reach >= 0 ? `${who} first passed 95% at step ${J.reach.toLocaleString("en-US")}` : `${who} did not reach 95% in 3,000 steps`);
   function drawRace() {
     const A = JOBS.A, B = JOBS.B, k = Math.min(A.snaps.length - 1, Math.round(race.t * (A.snaps.length - 1)));
     drawPlot($("race-a"), jobsReady ? A.snaps[k] : null, DATA.rings);
     drawPlot($("race-b"), jobsReady ? B.snaps[k] : null, DATA.rings);
     drawCurves($("race-chart"), jobsReady ? [{ acc: A.acc.slice(0, k + 1), every: A.every, dashed: true }, { acc: B.acc.slice(0, k + 1), every: B.every }] : [], 3000);
     const step = k * A.every;
-    $("race-read").innerHTML = !jobsReady ? "Preparing the race…" : race.t === 0 ? "Press <b>Race</b> to train both networks for 3,000 steps."
+    $("race-read").innerHTML = !jobsReady ? "Preparing the race…" : race.t === 0 ? "Press <b>Race</b> to replay both networks' 3,000 training steps side by side."
       : `Step ${step.toLocaleString("en-US")}: one layer <b>${pct(A.acc[k])}</b>, two layers <b>${pct(B.acc[k])}</b>${race.t >= 1 ? `. ${reachText(B, "The two layers")}; ${reachText(A, "the single layer")}.` : ""}`;
   }
   function raceTick(t0) {
@@ -701,7 +731,11 @@ def train_step(net, dots, lr):
       if (race.t < 1) requestAnimationFrame(raceTick(t0)); else { race.playing = false; $("race-go").textContent = "Race again"; }
     };
   }
-  $("race-go").addEventListener("click", () => whenReady(() => { race.playing = true; race.t = 0; $("race-go").textContent = "Racing…"; requestAnimationFrame(raceTick(performance.now())); }));
+  $("race-go").addEventListener("click", () => {
+    if (race.playing || race.queued) return;
+    race.queued = true; $("race-go").textContent = "Racing…";
+    whenReady(() => { race.queued = false; race.playing = true; race.t = 0; requestAnimationFrame(raceTick(performance.now())); });
+  });
 
   // ---------- Tool 1: new coordinates ----------
   function drawSpaceFigure() {
@@ -728,7 +762,7 @@ def train_step(net, dots, lr):
   const mi = (s) => `<i>${s}</i>`, sup = (s) => `<sup>(${s})</sup>`;
   const ALGO = [
     { title: "The bends and their slopes",
-      words: "Each hidden neuron bends its sum with tanh, ReLU or σ. The backward pass needs each bend's slope, so it is written right next to the bend.",
+      words: "Each hidden neuron passes its sum through an activation function, the bend: tanh, ReLU or σ. The backward pass needs each bend's slope, so it is written right next to the bend.",
       math: [`tanh′(${mi("z")}) = 1 − ${mi("h")}²&emsp;ReLU′(${mi("z")}) = 1 if ${mi("z")} > 0, else 0&emsp;σ′(${mi("z")}) = ${mi("h")}(1 − ${mi("h")})`, `where ${mi("h")} is the bend's output for that ${mi("z")}`] },
     { title: "One layer",
       words: "Each neuron in a layer weighs every value from the layer below, adds its bias, and bends the result. A layer of 8 neurons turns a dot's values into 8 new numbers.",
@@ -738,7 +772,7 @@ def train_step(net, dots, lr):
       math: [`${mi("h")}${sup("0")} = (${mi("x")}₁, ${mi("x")}₂)`, `${mi("h")}${sup("l")} = bend(${mi("W")}${sup("l")} ${mi("h")}${sup("l−1")} + ${mi("b")}${sup("l")})&emsp;for each hidden layer ${mi("l")}`, `${mi("z")} = ${mi("W")}${sup("out")} ${mi("h")}${sup("last")} + ${mi("b")}${sup("out")},&emsp;${mi("ŷ")} = σ(${mi("z")})`, `where ${mi("h")}${sup("last")} is the last hidden layer's output`] },
     { title: "The backward pass",
       words: "Start from the output's error, σ(z) − y. At each layer, a weight's gradient is the error arriving at its neuron times the value on its wire. To pass the error one layer down, send it back through the same weights, then multiply by the slope of the bend. That multiplication, once per layer, is where gradients can vanish.",
-      math: [`δ${sup("out")} = ${mi("ŷ")} − ${mi("y")}`, `∂${mi("L")}/∂${mi("W")}${sup("l")}<sub>${mi("ji")}</sub> = δ${sup("l")}<sub>${mi("j")}</sub> · ${mi("h")}${sup("l−1")}<sub>${mi("i")}</sub>,&emsp;∂${mi("L")}/∂${mi("b")}${sup("l")}<sub>${mi("j")}</sub> = δ${sup("l")}<sub>${mi("j")}</sub>`, `δ${sup("l−1")}<sub>${mi("i")}</sub> = bend′(${mi("z")}${sup("l−1")}<sub>${mi("i")}</sub>) · Σ<sub>${mi("j")}</sub> ${mi("W")}${sup("l")}<sub>${mi("ji")}</sub> δ${sup("l")}<sub>${mi("j")}</sub>`] },
+      math: [`δ${sup("out")} = ${mi("ŷ")} − ${mi("y")}`, `∂${mi("L")}/∂${mi("W")}${sup("l")}<sub>${mi("ji")}</sub> = δ${sup("l")}<sub>${mi("j")}</sub> · ${mi("h")}${sup("l−1")}<sub>${mi("i")}</sub>,&emsp;∂${mi("L")}/∂${mi("b")}${sup("l")}<sub>${mi("j")}</sub> = δ${sup("l")}<sub>${mi("j")}</sub>`, `δ${sup("l−1")}<sub>${mi("i")}</sub> = bend′(${mi("z")}${sup("l−1")}<sub>${mi("i")}</sub>) · Σ<sub>${mi("j")}</sub> ${mi("W")}${sup("l")}<sub>${mi("ji")}</sub> δ${sup("l")}<sub>${mi("j")}</sub>`, `where δ${sup("l")}<sub>${mi("j")}</sub> = ∂${mi("L")}/∂${mi("z")}${sup("l")}<sub>${mi("j")}</sub>, the error at neuron ${mi("j")}'s sum; ${mi("L")} is one dot's cross-entropy, and "out" is the output layer`] },
     { title: "One step of training",
       words: "Run every dot forward and backward, add up the gradients, average them, and move every weight a small step against its gradient.",
       math: [`${mi("W")} ← ${mi("W")} − η · (1/${mi("N")}) Σ<sub>dots</sub> ∂${mi("L")}/∂${mi("W")}`, `and the same for every bias`] },
@@ -759,8 +793,8 @@ def train_step(net, dots, lr):
     const s = gradSizes(VG.bend, VG.scale), ratio = s[s.length - 1] / s[0];
     drawBars($("vg-cv"), s);
     const name = { sigmoid: "σ", tanh: "tanh", relu: "ReLU" }[VG.bend];
-    const how = ratio >= 1.5 ? `${Math.round(ratio).toLocaleString("en-US")}× smaller than` : ratio > 1 / 1.5 ? "about the same size as" : `${Math.round(1 / ratio).toLocaleString("en-US")}× larger than`;
-    $("vg-read").innerHTML = `With ${name} and ${VG.scale === 1 ? "well-scaled" : "half-size"} starting weights, the first layer's gradients are <b>${how}</b> the output layer's${ratio >= 50 ? ", so the first layers would barely learn" : ""}. The largest bar is ${Math.max(...s).toExponential(1)}, the smallest ${Math.min(...s).toExponential(1)}.`;
+    const how = ratio >= 1.5 ? `about ${approx(ratio)}× smaller than` : ratio > 1 / 1.5 ? "about the same size as" : `about ${approx(1 / ratio)}× larger than`;
+    $("vg-read").innerHTML = `With ${name} and ${VG.scale === 1 ? "well-scaled" : "half-size"} starting weights, the first layer's gradients are, on average, <b>${how}</b> the output layer's${ratio >= 50 ? ", so the first layers would barely learn" : ""}. The largest bar is ${sci(Math.max(...s))}, the smallest ${sci(Math.min(...s))}.`;
   }
   for (const [id, key] of [["vg-bend", "bend"], ["vg-scale", "scale"]]) $(id).addEventListener("click", (e) => {
     const b = e.target.closest("button[data-v]"); if (!b) return;
@@ -777,29 +811,37 @@ def train_step(net, dots, lr):
     let t = 0, playing = false, last = 0, started = false, autoPaused = false, capKey = "";
     const chips = [...$("f-chips").querySelectorAll("button")];
     const setLabel = () => { $("f-play").textContent = playing ? "Pause" : t >= TOTAL ? "Replay" : t > 0 ? "Resume" : "Play"; };
-    let vgS = null, vgR = null;
+    let drawn = "", loop = 0, visible = false, autoQueued = false;
     function caption(k) {
       const A = JOBS.A, B = JOBS.B;
       switch (k) {
-        case "one": return `<b>One layer.</b> Four rings of dots, alternating blue and orange. A network with one hidden layer of 32 neurons trains for 3,000 steps. Its guess is a sum of 32 soft straight edges. ${A.reach >= 0 ? `It passes 95% at step ${A.reach.toLocaleString("en-US")}` : "It never reaches 95%"} and ends at ${pct(A.acc[A.acc.length - 1])}.`;
+        case "one": return `<b>One layer.</b> Four rings of dots, alternating blue and orange. A network with one hidden layer of 32 neurons trains for 3,000 steps. Its guess is a sum of 32 soft straight edges. ${A.reach >= 0 ? `It passes 95% at step ${A.reach.toLocaleString("en-US")}` : "It does not reach 95% in that time"} and ends at ${pct(A.acc[A.acc.length - 1])}.`;
         case "two": return `<b>Two layers.</b> Now two hidden layers of 8 neurons each, with fewer parameters in total (105 against 129). Same dots, same learning rate. ${B.reach >= 0 ? `It passes 95% at step ${B.reach.toLocaleString("en-US")}` : "It never reaches 95%"} and ends at ${pct(B.acc[B.acc.length - 1])}.`;
         case "lines": return "<b>The first layer draws lines.</b> Each square is one first-layer neuron's output across the plane. Like chapter 1's neurons, each can only draw a straight edge.";
         case "curves": return "<b>The second layer draws curves.</b> Each second-layer neuron combines the first layer's edges into a region with curved edges. The output combines those regions into one shape that separates the rings.";
         case "coords": { const wrong = Math.round(N * (1 - JOBS.E.acc[JOBS.E.best])); return `<b>A layer gives new coordinates.</b> A different network, with layers of 8, 8 and 2, trained on chapter 1's spiral. Each dot slides to its coordinates in the last, two-neuron layer. There the arms come apart, and one straight line separates the colors${wrong ? `, all but ${wrong} of the ${N} dots` : ""}.`; }
-        case "price": return `<b>The price of depth.</b> On the way back, the error is multiplied by one bend's slope per layer. In a fresh network with six σ layers (left), the first layer's gradients are about ${Math.round(vgS[vgS.length - 1] / vgS[0]).toLocaleString("en-US")}× smaller than the output layer's. With ReLU (right) they are about ${Math.round(vgR[vgR.length - 1] / vgR[0]).toLocaleString("en-US")}× smaller.`;
+        case "price": { const s = gradSizes("sigmoid", 1), r = gradSizes("relu", 1); return `<b>The price of depth.</b> On the way back, the error is multiplied by one bend's slope per layer. In fresh networks with six σ layers (left), the first layer's gradients are on average about ${approx(s[s.length - 1] / s[0])}× smaller than the output layer's. With ReLU (right) they are only about ${approx(r[r.length - 1] / r[0])}× smaller.`; }
         case "short": return "<b>Depth in one sentence.</b> Each layer reshapes the plane for the next, so lines become curves and curves become shapes, as long as the gradient can still reach the early layers.";
       }
       return "";
     }
-    function render() {
+    // force: redraw even if the picture has not changed (after a resize or a theme change)
+    function render(force) {
       const { i, u } = at(t), k = SC[i].k, A = JOBS.A, B = JOBS.B, E = JOBS.E;
-      if (!vgS) { vgS = gradSizes("sigmoid", 1); vgR = gradSizes("relu", 1); }
       chips.forEach((c, n) => c.classList.toggle("on", n === i));
       $("f-fill").style.width = (100 * t) / TOTAL + "%";
-      if (!jobsReady) { $("f-ticker").textContent = "training the film's networks in your browser…"; drawPlot($("f-left"), null, DATA.rings); drawPlot($("f-right"), null, DATA.spiral); return; }
+      if (!jobsReady) {
+        $("f-ticker").textContent = "training the film's networks in your browser…";
+        if (force || drawn !== "wait") { drawn = "wait"; drawPlot($("f-left"), null, DATA.rings); drawPlot($("f-right"), null, DATA.spiral); }
+        return;
+      }
+      const x = k === "one" || k === "two" ? Math.min(A.snaps.length - 1, Math.floor((u / 0.9) * (A.snaps.length - 1))) : 0;
+      const m = k === "coords" ? sm(Math.min(1, Math.max(0, (u - 0.1) / 0.6))) : 0, key = `${k}|${x}|${m.toFixed(3)}`;
+      if (!force && key === drawn) return;
+      drawn = key;
       let lt = "", rt = "", ticker = "";
       if (k === "one" || k === "two") {
-        const J = k === "one" ? A : B, x = Math.min(J.snaps.length - 1, Math.floor((u / 0.9) * (J.snaps.length - 1)));
+        const J = k === "one" ? A : B;
         drawPlot($("f-left"), J.snaps[x], DATA.rings);
         drawCurves($("f-right"), k === "one" ? [{ acc: A.acc.slice(0, x + 1), every: A.every, dashed: true }] : [{ acc: A.acc, every: A.every, dashed: true }, { acc: B.acc.slice(0, x + 1), every: B.every }], 3000);
         lt = k === "one" ? "One layer of 32" : "Two layers of 8"; rt = k === "one" ? "Accuracy while training" : "Accuracy: one layer dashed, two layers solid";
@@ -812,13 +854,13 @@ def train_step(net, dots, lr):
         lt = "Two layers of 8, trained"; rt = k === "lines" ? "The 8 neurons of layer 1" : "The 8 neurons of layer 2";
         ticker = k === "lines" ? "layer 1: each neuron sees the plane and draws one straight edge" : "layer 2: each neuron sees layer 1's 8 edges and combines them";
       } else if (k === "coords") {
-        const net = E.snaps[E.best], m = sm(Math.min(1, Math.max(0, (u - 0.1) / 0.6)));
+        const net = E.snaps[E.best];
         drawInputGrid($("f-left"), DATA.spiral); drawSpace($("f-right"), net, DATA.spiral, m);
         lt = "Where the dots start"; rt = m > 0.98 ? "In the last hidden layer's coordinates" : "On their way to new coordinates";
         ticker = m > 0.98 ? "in the new coordinates, the output's boundary is one straight line" : "each dot moves from (x₁, x₂) to (h₁, h₂)";
       } else if (k === "price") {
-        drawBars($("f-left"), vgS); drawBars($("f-right"), vgR);
-        lt = 'Gradient size per layer, <span class="nc">σ</span>'; rt = "Gradient size per layer, ReLU"; ticker = "each step down the axis is 10× smaller";
+        drawBars($("f-left"), gradSizes("sigmoid", 1)); drawBars($("f-right"), gradSizes("relu", 1));
+        lt = 'Gradient size per layer, <span class="nc">σ</span>'; rt = "Gradient size per layer, ReLU"; ticker = "each gridline down is 10× smaller; averaged over 20 starts";
       } else {
         drawPlot($("f-left"), B.snaps[B.snaps.length - 1], DATA.rings); drawSpace($("f-right"), E.snaps[E.best], DATA.spiral, 1);
         lt = "Rings, two layers"; rt = "Spiral, in new coordinates"; ticker = "lines → curves → shapes";
@@ -826,21 +868,28 @@ def train_step(net, dots, lr):
       $("f-lt").innerHTML = lt; $("f-rt").innerHTML = rt; $("f-ticker").textContent = ticker;
       if (k !== capKey) { capKey = k; $("f-cap").innerHTML = caption(k); }
     }
-    function tick(now) {
-      if (!playing) return;
-      t = Math.min(TOTAL, t + Math.min(64, now - last)); last = now;
+    // the clock stands still until the film's networks have finished training
+    function tick(id, now) {
+      if (!playing || id !== loop) return;
+      if (jobsReady) t = Math.min(TOTAL, t + Math.min(64, now - last));
+      last = now;
       if (t >= TOTAL) { playing = false; setLabel(); }
       render();
-      if (playing) requestAnimationFrame(tick);
+      if (playing) requestAnimationFrame((n) => tick(id, n));
     }
-    function play() { if (t >= TOTAL) t = 0; playing = true; started = true; autoPaused = false; last = performance.now(); setLabel(); requestAnimationFrame(tick); }
+    function play() {
+      if (t >= TOTAL) t = 0;
+      playing = true; started = true; autoPaused = false; last = performance.now(); setLabel();
+      const id = ++loop; requestAnimationFrame((n) => tick(id, n));
+    }
     $("f-play").addEventListener("click", () => { if (playing) { playing = false; setLabel(); render(); } else play(); });
     chips.forEach((c, n) => c.addEventListener("click", () => { t = startOf(n); capKey = ""; if (!playing) play(); else render(); }));
     new IntersectionObserver((en) => {
-      const vis = en[0].isIntersecting;
-      if (vis && !started && !reduceMotion) whenReady(play);
-      else if (vis && autoPaused) play();
-      else if (!vis && playing) { playing = false; autoPaused = true; setLabel(); }
+      visible = en[0].isIntersecting;
+      if (visible && !started && !reduceMotion) {
+        if (!autoQueued) { autoQueued = true; whenReady(() => { autoQueued = false; if (!started && visible) play(); }); }
+      } else if (visible && autoPaused) play();
+      else if (!visible && playing) { playing = false; autoPaused = true; setLabel(); }
     }, { threshold: 0.5 }).observe($("film"));
     return { render, setLabel };
   })();
@@ -861,12 +910,18 @@ def train_step(net, dots, lr):
   }
 
   // ---------- the playground ----------
-  const PG = { data: "rings", widths: [8, 8], bend: "tanh", lr: 1, speed: 8, seed: 4, running: false, step: 0, hist: [], net: null, last: null, dirty: true };
+  const PG = { data: "rings", widths: [8, 8], bend: "tanh", lr: 1, speed: 8, seed: 4, running: false, slowT: 0, step: 0, hist: [], net: null, last: null, dirty: true };
   const WIDTHS = [2, 4, 6, 8, 16, 32];
   function pgNew() { PG.net = makeNet(PG.widths, PG.bend, PG.seed); PG.step = 0; PG.hist = [accuracy(PG.net, DATA[PG.data])]; PG.last = null; PG.dirty = true; renderLayers(); }
+  // rebuilding the layer controls keeps keyboard focus on the same control (or its nearest neighbor)
   function renderLayers() {
-    $("pl-layers").innerHTML = PG.widths.map((w, l) => `${l ? '<span class="arrow">→</span>' : ""}<select data-l="${l}" aria-label="Neurons in hidden layer ${l + 1}" data-tip="width">${WIDTHS.map((v) => `<option value="${v}"${v === w ? " selected" : ""}>${v}</option>`).join("")}</select>`).join("") +
+    const f = document.activeElement, host = $("pl-layers"), was = f && host.contains(f) ? (f.dataset.l !== undefined ? "l" + f.dataset.l : f.id) : "";
+    host.innerHTML = PG.widths.map((w, l) => `${l ? '<span class="arrow">→</span>' : ""}<select data-l="${l}" aria-label="Neurons in hidden layer ${l + 1}" data-tip="width">${WIDTHS.map((v) => `<option value="${v}"${v === w ? " selected" : ""}>${v}</option>`).join("")}</select>`).join("") +
       ` <button type="button" class="btn small" id="pl-add" data-tip="add-layer"${PG.widths.length >= 3 ? " disabled" : ""}>+ layer</button><button type="button" class="btn small" id="pl-rem" data-tip="remove-layer"${PG.widths.length <= 1 ? " disabled" : ""}>− layer</button>`;
+    if (was) {
+      const pick = was[0] === "l" ? host.querySelector(`select[data-l="${Math.min(Number(was.slice(1)), PG.widths.length - 1)}"]`) : $(was);
+      (pick && !pick.disabled ? pick : host.querySelector(was === "pl-add" ? "#pl-rem" : "#pl-add:not([disabled])") || host.querySelector("select")).focus();
+    }
     $("pl-arch").textContent = `2 → ${PG.widths.join(" → ")} → 1`;
     document.querySelectorAll("#pl-presets button").forEach((b) => b.classList.toggle("on", b.dataset.p === PG.widths.join(",")));
   }
@@ -881,9 +936,10 @@ def train_step(net, dots, lr):
   }
   function pgRender() {
     const net = PG.net, dots = DATA[PG.data];
-    drawPlot($("pl-plot"), net, dots);
-    drawGallery($("pl-gal"), net, net.some((L) => L.W.length > 8));
-    const acc = accuracy(net, dots);
+    const acc = drawPlot($("pl-plot"), net, dots) / dots.length, now = performance.now();
+    // while training, the neuron squares and the plane are repainted a few times a second, not every frame
+    const slow = !PG.running || now - PG.slowT > 150;
+    if (slow) { PG.slowT = now; drawGallery($("pl-gal"), net, net.some((L) => L.W.length > 8)); }
     $("st-step").textContent = PG.step.toLocaleString("en-US");
     $("st-loss").textContent = PG.last ? fmt(PG.last.loss, 3) : "–";
     $("st-acc").textContent = pct(acc);
@@ -891,8 +947,15 @@ def train_step(net, dots, lr):
     drawCurves($("pl-chart"), [{ acc: PG.hist, every: 10 }], Math.max(1000, Math.ceil((PG.step + 1) / 1000) * 1000));
     const two = PG.widths[PG.widths.length - 1] === 2;
     $("pl-space").hidden = !two;
-    if (two) { drawSpace($("pl-space"), net, dots, 1); $("pl-space-note").textContent = "Each dot at the two numbers of the last hidden layer. The straight line is the output's 50% boundary."; }
-    else $("pl-space-note").innerHTML = `The last hidden layer has ${PG.widths[PG.widths.length - 1]} neurons, too many to draw as a plane. Set it to 2, or try the <b>8 → 8 → 2</b> preset.`;
+    if (two && slow) {
+      drawSpace($("pl-space"), net, dots, 1);
+      // a ReLU neuron can end up outputting 0 for every dot; then the plane collapses to a line or a point
+      const hs = dots.map((p) => lastHidden(net, p.x1, p.x2)), dead = [0, 1].filter((k) => hs.every((v) => v[k] === 0)), zeros = hs.filter((v) => v[0] === 0 && v[1] === 0).length;
+      $("pl-space-note").textContent = "Each dot at the two numbers of the last hidden layer. The straight line is the output's 50% boundary." +
+        (dead.length === 2 ? " Both neurons of that layer output 0 for every dot, so all the dots sit on one point. Press Reset for another start."
+          : dead.length ? ` Neuron ${dead[0] + 1} of that layer outputs 0 for every dot (a "dead" ReLU neuron), so the dots fall on a line. Press Reset for another start.`
+          : zeros > 1 ? ` ${zeros} dots sit on top of each other at (0, 0), where both neurons output 0.` : "");
+    } else if (!two) $("pl-space-note").innerHTML = `The last hidden layer has ${PG.widths[PG.widths.length - 1]} neurons, too many to draw as a plane. Set it to 2, or try the <b>8 → 8 → 2</b> preset.`;
     $("pl-train").textContent = PG.running ? "Pause" : "Train";
     ITN.tips.refresh();
   }
@@ -943,13 +1006,13 @@ def train_step(net, dots, lr):
     backward(total); TAPE = null;
     let worst = 0;
     V.forEach((L, l) => { L.W.forEach((row, j) => row.forEach((w, i) => { worst = Math.max(worst, Math.abs(w.grad - grads[l].W[j][i])); })); L.b.forEach((b, j) => { worst = Math.max(worst, Math.abs(b.grad - grads[l].b[j])); }); });
-    $("ag-check").textContent = worst < 1e-10 ? `they agree, with the largest difference between any two gradients ${worst.toExponential(0)}.` : `they differ by up to ${worst.toExponential(1)}.`;
+    $("ag-check").textContent = worst === 0 ? "they agree exactly." : worst < 1e-10 ? `they agree, with the largest difference between matching gradients ${worst.toExponential(0)}.` : `they differ by up to ${worst.toExponential(1)}.`;
   }
 
   // ---------- descriptions on hover, keyboard focus, or after a tap ----------
   const FILM_TIPS = ["One wide hidden layer on the rings.", "Two narrow hidden layers on the same rings.", "What the first layer's neurons draw.", "What the second layer's neurons draw.", "A layer as new coordinates for each dot.", "Why very deep networks are hard to train.", "The chapter in one sentence."];
   ITN.tips.add({
-    "race-go": () => "Train both networks for 3,000 steps from the same kind of starting weights, side by side.",
+    "race-go": () => "Replay both networks' training side by side: 3,000 steps each, from the same kind of starting weights. They trained in your browser when the page loaded.",
     blend: () => "Slide each dot between its own coordinates (left) and the last hidden layer's coordinates (right).",
     "vg-sigmoid": () => "<b>σ</b> in every hidden layer. Its slope is at most 0.25.",
     "vg-tanh": () => "<b>tanh</b> in every hidden layer. Its slope is at most 1.",
@@ -961,7 +1024,7 @@ def train_step(net, dots, lr):
     reset: () => `<b>Reset</b> to new random starting weights (seed ${PG.seed} → ${PG.seed + 1}).`,
     "data-rings": () => "<b>Rings</b>: four concentric rings, alternating colors. One wide layer struggles; two layers handle it.",
     "data-spiral": () => "<b>Spiral</b>: chapter 1's two arms. Try 8 → 8 → 2 to see the arms pulled apart.",
-    "data-checker": () => "<b>Checkerboard</b>: a 4 × 4 board. A third layer helps.",
+    "data-checker": () => "<b>Checkerboard</b>: a 4 × 4 board. A third layer usually helps.",
     "bend-tanh": () => "<b>tanh</b> in every hidden layer: smooth boundaries.",
     "bend-relu": () => "<b>ReLU</b> in every hidden layer: boundaries made of straight pieces.",
     lr: () => `<b>Learning rate η = ${PG.lr}.</b> Each step moves every weight by η × its gradient.`,
@@ -980,9 +1043,11 @@ def train_step(net, dots, lr):
     "st-params": () => `Every weight and bias in a ${PG.widths.join(" → ")} network: for each layer, (inputs + 1) × neurons.`,
   });
   for (let i = 0; i < 7; i++) ITN.tips.add({ [`film-${i}`]: () => `${FILM_TIPS[i]} <span class="hint">Click to jump here</span>` });
+  // this chapter's formulas are general, with no numbers filled in
+  ITN.tips.add({ "lens-math": () => "<b>Math</b>: the same steps written as formulas." });
 
   // ---------- resize, theme, boot ----------
-  const redrawAll = () => { film.render(); drawRace(); drawSpaceFigure(); drawGalleryFigure(); drawVG(); PG.dirty = true; };
+  const redrawAll = () => { film.render(true); drawRace(); drawSpaceFigure(); drawGalleryFigure(); drawVG(); PG.dirty = true; };
   let rq = 0; new ResizeObserver(() => { cancelAnimationFrame(rq); rq = requestAnimationFrame(redrawAll); }).observe(document.body);
   const retheme = () => { readTheme(); redrawAll(); };
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
@@ -991,7 +1056,7 @@ def train_step(net, dots, lr):
   readTheme();
   pgNew(); film.setLabel(); film.render(); drawRace(); drawSpaceFigure(); drawGalleryFigure(); drawVG(); ITN.view.sync();
   requestAnimationFrame(frame);
-  whenReady(() => { film.render(); drawRace(); drawSpaceFigure(); drawGalleryFigure(); });
+  whenReady(() => { film.render(true); drawRace(); drawSpaceFigure(); drawGalleryFigure(); });
   setTimeout(runJobs, 50);
   setTimeout(checkAgainstAutograd, 30);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);

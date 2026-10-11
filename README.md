@@ -12,7 +12,7 @@ A two-input network with one hidden layer learns to tell blue dots from orange o
 - **The puzzle:** try to separate the dots with a single straight line, and see why one line is not enough.
 - **The playground:** train the network yourself. Tap any dot, wire or neuron to see its numbers, step through training one stage at a time, and drag any weight by hand. Each gradient is shown as a chain-rule product and checked against autograd.
 
-Everything runs on a ~40-line tape-based autograd written in plain JavaScript, in 64-bit floats with a fixed random seed, so every visitor sees the same numbers.
+Everything runs on a ~40-line tape-based autograd written in plain JavaScript, in 64-bit floats with a fixed random seed, so every visitor starts from the same weights.
 
 ## Chapter 2: Loss and gradients, walking downhill
 
@@ -24,7 +24,7 @@ What happens inside the Backward click. A film follows one neuron's gradients ba
 
 ## Chapter 4: Going deeper, why layers help
 
-Why a network with two narrow hidden layers beats one wide layer with more parameters. A race on four rings of dots, a slider that moves each dot to the coordinates a layer gives it, every neuron of a trained network drawn as a square (lines, then curves, then shapes), the layer-by-layer backward pass in words, math, JavaScript and Python, and a measurement of vanishing gradients in a network with six hidden layers. The playground builds networks of up to three hidden layers.
+Why a network with two narrow hidden layers learns some shapes far faster than one wide layer with more parameters. A race on four rings of dots, a slider that moves each dot to the coordinates a layer gives it, every neuron of a trained network drawn as a square (lines, then curves, then shapes), the layer-by-layer backward pass in words, math, JavaScript and Python, and a measurement of vanishing gradients in a network with six hidden layers. The playground builds networks of up to three hidden layers.
 
 ## Run it locally
 

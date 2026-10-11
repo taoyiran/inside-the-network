@@ -87,6 +87,11 @@
   // pages call this whenever they redraw, so an open tip shows live values
   function refreshTip() {
     hoverCheck();
+    // a focused control that was rebuilt fires no focusout: follow the focus to its replacement, or close the tip
+    if (tipEl && !tipEl.isConnected && tipMode !== "hover") {
+      const a = document.activeElement, el = a && a.closest && a.closest("[data-tip]");
+      if (tipMode === "focus" && el && a.matches(":focus-visible")) showTip(el, null, "focus"); else hideTip();
+    }
     if (tipEl && tipEl.isConnected && tt.classList.contains("on")) { tt.innerHTML = tipHtml(tipEl); placeTip(); }
   }
   ITN.tips = { add: (obj) => Object.assign(TIPS, obj), refresh: refreshTip };
@@ -175,7 +180,7 @@
   };
   ITN.tips.add({
     "lens-words": () => "<b>Words</b>: explain each step in plain sentences.",
-    "lens-math": () => "<b>Math</b>: the same steps written as formulas.",
+    "lens-math": () => "<b>Math</b>: the same steps as formulas, with the real numbers filled in.",
     "lens-code": () => "<b>Code</b>: the same steps as the code that does them.",
     "lens-all": () => "<b>All three</b>: words, math and code stacked, so you can see how they match line by line.",
     "lang-js": () => "<b>JavaScript</b>: the language this site runs in.",
