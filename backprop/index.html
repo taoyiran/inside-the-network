@@ -14,81 +14,8 @@ img { max-width: 100%; }
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
 <style>
-/* Layout: the series' reading column (~66ch) with figures breaking out onto a wide bench; same tokens as chapter 1. */
-:root {
-  --paper: #f3f4f6;
-  --sheet: #ffffff;
-  --well: #f5f6f8;
-  --ink: #14171c;
-  --ink-2: #4a515e;
-  --ink-3: #656d7b;
-  --rule: #dcdfe5;
-  --pos: #2a78d6;
-  --neg: #eb6834;
-  --shadow: rgba(20, 23, 28, 0.06);
-  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-body: "Newsreader", "Iowan Old Style", Georgia, "Times New Roman", serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #0e1014; --sheet: #15181e; --well: #1b1f26; --ink: #e8eaee; --ink-2: #b0b6c1; --ink-3: #8b929e;
-    --rule: #2a2f38; --pos: #3987e5; --neg: #d95926; --shadow: rgba(0, 0, 0, 0.35); color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --paper: #0e1014; --sheet: #15181e; --well: #1b1f26; --ink: #e8eaee; --ink-2: #b0b6c1; --ink-3: #8b929e;
-  --rule: #2a2f38; --pos: #3987e5; --neg: #d95926; --shadow: rgba(0, 0, 0, 0.35); color-scheme: dark;
-}
-
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-body { background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 18px; line-height: 1.6; }
-.page { padding-block: 28px 72px; padding-inline: 20px; }
-.col { max-width: 680px; margin-inline: auto; }
-.bench { max-width: 1180px; margin: 36px auto; }
-@media (max-width: 520px) { .page { padding-inline: 16px; padding-block: 20px 56px; } body { font-size: 17px; } }
-
-.crumbs { max-width: 680px; margin: 0 auto 28px; font: 14px/1.4 var(--font-display); color: var(--ink-3); display: flex; gap: 8px; flex-wrap: wrap; }
-.crumbs a { color: var(--ink-2); text-underline-offset: 3px; }
-.eyebrow { font: 600 12px/1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); }
-h1 { font-family: var(--font-display); font-weight: 650; font-size: clamp(38px, 6vw, 60px); line-height: 1.02; letter-spacing: -0.025em; margin: 14px 0 18px; text-wrap: balance; }
-.dek { font-size: 22px; line-height: 1.42; color: var(--ink-2); margin: 0 0 8px; text-wrap: pretty; }
-h2 { font-family: var(--font-display); font-weight: 600; font-size: 24px; line-height: 1.2; letter-spacing: -0.01em; margin: 48px 0 12px; text-wrap: balance; }
-.intro h2:first-child { margin-top: 28px; }
-p { margin: 0 0 14px; }
-b, strong { font-weight: 600; }
-a { color: var(--ink); text-underline-offset: 3px; }
-kbd { font: 500 0.82em var(--font-display); padding: 1px 6px; border: 1px solid var(--rule); border-radius: 5px; background: var(--sheet); }
-code.i { font: 0.84em var(--font-mono); background: var(--sheet); border: 1px solid var(--rule); border-radius: 5px; padding: 0 5px; white-space: nowrap; }
-
-.jump { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 20px 0 4px; }
-.jump-note { font: 15px/1.4 var(--font-body); color: var(--ink-3); }
-.jump-pill { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 10; font: 600 14px/1 var(--font-display); background: var(--ink); color: var(--sheet); padding: 12px 16px; border-radius: 99px; text-decoration: none; box-shadow: 0 4px 18px var(--shadow); }
-#playground, #film { scroll-margin-top: 16px; }
-
-.lab { font: 600 11px/1 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
-.btns { display: flex; gap: 8px; flex-wrap: wrap; }
-.btn { font: 560 14px/1 var(--font-display); padding: 10px 14px; border-radius: 9px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
-.btn:hover { border-color: var(--ink-3); }
-.btn:disabled { opacity: 0.45; cursor: default; }
-.btn.primary { background: var(--ink); border-color: var(--ink); color: var(--sheet); min-width: 96px; justify-content: center; }
-.seg { display: inline-flex; flex-wrap: wrap; background: var(--well); border: 1px solid var(--rule); border-radius: 9px; padding: 2px; gap: 2px; }
-.seg button { font: 520 13px/1 var(--font-display); border: 0; background: transparent; color: var(--ink-2); padding: 9px 10px; border-radius: 7px; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--sheet); color: var(--ink); box-shadow: 0 0 0 1px var(--rule), 0 1px 2px var(--shadow); }
-.tog { display: inline-flex; align-items: center; gap: 7px; font: 13px/1.2 var(--font-display); color: var(--ink-2); cursor: pointer; }
-.tog input { accent-color: var(--ink); width: 15px; height: 15px; margin: 0; }
-input[type="range"] { accent-color: var(--ink); }
-.btn:focus-visible, .seg button:focus-visible, input:focus-visible, summary:focus-visible, .chips button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-
-/* figures inside the reading column */
-.card { margin: 18px 0 22px; padding: 16px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; }
-.card .cap { font: 15.5px/1.45 var(--font-body); color: var(--ink-2); margin: 10px 0 0; }
-.chips { display: flex; flex-wrap: wrap; gap: 4px; }
-.chips button { font: 600 10.5px/1 var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); background: transparent; border: 1px solid var(--rule); border-radius: 99px; padding: 6px 8px; cursor: pointer; }
-.chips button.on { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
-
 /* computation graph */
 .gwrap { position: relative; overflow-x: auto; overflow-y: hidden; }
 .gsvg { display: block; overflow: visible; }
@@ -116,13 +43,6 @@ input[type="range"] { accent-color: var(--ink); }
 .gpill.on rect { stroke: var(--ink); stroke-width: 1.6; }
 .gpill.on text { fill: var(--ink); font-weight: 600; }
 .gpulse { fill: var(--ink); stroke: var(--sheet); stroke-width: 1.5; pointer-events: none; }
-
-/* film */
-.film { margin: 18px 0 22px; padding: 16px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; }
-.film-stage { position: relative; }
-.film-ticker { font: 500 13px/1.5 var(--font-mono); color: var(--ink); background: var(--well); border-radius: 8px; padding: 8px 12px; margin-top: 8px; min-height: 1.5em; overflow-x: auto; white-space: pre; font-variant-numeric: tabular-nums; }
-.film-over { position: absolute; inset: 0; background: var(--sheet); display: flex; flex-direction: column; justify-content: center; gap: 14px; padding: 8px 4px; }
-.over-title { font: 600 12px/1.3 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
 .ogroup { display: grid; gap: 4px; }
 .oname { font: 600 14px/1.3 var(--font-display); color: var(--ink); }
 .orow { display: grid; grid-template-columns: 5.6em minmax(0, 1fr); gap: 10px; align-items: center; font: 12px/1.2 var(--font-mono); color: var(--ink-2); }
@@ -131,12 +51,6 @@ input[type="range"] { accent-color: var(--ink); }
 .obar i.bp { background: var(--ink); }
 .obar b { position: absolute; left: 8px; top: 0; line-height: 16px; font-weight: 500; color: var(--sheet); mix-blend-mode: normal; font-size: 11px; white-space: nowrap; }
 .obar b.out { color: var(--ink); }
-.film-progress { height: 3px; background: var(--rule); border-radius: 2px; margin-top: 12px; overflow: hidden; }
-.film-progress i { display: block; height: 100%; width: 0; background: var(--ink); }
-.film-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 12px; }
-.film-cap { font: 17px/1.5 var(--font-body); color: var(--ink-2); margin: 12px 0 0; min-height: 4.5em; }
-.film-cap b { color: var(--ink); }
-
 /* the cost of nudging */
 .cost-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
 .cost-n { font: 500 26px/1 var(--font-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -146,7 +60,6 @@ input[type="range"] { accent-color: var(--ink); }
 .cost-row .obar { height: 22px; }
 .cost-row .obar b { line-height: 22px; font-size: 12px; }
 @media (max-width: 520px) { .cost-row { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
-
 /* slope lens */
 #slope-cv { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; border: 1px solid var(--rule); touch-action: pan-y; cursor: ew-resize; }
 .lens-top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -158,7 +71,6 @@ table.rules th, table.rules td { text-align: left; padding: 8px 10px 8px 0; bord
 table.rules th { font: 600 11px/1.2 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
 table.rules td:first-child, table.rules td:nth-child(2) { font: 14px/1.5 var(--font-mono); white-space: nowrap; color: var(--ink); }
 .tablewrap { overflow-x: auto; }
-
 /* chain */
 .chain-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; margin: 12px 0 6px; }
 .cv { display: grid; place-items: center; min-width: 4.4em; padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--ink-3); font: 500 15px/1.2 var(--font-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -168,36 +80,6 @@ table.rules td:first-child, table.rules td:nth-child(2) { font: 14px/1.5 var(--f
 .cop::before { content: "→"; color: var(--ink-3); font-weight: 400; }
 .chain-out { font: 16px/1.5 var(--font-body); color: var(--ink-2); margin: 8px 0 0; font-variant-numeric: tabular-nums; }
 .chain-out b { color: var(--ink); }
-
-ol.seq { list-style: none; counter-reset: seq; padding: 0; margin: 4px 0 18px; }
-ol.seq > li { counter-increment: seq; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 0 10px; margin-bottom: 10px; }
-ol.seq > li::before { content: counter(seq); width: 22px; height: 22px; margin-top: 4px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--sheet); font: 500 12px/1 var(--font-mono); }
-
-/* annotated code */
-.annot { display: grid; gap: 0; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; background: var(--sheet); margin: 8px 0 20px; }
-.ablock { display: grid; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--rule); min-width: 0; }
-.ablock:first-child { border-top: 0; }
-.atitle { font: 600 15px/1.3 var(--font-display); color: var(--ink); display: flex; gap: 10px; align-items: baseline; }
-.atitle .n { font: 500 12px var(--font-mono); color: var(--ink-3); }
-/* one idea, three ways to say it */
-.lens { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 14px 0 8px; }
-.ctl .lens { margin: 0; }
-.rep { min-width: 0; }
-.rep-lab { display: none; font: 600 10.5px/1 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
-.show-all .rep-lab { display: block; }
-.rep.words p { font: 16.5px/1.5 var(--font-body); color: var(--ink-2); margin: 0; }
-.rep.words p b { color: var(--ink); }
-.rep.math .mb { font: 17px/1.8 var(--font-body); color: var(--ink); background: var(--well); border-radius: 8px; padding: 9px 12px; overflow-x: auto; font-variant-numeric: tabular-nums; }
-.rep.math .mb span { display: block; white-space: nowrap; }
-.rep.math i { font-style: italic; }
-.rep.code pre { margin: 0; background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; overflow-x: auto; font: 12.5px/1.6 var(--font-mono); color: var(--ink); font-variant-ligatures: none; }
-.explain .rep + .rep { margin-top: 12px; }
-
-/* playground */
-.fig { background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; padding: 18px 20px 20px; box-shadow: 0 1px 2px var(--shadow), 0 10px 30px var(--shadow); }
-@media (max-width: 520px) { .fig { padding: 14px 12px 16px; border-radius: 12px; } }
-.controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-end; padding-bottom: 16px; border-bottom: 1px solid var(--rule); }
-.ctl { display: flex; flex-direction: column; gap: 7px; }
 .pg-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 14px; margin: 16px 0 6px; }
 .formula { font: 500 15px/1.4 var(--font-mono); color: var(--ink); }
 .progress { font: 12.5px/1.3 var(--font-mono); color: var(--ink-3); font-variant-numeric: tabular-nums; }
@@ -211,9 +93,6 @@ pre.ecode { margin: 12px 0 0; background: var(--sheet); border: 1px solid var(--
 .insp .nums { font: 500 14px/1.6 var(--font-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 .insp .from { font: 15.5px/1.5 var(--font-body); color: var(--ink-2); margin: 10px 0 0; }
 .insp .from code { font: 13px var(--font-mono); color: var(--ink); }
-.slider-row { display: flex; align-items: center; gap: 12px; margin: 12px 0 4px; flex-wrap: wrap; }
-.slider-row label { font: 14px/1.3 var(--font-display); color: var(--ink-2); }
-.slider-row input { flex: 1 1 160px; min-width: 0; }
 .nudge-out { font: 13px/1.55 var(--font-mono); color: var(--ink-2); margin: 10px 0 0; }
 .nudge-out b { color: var(--ink); font-weight: 600; }
 .tape-wrap { margin-top: 18px; overflow-x: auto; }
@@ -223,36 +102,8 @@ table.tape td { padding: 6px 10px 6px 0; border-bottom: 1px solid var(--rule); c
 table.tape tr.pending td { color: var(--ink-3); }
 table.tape tr.active td { background: var(--well); font-weight: 600; }
 table.tape td.g { white-space: nowrap; }
-
-dl.read { display: grid; grid-template-columns: 7.5em 1fr; gap: 10px 20px; margin: 0; }
-dl.read dt { font: 600 14px/1.6 var(--font-display); color: var(--ink); padding-top: 2px; }
-dl.read dd { margin: 0; }
-@media (max-width: 520px) { dl.read { grid-template-columns: minmax(0, 1fr); gap: 2px; } dl.read dd { margin-bottom: 10px; } }
-ul.tries { padding-left: 1.1em; margin: 0; }
-ul.tries li { margin-bottom: 10px; padding-left: 4px; }
-ol.road { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--rule); }
-ol.road li { display: grid; grid-template-columns: 2.4em minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--rule); font: 16px/1.35 var(--font-display); color: var(--ink-2); }
-ol.road .n { font: 500 13px var(--font-mono); color: var(--ink-3); }
-ol.road .tag { font: 600 10.5px/1 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--rule); border-radius: 99px; padding: 5px 8px; }
-ol.road li.here { color: var(--ink); font-weight: 600; }
-ol.road li.here .tag { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
-ol.road li.branch { padding-left: 1.2em; }
-ol.road a { color: inherit; }
-.chapnav { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 20px; margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--rule); font: 15px/1.4 var(--font-display); color: var(--ink-3); }
-.chapnav a { color: var(--ink); }
-.foot { margin-top: 18px; font: 14px/1.5 var(--font-display); color: var(--ink-3); }
-.foot a { color: var(--ink-2); }
-
 /* code fonts: no ligatures, so => and >= read as typed */
 pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .progress, .cv, .cop { font-variant-ligatures: none; }
-
-/* hover and focus descriptions */
-.tt { position: fixed; left: 0; top: 0; z-index: 30; max-width: min(300px, calc(100vw - 24px)); background: var(--ink); color: var(--sheet); font: 13px/1.45 var(--font-display); padding: 8px 11px; border-radius: 8px; box-shadow: 0 6px 22px var(--shadow); pointer-events: none; opacity: 0; transform: translateY(3px); transition: opacity 0.12s ease, transform 0.12s ease; }
-.tt.on { opacity: 1; transform: none; }
-.tt b { font-weight: 650; }
-.tt .k { font-family: var(--font-mono); font-size: 12px; }
-.tt .hint { display: block; margin-top: 4px; font-size: 12px; opacity: 0.72; }
-@media (prefers-reduced-motion: reduce) { .tt, .gnode, .gedge { transition: none; } }
 </style>
 </head>
 <body>
@@ -270,20 +121,20 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
 
   <main class="col intro">
     <h2>What this is</h2>
-    <p>This film follows backpropagation through a single neuron from chapter 1, one operation at a time. The rest of the page explains each step, then hands you the controls.</p>
+    <p>This film follows backpropagation through a single neuron, like chapter 2's but with a bias, one operation at a time. The rest of the page explains each step, then hands you the controls.</p>
 
     <figure class="film" id="film" aria-label="Animation of backpropagation through one neuron">
       <div class="film-stage">
         <div class="gwrap" id="f-graph"></div>
         <div class="film-over" id="f-over" hidden>
           <div class="over-title">Runs of the network needed to get every gradient once</div>
-          <div class="ogroup"><div class="oname">This neuron: 3 weights</div>
+          <div class="ogroup"><div class="oname">This neuron: 3 parameters</div>
             <div class="orow"><span>nudging</span><div class="obar"><i data-runs="4"></i><b>4 runs</b></div></div>
             <div class="orow"><span>backprop</span><div class="obar"><i class="bp" data-runs="3"></i><b>about 3</b></div></div></div>
-          <div class="ogroup"><div class="oname">Chapter 1's network: 17 weights</div>
+          <div class="ogroup"><div class="oname">Chapter 1's network: 17 parameters</div>
             <div class="orow"><span>nudging</span><div class="obar"><i data-runs="18"></i><b>18 runs</b></div></div>
             <div class="orow"><span>backprop</span><div class="obar"><i class="bp" data-runs="3"></i><b>about 3</b></div></div></div>
-          <div class="ogroup"><div class="oname">GPT-3: 175 billion weights</div>
+          <div class="ogroup"><div class="oname">GPT-3: 175 billion parameters</div>
             <div class="orow"><span>nudging</span><div class="obar"><i data-runs="175000000001"></i><b>175 billion runs</b></div></div>
             <div class="orow"><span>backprop</span><div class="obar"><i class="bp" data-runs="3"></i><b>about 3</b></div></div></div>
         </div>
@@ -302,11 +153,11 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
     <p>Chapter 1 showed what training does: guess, measure, adjust. Chapter 2 showed what the adjusting needs: one slope per weight, together called the <b>gradient</b>, which points uphill on the loss landscape so training can step the other way. In chapter 1 the Backward stage produced every one of those slopes at once. This chapter shows how. If you skipped the earlier chapters, the film and the next section are enough to follow along.</p>
 
     <h2>The question</h2>
-    <p>A gradient answers one question: if I nudge this weight up a little, how much does the loss change? There is an obvious way to find out. Nudge the weight, run the network again, and measure. That works, and the playground below uses it to double-check every answer. But it costs one extra run of the network for every single weight.</p>
+    <p>A gradient answers one question: if I nudge this parameter up a little, how much does the loss change? (A network's parameters are its weights and biases; chapter 1's network has 17.) There is an obvious way to find out. Nudge the parameter, run the network again, and measure. That works, and the playground below uses it to double-check every answer. But it costs one extra run of the network for every single parameter, or two if you nudge both ways as the playground does.</p>
 
     <figure class="card" aria-label="How the cost of nudging grows with the number of weights">
-      <div class="cost-head"><span class="lab">Number of weights</span><span class="cost-n" id="cost-n">17</span></div>
-      <input type="range" id="cost-n-range" min="0" max="1000" step="1" aria-label="Number of weights, on a logarithmic scale">
+      <div class="cost-head"><span class="lab">Number of parameters</span><span class="cost-n" id="cost-n">17</span></div>
+      <input type="range" id="cost-n-range" min="0" max="1000" step="1" aria-label="Number of parameters, on a logarithmic scale">
       <div class="chips" id="cost-chips" role="group" aria-label="Example networks">
         <button type="button" data-n="3" data-tip="cost-3">One neuron</button><button type="button" data-n="17" data-tip="cost-17">Chapter 1</button><button type="button" data-n="1000000" data-tip="cost-1m">Small image network</button><button type="button" data-n="1500000000" data-tip="cost-gpt2">GPT-2</button><button type="button" data-n="175000000000" data-tip="cost-gpt3">GPT-3</button>
       </div>
@@ -317,7 +168,7 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
       <p class="cap" id="cost-cap"></p>
     </figure>
 
-    <p>Backpropagation gets every gradient for about the cost of three runs, however many weights there are: one forward pass, then a backward pass that costs about two more. That one trick, more than any other, is why large networks can be trained at all. It is built from three simple tools.</p>
+    <p>Backpropagation gets every gradient for about the cost of three runs, however many parameters there are: one forward pass, then a backward pass that costs about two more. That one trick, more than any other, is why large networks can be trained at all. It is built from three simple tools.</p>
 
     <h2>Tool 1: the slope of one operation</h2>
     <p>Chapter 2 measured slopes by nudging the whole network. Backpropagation instead uses the slope of each small operation, which is always easy to know. Start with one operation on its own, such as tanh. Its <b>slope</b> at a point says how much the output moves when you nudge the input. A slope of 0.5 means a nudge of 0.01 in the input moves the output by about 0.005. Drag across the curve to see the slope change.</p>
@@ -337,7 +188,7 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
       <p class="lens-read" id="lens-read"></p>
     </figure>
 
-    <p>Every operation in a network has a simple slope rule. These five cover everything on this page:</p>
+    <p>Every operation in a network has a simple slope rule. These six cover everything on this page:</p>
     <div class="tablewrap">
       <table class="rules">
         <thead><tr><th>Operation</th><th>Slope</th><th>In words</th></tr></thead>
@@ -345,15 +196,16 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
           <tr><td>a + b</td><td>1 and 1</td><td>A nudge to either input passes straight through.</td></tr>
           <tr><td>a × b</td><td>b and a</td><td>Each input's slope is the other input.</td></tr>
           <tr><td>tanh(a)</td><td>1 − tanh(a)²</td><td>Steep near 0, flat far away.</td></tr>
-          <tr><td>σ(a)</td><td>σ(a)·(1 − σ(a))</td><td>Steepest at 0.5, flat near 0 and 1.</td></tr>
+          <tr><td>σ(a)</td><td>σ(a)·(1 − σ(a))</td><td>Steepest at a = 0, where σ = 0.5; flat when σ is near 0 or 1.</td></tr>
           <tr><td>−log(a)</td><td>−1 / a</td><td>Very steep when a is close to 0.</td></tr>
+          <tr><td>a²</td><td>2a</td><td>Grows with a; zero at a = 0.</td></tr>
         </tbody>
       </table>
     </div>
     <p>These are called <b>local slopes</b>, because each one looks only at its own inputs and output, and nothing else in the network.</p>
 
     <h2>Tool 2: the chain rule</h2>
-    <p>Operations come in chains. If y responds 3 times as strongly as x, and z responds 0.5 times as strongly as y, then z responds 3 × 0.5 = 1.5 times as strongly as x. Slopes along a chain multiply, the same way exchange rates do: if 1 yen buys 0.007 dollars and 1 dollar buys 0.9 euros, then 1 yen buys 0.007 × 0.9 euros.</p>
+    <p>Operations come in chains. If y moves 3 times as much as x, and z moves 0.5 times as much as y, then z moves 3 × 0.5 = 1.5 times as much as x. Slopes along a chain multiply, the same way exchange rates do: if 1 yen buys 0.007 dollars and 1 dollar buys 0.9 euros, then 1 yen buys 0.007 × 0.9 euros.</p>
 
     <figure class="card" aria-label="A chain of three operations and its overall slope">
       <div class="slider-row"><label for="chain-x">x</label><input type="range" id="chain-x" min="-2" max="2" step="0.01" value="0.3"></div>
@@ -378,17 +230,9 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
       <li><div><b>Multiply and pass back.</b> Each operation takes the gradient it has received, multiplies it by its local slope for each input, and sends the result to that input.</div></li>
       <li><div><b>Add what arrives.</b> If a value is used in several places, its gradient is the sum of everything that comes back to it.</div></li>
     </ol>
-    <p>To walk backward you need to know the order things happened in. So during the forward pass, every operation writes itself onto a list called the <b>tape</b>. The backward pass reads the tape in reverse. Here is the complete algorithm in six short parts. Choose how you want it explained: in words, in math, or as code. The code is the JavaScript this page runs, or the same program in Python. Chapter 1 fused σ and −log into one step; here they stay separate so you can watch each.</p>
-    <div class="lens" data-lens-ctl>
-        <span class="lab">Explain with</span>
-        <div class="seg" role="group" aria-label="Explain with">
-          <button type="button" data-lens="words" data-tip="lens-words" aria-pressed="true">Words</button><button type="button" data-lens="math" data-tip="lens-math" aria-pressed="false">Math</button><button type="button" data-lens="code" data-tip="lens-code" aria-pressed="false">Code</button><button type="button" data-lens="all" data-tip="lens-all" aria-pressed="false">All three</button>
-        </div>
-        <div class="seg lang" role="group" aria-label="Code language" hidden>
-          <button type="button" data-lang="js" data-tip="lang-js" aria-pressed="true">JavaScript</button><button type="button" data-lang="py" data-tip="lang-py" aria-pressed="false">Python</button>
-        </div>
-      </div>
-    <div class="annot" id="annot"></div>
+    <p>To walk backward you need to know the order things happened in. So during the forward pass, every operation writes itself onto a list called the <b>tape</b>. The backward pass reads the tape in reverse. Here is the complete algorithm in six short parts. Choose how you want it explained: in words, in math, or as code. The code is the JavaScript this site runs, or the same program in Python; the last part shows the same calculation in PyTorch. Chapters 1 and 2 fused σ and the loss into one step; here they stay separate so you can watch each.</p>
+    <div class="lens" data-lens-ctl data-label="Explain with"></div>
+    <div class="annot" id="annot" data-reps></div>
 
     <h2>The playground</h2>
     <p>Pick a graph and press <kbd>Step</kbd>. Each click does exactly one thing: one operation forward, or one operation's backward rule. The box below the graph says what happened, in words, in numbers and in code. Tap any starting number to change it, and use <b>Nudge test</b> to check autograd's answer the slow way.</p>
@@ -418,15 +262,7 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
           <span class="lab">Show</span>
           <label class="tog" for="pg-slopes" data-tip="slopes"><input type="checkbox" id="pg-slopes" checked>local slopes on the wires</label>
         </div>
-        <div class="ctl"><div class="lens" data-lens-ctl>
-        <span class="lab">Explain each step with</span>
-        <div class="seg" role="group" aria-label="Explain with">
-          <button type="button" data-lens="words" data-tip="lens-words" aria-pressed="true">Words</button><button type="button" data-lens="math" data-tip="lens-math" aria-pressed="false">Math</button><button type="button" data-lens="code" data-tip="lens-code" aria-pressed="false">Code</button><button type="button" data-lens="all" data-tip="lens-all" aria-pressed="false">All three</button>
-        </div>
-        <div class="seg lang" role="group" aria-label="Code language" hidden>
-          <button type="button" data-lang="js" data-tip="lang-js" aria-pressed="true">JavaScript</button><button type="button" data-lang="py" data-tip="lang-py" aria-pressed="false">Python</button>
-        </div>
-      </div></div>
+        <div class="ctl"><div class="lens" data-lens-ctl data-label="Explain each step with"></div></div>
       </div>
       <div class="pg-head">
         <span class="formula" id="pg-formula"></span>
@@ -434,7 +270,7 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
       </div>
       <div class="gwrap" id="pg-graph"></div>
       <div class="pg-grid">
-        <div class="explain" aria-live="polite" id="pg-explain"></div>
+        <div class="explain" aria-live="polite" id="pg-explain" data-reps></div>
         <div class="insp" id="pg-insp">
           <div class="eyebrow" id="i-eyebrow"></div>
           <h3 id="i-title"></h3>
@@ -442,7 +278,7 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
           <div class="nums" id="i-nums"></div>
           <div class="slider-row" id="i-sl">
             <label for="i-slider" id="i-sl-lab">Value</label>
-            <input type="range" id="i-slider" min="-3" max="3" step="0.01" data-tip="slider">
+            <input type="range" id="i-slider" min="-5" max="5" step="0.01" data-tip="slider">
           </div>
           <button type="button" class="btn" id="i-nudge" data-tip="nudge">Nudge test</button>
           <p class="nudge-out" id="i-nudge-out"></p>
@@ -466,7 +302,7 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
       <dt>Circles</dt>
       <dd>Operations. The number under each circle is its result from the forward pass.</dd>
       <dt>Gradient tags</dt>
-      <dd>The colored tag above a node is its gradient, ∂L/∂(that node). Blue is positive, orange negative, as everywhere in this series.</dd>
+      <dd>The colored tag above a node is its gradient, ∂L/∂(that node): blue for a positive gradient, orange for a negative one. (Chapter 1's backward view colors the direction each weight should move, which is the opposite sign.)</dd>
       <dt>Slope tags</dt>
       <dd>“×0.20” on a wire is the local slope the backward pass multiplies by when it sends a gradient back along that wire.</dd>
       <dt>Moving dots</dt>
@@ -477,16 +313,16 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
 
     <h2>Things to try</h2>
     <ul class="tries">
-      <li>In <b>One value, two uses</b>, step until h gets its first gradient, then step once more. The second contribution is added to the first instead of replacing it. Without rule 3 the answer comes out wrong, and the nudge test catches it.</li>
+      <li>In <b>One value, two uses</b>, step until h gets its first gradient, then step once more. The second contribution is added to the first instead of replacing it. If it replaced it, h would end up with 2.400 instead of 1.600; the nudge test measures 1.600.</li>
       <li>In <b>One neuron</b>, finish the backward pass, then drag w₁. Every gradient updates as you drag.</li>
-      <li>Make the neuron confident and right by pushing z up. The gradients shrink toward zero: there is nothing to fix.</li>
-      <li>Push z far below zero instead. ŷ gets close to 0, −log gets very steep, and the gradients grow. A confident wrong answer pushes hardest.</li>
-      <li>Multiply the slopes of −log and σ by hand: (−1/ŷ) × ŷ(1 − ŷ) = ŷ − 1. That is why chapter 1 could fuse the two into a single operation with slope ŷ − y.</li>
-      <li>In the <b>Warm-up</b>, set c so that d is exactly 0. Then f's gradient is 0: when d is 0, nudging f changes nothing.</li>
+      <li>Raise b (or w₁) until z is large and positive, so the neuron is confident and right. The gradients shrink toward zero: there is nothing to fix.</li>
+      <li>Lower b until z is far below zero instead. ŷ gets close to 0 and −log gets very steep, but σ flattens just as fast, so the two cancel: ∂L/∂z = ŷ − 1 approaches −1, its largest size. A confident wrong answer pushes hardest, but never harder than that.</li>
+      <li>Multiply the slopes of −log and σ by hand: (−1/ŷ) × ŷ(1 − ŷ) = ŷ − 1. For an orange dot (y = 0) the loss is −log(1 − ŷ), and the same steps give ŷ − 0. In both cases the slope is ŷ − y, which is why chapters 1 and 2 could fuse σ and the loss into a single operation.</li>
+      <li>In the <b>Warm-up</b>, set a to 2, so that d = 2 × (−2) + 4 = 0. Then f's gradient is 0: when d is 0, nudging f changes nothing.</li>
     </ul>
 
     <h2>What runs where</h2>
-    <p>Everything runs in this page's JavaScript on your CPU, in 64-bit floats. The playground builds every graph with the code shown above. The Python shown beside it is a line-by-line translation of the same program, and the PyTorch example computes the playground's neuron with a real library. Its Step button performs one pass of <code class="i">backward()</code>'s loop per click, and the nudge test compares the result with the real <code class="i">backward()</code> and with a measured slope, (L(x + ε) − L(x − ε)) / 2ε with ε = 0.0001.</p>
+    <p>Everything runs in this page's JavaScript on your CPU, in 64-bit floats. The playground builds every graph with the code shown above. The Python shown beside it is a line-by-line translation of the same program, and the PyTorch example computes the playground's neuron with a real library. Its Step button runs <code class="i">backward()</code> one tape entry per click, after a first click that sets ∂L/∂L = 1. The nudge test compares the real <code class="i">backward()</code> with a measured slope, (L(x + ε) − L(x − ε)) / 2ε with ε = 0.0001.</p>
 
     <h2>Where this is going</h2>
     <ol class="road">
@@ -506,49 +342,8 @@ pre, code, .gsvg text, table.tape, .film-ticker, .nums, .nudge-out, .formula, .p
   <a class="jump-pill" id="jump-pill" href="#playground" hidden>Playground ↓</a>
 </div>
 
-<script id="autograd">
-// A tape-based autograd, small enough to read in one sitting.
-// Every operation creates a Value and records, for each input,
-// the local derivative ∂output/∂input. backward() walks the
-// tape in reverse and applies the chain rule.
-let TAPE = null;
-
-class Value {
-  constructor(data, inputs = null, local = null, op = "") {
-    this.data = data;     // the number itself
-    this.grad = 0;        // ∂loss/∂this, filled in by backward()
-    this.inputs = inputs; // the Values this one was computed from
-    this.local = local;   // ∂this/∂input, one entry per input
-    this.op = op;         // a label, only used for drawing
-    if (TAPE) TAPE.push(this);
-  }
-}
-
-const add = (a, b) => new Value(a.data + b.data, [a, b], [1, 1], "+");
-const mul = (a, b) => new Value(a.data * b.data, [a, b], [b.data, a.data], "×");
-
-function tanh(a) {
-  const t = Math.tanh(a.data);
-  return new Value(t, [a], [1 - t * t], "tanh");
-}
-function sigmoid(a) {
-  const s = 1 / (1 + Math.exp(-a.data));
-  return new Value(s, [a], [s * (1 - s)], "σ");
-}
-const neglog = (a) => new Value(-Math.log(a.data), [a], [-1 / a.data], "−log");
-const square = (a) => new Value(a.data * a.data, [a], [2 * a.data], "²");
-
-function backward(loss) {
-  loss.grad = 1;
-  for (let k = TAPE.length - 1; k >= 0; k--) {
-    const v = TAPE[k];
-    if (!v.inputs) continue;
-    for (let i = 0; i < v.inputs.length; i++) {
-      v.inputs[i].grad += v.local[i] * v.grad; // the chain rule
-    }
-  }
-}
-</script>
+<script id="autograd" src="../assets/autograd.js"></script>
+<script src="../assets/common.js"></script>
 
 <script type="text/plain" id="autograd-py">
 # A tape-based autograd, small enough to read in one sitting.
@@ -569,16 +364,24 @@ class Value:
 
 def add(a, b): return Value(a.data + b.data, [a, b], [1.0, 1.0], "+")
 def mul(a, b): return Value(a.data * b.data, [a, b], [b.data, a.data], "×")
+def mulc(a, c): return Value(a.data * c, [a], [c], "×")  # times a fixed number
 
 import math
 def tanh(a):
     t = math.tanh(a.data)
     return Value(t, [a], [1 - t * t], "tanh")
+def relu(a): return Value(max(0.0, a.data), [a], [1.0 if a.data > 0 else 0.0], "ReLU")
 def sigmoid(a):
     s = 1 / (1 + math.exp(-a.data))
     return Value(s, [a], [s * (1 - s)], "σ")
 def neglog(a): return Value(-math.log(a.data), [a], [-1 / a.data], "−log")
 def square(a): return Value(a.data * a.data, [a], [2 * a.data], "²")
+# σ and the loss fused into one step, as chapters 1 and 2 train.
+# For a dot labeled y, its slope simplifies to σ(z) − y.
+def bce_with_logits(z, y):
+    s = 1 / (1 + math.exp(-z.data))
+    loss = max(z.data, 0.0) - z.data * y + math.log1p(math.exp(-abs(z.data)))
+    return Value(loss, [z], [s - y], "loss")
 
 def backward(loss):
     loss.grad = 1.0
@@ -589,12 +392,12 @@ def backward(loss):
             inp.grad += slope * v.grad   # the chain rule
 </script>
 <script type="text/plain" id="example-js">
-TAPE = [];
 const w1 = new Value(-1), w2 = new Value(1.5), b = new Value(0.2);
 const x1 = new Value(0.6), x2 = new Value(-0.4);
+TAPE = [];   // switch the tape on: only operations from here on are recorded
 const L = neglog(sigmoid(add(add(mul(w1, x1), mul(w2, x2)), b)));
 backward(L);
-console.log(w1.grad);   // -0.4386
+console.log(w1.grad);   // about -0.4386
 </script>
 <script type="text/plain" id="example-py">
 import torch
@@ -612,14 +415,7 @@ print(w1.grad)   # tensor(-0.4386)
   "use strict";
   const $ = (id) => document.getElementById(id);
   const SUBS = "₀₁₂₃₄₅₆₇₈₉";
-  const sb = (n) => String(n).replace(/\d/g, (d) => SUBS[d]);
-  function fmt(v, d = 2) {
-    if (!Number.isFinite(v)) return "–";
-    const s = Math.abs(v).toFixed(d);
-    return (v < 0 && Number(s) !== 0 ? "−" : "") + s;
-  }
-  const par = (v, d = 2) => { const s = fmt(v, d); return s[0] === "−" ? "(" + s + ")" : s; };
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const { sb, fmt, par, reduceMotion } = ITN;
   const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
   const NS = "http://www.w3.org/2000/svg";
 
@@ -707,7 +503,8 @@ print(w1.grad)   # tensor(-0.4386)
   }
   const FN_NAME = { "+": "add", "×": "mul", σ: "sigmoid", tanh: "tanh", "−log": "neglog", "²": "square" };
   function opExpr(v, nums) {
-    const a = v.inputs[0], b = v.inputs[1], A = nums ? par(a.data) : a.name, B = b ? (nums ? par(b.data) : b.name) : "";
+    const fn = v.op === "σ" || v.op === "tanh" || v.op === "−log";
+    const a = v.inputs[0], b = v.inputs[1], A = nums ? (fn ? fmt(a.data) : par(a.data)) : a.name, B = b ? (nums ? par(b.data) : b.name) : "";
     switch (v.op) {
       case "+": return `${A} + ${B}`;
       case "×": return `${A} × ${B}`;
@@ -865,10 +662,11 @@ print(w1.grad)   # tensor(-0.4386)
 
   // the same step said three ways; code names drop subscripts so the code is valid
   const cn = (name) => name.replace(/[₀-₉]/g, (d) => String(SUBS.indexOf(d))).replace("ŷ", "yhat");
-  const fc = (v, d = 3) => { const x = Number(v.toFixed(d)); return (Object.is(x, -0) ? 0 : x).toFixed(d); };
+  const fc = ITN.code;
   const mi = (name) => `<i>${name}</i>`;
   function mathExpr(v, nums) {
-    const A = nums ? par(v.inputs[0].data) : mi(v.inputs[0].name), B = v.inputs[1] ? (nums ? par(v.inputs[1].data) : mi(v.inputs[1].name)) : "";
+    const fn = v.op === "σ" || v.op === "tanh" || v.op === "−log";
+    const A = nums ? (fn ? fmt(v.inputs[0].data) : par(v.inputs[0].data)) : mi(v.inputs[0].name), B = v.inputs[1] ? (nums ? par(v.inputs[1].data) : mi(v.inputs[1].name)) : "";
     switch (v.op) {
       case "+": return `${A} + ${B}`;
       case "×": return nums ? `${A} × ${B}` : `${A} · ${B}`;
@@ -927,7 +725,8 @@ print(w1.grad)   # tensor(-0.4386)
     else words += `Its local slope is ${slopeRule(v, 0)} = ${fmt(v.local[0], 3)}, so it sends ${G} × ${fmt(v.local[0], 3)} = ${fmt(msgs[0], 3)} back to ${v.inputs[0].name}.`;
     const math = [];
     v.inputs.forEach((inp, i) => {
-      const bf = before.get(inp), chain = `${dd("L", v.name)} · ${dd(v.name, inp.name)}`, nums = `(${fmt(v.grad, 3)})(${fmt(v.local[i], 3)})`;
+      // at the loss itself, ∂L/∂L is 1 and the local slope is the whole story
+      const bf = before.get(inp), chain = v === g.root ? `1 · ${mathSlope(v, i)}` : `${dd("L", v.name)} · ${dd(v.name, inp.name)}`, nums = `(${fmt(v.grad, 3)})(${fmt(v.local[i], 3)})`;
       if (bf.t) {
         words += ` <b>${inp.name} already held ${fmt(bf.g, 3)}</b> from its other use, so rule 3 adds: ${fmt(bf.g, 3)} + ${fmt(msgs[i], 3)} = ${fmt(inp.grad, 3)}.`;
         math.push(`${dd("L", inp.name)} = ${fmt(bf.g, 3)} + ${chain} = ${fmt(bf.g, 3)} + ${nums} = ${fmt(inp.grad, 3)}`);
@@ -940,37 +739,14 @@ print(w1.grad)   # tensor(-0.4386)
       py: v.inputs.map((inp, i) => `${cn(inp.name)}.grad += ${fc(v.local[i])} * ${fc(v.grad)}   # ${cn(inp.name)}.grad is now ${fc(inp.grad)}`).join("\n"),
     };
   }
-  // ---------- the Words · Math · Code switch, shared by the whole page ----------
-  const VIEW = { mode: "words", lang: "js" };
-  try { const saved = JSON.parse(localStorage.getItem("itn-lens") || "null"); if (saved && ["words", "math", "code", "all"].includes(saved.mode)) Object.assign(VIEW, { mode: saved.mode, lang: saved.lang === "py" ? "py" : "js" }); } catch (e) { /* storage unavailable */ }
-  const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  function reps(r) {
-    const want = (m) => VIEW.mode === "all" || VIEW.mode === m;
-    let h = "";
-    if (want("words")) h += `<div class="rep words"><div class="rep-lab">Words</div><p>${r.words}</p></div>`;
-    if (want("math")) h += `<div class="rep math"><div class="rep-lab">Math</div><div class="mb">${r.math.map((l) => `<span>${l}</span>`).join("")}</div></div>`;
-    if (want("code")) h += `<div class="rep code"><div class="rep-lab">Code · ${VIEW.lang === "py" ? "Python" : "JavaScript"}</div><pre>${esc(VIEW.lang === "py" ? r.py : r.js)}</pre></div>`;
-    return h;
-  }
-  function syncLensControls() {
-    document.querySelectorAll("[data-lens-ctl]").forEach((c) => {
-      c.querySelectorAll("[data-lens]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lens === VIEW.mode)));
-      c.querySelectorAll("[data-lang]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === VIEW.lang)));
-      c.querySelector(".lang").hidden = !(VIEW.mode === "code" || VIEW.mode === "all");
-    });
-    document.querySelectorAll("#annot, #pg-explain").forEach((el) => el.classList.toggle("show-all", VIEW.mode === "all"));
-  }
-  document.addEventListener("click", (e) => {
-    const b = e.target.closest("[data-lens], [data-lang]"); if (!b) return;
-    if (b.dataset.lens) VIEW.mode = b.dataset.lens; else VIEW.lang = b.dataset.lang;
-    try { localStorage.setItem("itn-lens", JSON.stringify(VIEW)); } catch (err) { /* storage unavailable */ }
-    syncLensControls(); renderAlgo(); pgRender();
-  });
+  const reps = ITN.view.reps;
+  ITN.view.onChange(() => { renderAlgo(); pgRender(); });
 
-  const KIND = { param: "a weight: the network learns it", input: "an input: it gets a gradient, but training never changes it", op: "" };
+  const isBias = (n) => n.name === "b" || n.name === "c";
+  const KIND = { param: "a parameter: the network learns it", input: "an input: it gets a gradient, but training never changes it", op: "" };
   function pgInspector() {
     const g = PG.g, n = PG.sel, T = g.tape.length;
-    $("i-eyebrow").textContent = n.kind === "op" ? "Operation" : n.kind === "param" ? "Weight" : "Input";
+    $("i-eyebrow").textContent = n.kind === "op" ? "Operation" : n.kind === "param" ? (isBias(n) ? "Bias" : "Weight") : "Input";
     $("i-title").textContent = n.kind === "op" ? `${n.name} = ${opExpr(n, false)}` : n.name;
     $("i-kind").textContent = n.kind === "op" ? (n === g.root ? "The loss: the number training tries to make small." : `Operation ${n.tapeIdx + 1} on the tape.`) : KIND[n.kind];
     const computed = n.kind !== "op" || n.tapeIdx < Math.min(PG.p, T);
@@ -1082,12 +858,12 @@ print(w1.grad)   # tensor(-0.4386)
     applyGrads(g, T + 1);
     const finalList = params.map((n) => `${n.name} ${fmt(n.grad)}`).join(", ");
     const CAP = {
-      formula: "<b>A formula is a chain of tiny steps.</b> This is one neuron from chapter 1 judging a blue dot: L = −log σ(w₁x₁ + w₂x₂ + b). Broken apart, it is six small operations, each simple on its own.",
+      formula: "<b>A formula is a chain of tiny steps.</b> This is one neuron, like chapter 2's but with a bias, judging a blue dot: L = −log σ(w₁x₁ + w₂x₂ + b). Broken apart, it is six small operations, each simple on its own.",
       fwd: "<b>Forward.</b> Numbers flow left to right. Each operation computes its result and writes it on a tape, together with its local slope: how its output responds to a nudge in each input.",
       slopes: "<b>Local slopes.</b> Each operation knows only its own slopes, and they are simple. For multiplication the slope is the other input. For addition it is 1.",
       bwd: "<b>Backward.</b> Start with gradient 1 at the loss, then read the tape in reverse. Each operation multiplies the gradient it received by its local slope and passes the result back.",
       res: `<b>Every weight now has its gradient</b>, from one backward sweep: ${finalList}. Each says how the loss responds to a nudge in that weight, and training moves each weight the opposite way.`,
-      scale: "<b>Why it matters.</b> Measuring each gradient by nudging costs one extra run of the network per weight. Backprop costs about three runs in total, however many weights there are. That is what makes training huge networks possible.",
+      scale: "<b>Why it matters.</b> Measuring each gradient by nudging costs one extra run of the network per parameter. Backprop costs about three runs in total, however many parameters there are. That is what makes training huge networks possible.",
     };
     const bars = [...$("f-over").querySelectorAll("i[data-runs]")];
     let t = 0, playing = false, last = 0, started = false, autoPaused = false, capKey = "";
@@ -1162,6 +938,7 @@ print(w1.grad)   # tensor(-0.4386)
   // ---------- the cost of nudging ----------
   const LOGMIN = Math.log10(3), LOGMAX = 12;
   function bigName(n) {
+    if (n >= 1e12) return `${Number((n / 1e12).toPrecision(3))} trillion`;
     if (n >= 1e9) return `${Number((n / 1e9).toPrecision(3))} billion`;
     if (n >= 1e6) return `${Number((n / 1e6).toPrecision(3))} million`;
     return Math.round(n).toLocaleString("en-US");
@@ -1183,7 +960,7 @@ print(w1.grad)   # tensor(-0.4386)
     $("cost-lab-n").classList.toggle("out", Math.log10(runs) / max < 0.25);
     $("cost-lab-b").classList.add("out"); $("cost-lab-b").style.left = `calc(${(100 * Math.log10(3) / max).toFixed(1)}% + 8px)`;
     $("cost-lab-n").style.left = Math.log10(runs) / max < 0.25 ? `calc(${(100 * Math.max(0.03, Math.log10(runs) / max)).toFixed(1)}% + 8px)` : "8px";
-    $("cost-cap").textContent = `At one run per second, nudging every weight once would take ${duration(runs)}. Backprop would take about 3 seconds.`;
+    $("cost-cap").textContent = `At one run per second, nudging every parameter once would take ${duration(runs)}. Backprop would take about 3 seconds.`;
     $("cost-chips").querySelectorAll("button").forEach((b) => b.classList.toggle("on", Math.abs(Math.log10(Number(b.dataset.n)) - Math.log10(n)) < 0.01));
   }
   $("cost-n-range").addEventListener("input", (e) => setCost(Math.round(10 ** (LOGMIN + (Number(e.target.value) / 1000) * (LOGMAX - LOGMIN)))));
@@ -1248,7 +1025,7 @@ print(w1.grad)   # tensor(-0.4386)
     const x = Number($("chain-x").value), a = 3 * x, b = Math.tanh(a), y = 2 * b, sl = 1 - b * b, total = 3 * sl * 2;
     const f = (q) => 2 * Math.tanh(3 * q), eps = 1e-4, num = (f(x + eps) - f(x - eps)) / (2 * eps);
     $("c0").textContent = `x = ${fmt(x)}`; $("c1").textContent = fmt(a); $("c2").textContent = fmt(b, 3); $("c3").textContent = `y = ${fmt(y, 3)}`;
-    $("cs1").textContent = `slope 1 − ${fmt(b, 2)}² = ${fmt(sl, 3)}`;
+    $("cs1").textContent = `slope 1 − ${par(b, 3)}² = ${fmt(sl, 3)}`;
     $("chain-out").innerHTML = `Chain rule: <b>3 × ${fmt(sl, 3)} × 2 = ${fmt(total, 3)}</b>. Measured by nudging: (y(x + ε) − y(x − ε)) / 2ε = ${fmt(num, 3)} ✓. Drag x far from 0 and the tanh step flattens, so the whole chain's slope collapses toward 0.`;
   }
   $("chain-x").addEventListener("input", drawChain);
@@ -1257,7 +1034,7 @@ print(w1.grad)   # tensor(-0.4386)
   const ALGO = [
     {
       title: "The tape",
-      words: "Keep a list called the tape. While it is switched on, every new number adds itself to the end, so the tape lists every operation in the order it happened.",
+      words: "Keep a list called the tape. While it is switched on, every new number adds itself to the end, so the tape lists every operation in the order it happened. The starting numbers are usually made before the tape is switched on; anything on the tape without inputs is simply skipped on the way back.",
       math: [`The forward pass computes a sequence ${mi("v")}₁, ${mi("v")}₂, …, ${mi("v")}<sub>n</sub> = ${mi("L")}.`, `Each ${mi("v")}<sub>k</sub> is computed from values that come earlier in the sequence.`],
     },
     {
@@ -1267,13 +1044,13 @@ print(w1.grad)   # tensor(-0.4386)
     },
     {
       title: "Addition and multiplication",
-      words: "Addition passes a nudge straight through, so its slopes are 1 and 1. Multiplication's slope for each input is the other input.",
-      math: [`${mi("v")} = ${mi("a")} + ${mi("b")}:&emsp;${dd("v", "a")} = 1,&ensp;${dd("v", "b")} = 1`, `${mi("v")} = ${mi("a")} · ${mi("b")}:&emsp;${dd("v", "a")} = ${mi("b")},&ensp;${dd("v", "b")} = ${mi("a")}`],
+      words: "Addition passes a nudge straight through, so its slopes are 1 and 1. Multiplication's slope for each input is the other input. Multiplying by a fixed number c has slope c.",
+      math: [`${mi("v")} = ${mi("a")} + ${mi("b")}:&emsp;${dd("v", "a")} = 1,&ensp;${dd("v", "b")} = 1`, `${mi("v")} = ${mi("a")} · ${mi("b")}:&emsp;${dd("v", "a")} = ${mi("b")},&ensp;${dd("v", "b")} = ${mi("a")}`, `${mi("v")} = ${mi("c")} · ${mi("a")}, with ${mi("c")} fixed:&emsp;${dd("v", "a")} = ${mi("c")}`],
     },
     {
       title: "One-input operations",
-      words: "tanh, σ, −log and squaring each work out their result and their slope at the same moment, using the rules in the table above.",
-      math: [`tanh′(${mi("a")}) = 1 − tanh²(${mi("a")})&emsp;σ′(${mi("a")}) = σ(${mi("a")})(1 − σ(${mi("a")}))`, `(−log ${mi("a")})′ = −1/${mi("a")}&emsp;(${mi("a")}²)′ = 2${mi("a")}`],
+      words: "tanh, ReLU, σ, −log and squaring each work out their result and their slope at the same moment, using the rules in the table above. ReLU's slope is 1 for a positive input and 0 otherwise. The last operation, used for training in chapters 1 and 2, does σ and the loss in one step; its slope works out to σ(z) − y.",
+      math: [`tanh′(${mi("a")}) = 1 − tanh²(${mi("a")})&emsp;ReLU′(${mi("a")}) = 1 if ${mi("a")} > 0, else 0&emsp;σ′(${mi("a")}) = σ(${mi("a")})(1 − σ(${mi("a")}))`, `(−log ${mi("a")})′ = −1/${mi("a")}&emsp;(${mi("a")}²)′ = 2${mi("a")}`, `${mi("L")}(${mi("z")}) = −[${mi("y")} log σ(${mi("z")}) + (1 − ${mi("y")}) log(1 − σ(${mi("z")}))]:&emsp;${dd("L", "z")} = σ(${mi("z")}) − ${mi("y")}`],
     },
     {
       title: "The backward pass",
@@ -1282,12 +1059,15 @@ print(w1.grad)   # tensor(-0.4386)
     },
     {
       title: "In a real library",
-      words: "Real libraries such as PyTorch run this same algorithm on graphs with billions of operations. You write the forward pass, call backward(), and every weight's gradient appears. For the playground's neuron they agree with this page: ∂L/∂w₁ = −0.4386.",
+      words: "Real libraries such as PyTorch run this same algorithm, except that each node holds a whole array of numbers instead of one, on graphs with billions of numbers. You write the forward pass, call backward(), and every weight's gradient appears. For the playground's neuron they agree with this page: ∂L/∂w₁ = −0.4386.",
       math: [`Same graph, same rules, same number:`, `${dd("L", "w₁")} = (${mi("ŷ")} − 1) · ${mi("x")}₁ = (0.2689 − 1)(0.6) = −0.4386`],
     },
   ];
+  let AG_SRC = "";
+  ITN.source("autograd").then((t) => { AG_SRC = t; renderAlgo(); });
   function renderAlgo() {
-    const js = $("autograd").textContent.trim().split(/\n\s*\n/), py = $("autograd-py").textContent.trim().split(/\n\s*\n/);
+    if (!AG_SRC) { $("annot").innerHTML = '<div class="ablock"><p class="hint">Loading the code…</p></div>'; return; }
+    const js = AG_SRC.split(/\n\s*\n/), py = $("autograd-py").textContent.trim().split(/\n\s*\n/);
     js.push($("example-js").textContent.trim()); py.push($("example-py").textContent.trim());
     const ok = js.length === ALGO.length && py.length === ALGO.length;
     $("annot").innerHTML = ALGO.map((a, i) => `<div class="ablock"><div class="atitle"><span class="n">${i + 1}</span>${a.title}</div>${reps({ words: a.words, math: a.math, js: ok ? js[i] : js.join("\n\n"), py: ok ? py[i] : py.join("\n\n") })}</div>`).join("");
@@ -1295,7 +1075,7 @@ print(w1.grad)   # tensor(-0.4386)
 
   // ---------- descriptions on hover, keyboard focus, or after a tap ----------
   const FILM_TIPS = ["The neuron, drawn as a graph.", "Values flow forward and onto the tape.", "Each operation's local slopes.", "Gradients flow backward.", "Every weight's gradient.", "Why this matters for big networks."];
-  const COST_TIPS = { "cost-3": "One neuron with 2 weights and a bias.", "cost-17": "The network from chapter 1.", "cost-1m": "A small network for recognizing images.", "cost-gpt2": "OpenAI's GPT-2 language model (2019), 1.5 billion weights.", "cost-gpt3": "OpenAI's GPT-3 language model (2020), 175 billion weights." };
+  const COST_TIPS = { "cost-3": "One neuron with 2 weights and a bias.", "cost-17": "The network from chapter 1.", "cost-1m": "A small network for recognizing images.", "cost-gpt2": "OpenAI's GPT-2 language model (2019), 1.5 billion parameters.", "cost-gpt3": "OpenAI's GPT-3 language model (2020), 175 billion parameters." };
   const TIPS = {
     step: () => {
       const g = PG.g, T = g.tape.length, p = PG.p;
@@ -1309,12 +1089,6 @@ print(w1.grad)   # tensor(-0.4386)
     finish: () => "<b>Finish</b>: jump to the end, with every value and gradient computed.",
     restart: () => "<b>Restart</b> from nothing: only the starting numbers are known.",
     slopes: () => "Show each wire's local slope: the number the backward pass multiplies by on that wire.",
-    "lens-words": () => "<b>Words</b>: explain each step in plain sentences.",
-    "lens-math": () => "<b>Math</b>: the same steps as formulas, with the real numbers filled in.",
-    "lens-code": () => "<b>Code</b>: the same steps as the code that does them.",
-    "lens-all": () => "<b>All three</b>: words, math and code stacked, so you can see how they match line by line.",
-    "lang-js": () => "<b>JavaScript</b>: the code this page actually runs.",
-    "lang-py": () => "<b>Python</b>: the same program translated line by line, in the language most machine-learning work uses.",
     "preset-warm": () => "<b>Warm-up</b>: (a·b + c)·f. Only multiplication and addition.",
     "preset-neuron": () => "<b>One neuron</b> judging a blue dot, the same as in the film.",
     "preset-twouse": () => "<b>One value, two uses</b>: h feeds two wires, so its gradient is the sum of two contributions (rule 3).",
@@ -1329,65 +1103,11 @@ print(w1.grad)   # tensor(-0.4386)
   for (let i = 0; i < 6; i++) TIPS[`film-${i}`] = () => `${FILM_TIPS[i]} <span class="hint">Click to jump here</span>`;
   for (const k in COST_TIPS) TIPS[k] = () => COST_TIPS[k];
 
-  const tt = document.createElement("div");
-  tt.className = "tt"; tt.id = "tt"; tt.setAttribute("role", "tooltip"); tt.setAttribute("aria-hidden", "true");
-  document.body.appendChild(tt);
-  let tipEl = null, tipPoint = null, tipTimer = 0, tipHide = 0, tipMode = "";
-  const tipHtml = (el) => { const f = TIPS[el.dataset.tip]; return f ? f(el) : ""; };
-  function placeTip() {
-    const w = tt.offsetWidth, h = tt.offsetHeight;
-    let x, y;
-    if (tipPoint) { x = tipPoint[0] - w / 2; y = tipPoint[1] - h - 16; if (y < 8) y = tipPoint[1] + 20; }
-    else { const r = tipEl.getBoundingClientRect(); x = r.left + r.width / 2 - w / 2; y = r.top - h - 8; if (y < 8) y = r.bottom + 8; }
-    tt.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, x)) + "px";
-    tt.style.top = Math.max(8, y) + "px";
-  }
-  function showTip(el, point, mode) {
-    clearTimeout(tipHide);
-    if (tipEl && tipEl !== el) tipEl.removeAttribute("aria-describedby");
-    tipEl = el; tipMode = mode; tipPoint = point && el.hasAttribute("data-follow") ? point : null;
-    const html = tipHtml(el); if (!html) return;
-    tt.innerHTML = html; tt.classList.add("on"); tt.setAttribute("aria-hidden", "false");
-    el.setAttribute("aria-describedby", "tt");
-    placeTip();
-  }
-  function hideTip() {
-    clearTimeout(tipHide);
-    if (tipEl) tipEl.removeAttribute("aria-describedby");
-    tipEl = null; tipPoint = null; tipMode = ""; tt.classList.remove("on"); tt.setAttribute("aria-hidden", "true");
-  }
-  // hover is tracked by pointer position, and controls by what they are, so redraws under a still mouse don't matter
-  let mouse = null, hoverKey = "";
-  const keyOf = (el) => (el ? `${el.dataset.tip}|${el.dataset.sel || ""}|${el.id}` : "");
-  function tipTargetAt(pt) { const hit = pt && document.elementFromPoint(pt[0], pt[1]); return hit && hit.closest ? hit.closest("[data-tip]") : null; }
-  function hoverCheck() {
-    if (!mouse) return;
-    const el = tipTargetAt(mouse), key = keyOf(el);
-    if (key !== hoverKey) {
-      hoverKey = key; clearTimeout(tipTimer);
-      if (tipMode === "hover") hideTip();
-      if (el) tipTimer = setTimeout(() => { const now = tipTargetAt(mouse); if (now && keyOf(now) === hoverKey && tipMode !== "focus") showTip(now, mouse, "hover"); }, el.hasAttribute("data-fast") ? 120 : 450);
-    } else if (el && tipMode === "hover" && tipEl !== el) tipEl = el;
-  }
-  function refreshTip() { hoverCheck(); if (tipEl && tipEl.isConnected && tt.classList.contains("on")) { tt.innerHTML = tipHtml(tipEl); placeTip(); } }
-  document.addEventListener("pointermove", (e) => { if (e.pointerType !== "mouse") return; mouse = [e.clientX, e.clientY]; hoverCheck(); });
-  document.documentElement.addEventListener("pointerleave", (e) => { if (e.pointerType !== "mouse") return; mouse = null; hoverKey = ""; clearTimeout(tipTimer); if (tipMode === "hover") hideTip(); });
-  document.addEventListener("click", (e) => {
-    const el = e.target.closest("[data-tip]"); if (!el) return;
-    if (e.pointerType === "touch" || (!e.pointerType && matchMedia("(hover: none)").matches)) requestAnimationFrame(() => { showTip(el, null, "touch"); tipHide = setTimeout(hideTip, 2600); });
-    else if (el === tipEl) requestAnimationFrame(refreshTip);
-  });
-  document.addEventListener("focusin", (e) => { const el = e.target.closest("[data-tip]"); if (el && e.target.matches(":focus-visible")) { clearTimeout(tipTimer); showTip(el, null, "focus"); } });
-  document.addEventListener("focusout", () => { if (tipMode === "focus") hideTip(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { hideTip(); hoverKey = ""; } });
-  window.addEventListener("scroll", () => { if (tipMode === "touch") hideTip(); hoverCheck(); if (tipEl && tipEl.isConnected) placeTip(); }, { passive: true });
+  ITN.tips.add(TIPS);
+  const refreshTip = ITN.tips.refresh;
 
   // ---------- shortcuts, resize, theme ----------
-  const pill = $("jump-pill"); let pillQueued = false;
-  window.addEventListener("scroll", () => {
-    if (pillQueued) return; pillQueued = true;
-    requestAnimationFrame(() => { pillQueued = false; const pg = $("playground").getBoundingClientRect(); pill.hidden = !(window.scrollY > 500 && pg.top > window.innerHeight * 0.5); });
-  }, { passive: true });
+  ITN.pill();
   let lastW = 0;
   new ResizeObserver(() => { const w = $("pg-graph").clientWidth; if (Math.abs(w - lastW) > 1) { lastW = w; pgView.build(PG.g); pgRender(); } }).observe($("pg-graph"));
   const retheme = () => { readTheme(); drawLens(); };
@@ -1396,7 +1116,7 @@ print(w1.grad)   # tensor(-0.4386)
 
   // ---------- boot ----------
   readTheme();
-  syncLensControls(); renderAlgo();
+  ITN.view.sync(); renderAlgo();
   pgBuild(false); PG.p = nT(); lastW = $("pg-graph").clientWidth; pgRender();
   setCost(17); $("cost-n-range").value = Math.round(((Math.log10(17) - LOGMIN) / (LOGMAX - LOGMIN)) * 1000);
   drawLens(); drawChain();

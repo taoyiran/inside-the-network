@@ -14,79 +14,29 @@ img { max-width: 100%; }
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="assets/site.css">
 <style>
-/* Layout: a ~66ch reading column; the live figure breaks out onto a wide bench (plot left, network right), stacking on phones. */
-:root {
-  --paper: #f3f4f6;
-  --sheet: #ffffff;
-  --well: #f5f6f8;
-  --ink: #14171c;
-  --ink-2: #4a515e;
-  --ink-3: #656d7b;
-  --rule: #dcdfe5;
-  --pos: #2a78d6;
-  --neg: #eb6834;
-  --shadow: rgba(20, 23, 28, 0.06);
-  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-body: "Newsreader", "Iowan Old Style", Georgia, "Times New Roman", serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #0e1014; --sheet: #15181e; --well: #1b1f26; --ink: #e8eaee; --ink-2: #b0b6c1; --ink-3: #8b929e;
-    --rule: #2a2f38; --pos: #3987e5; --neg: #d95926; --shadow: rgba(0, 0, 0, 0.35); color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --paper: #0e1014; --sheet: #15181e; --well: #1b1f26; --ink: #e8eaee; --ink-2: #b0b6c1; --ink-3: #8b929e;
-  --rule: #2a2f38; --pos: #3987e5; --neg: #d95926; --shadow: rgba(0, 0, 0, 0.35); color-scheme: dark;
-}
-
 html { -webkit-text-size-adjust: 100%; }
-body { background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 18px; line-height: 1.6; }
 .page { padding-block: 48px 72px; padding-inline: 20px; }
-.col { max-width: 680px; margin-inline: auto; }
-.bench { max-width: 1180px; margin: 36px auto; }
 @media (max-width: 520px) { .page { padding-inline: 16px; padding-block: 32px 56px; } body { font-size: 17px; } }
-
-.eyebrow { font: 600 12px/1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); }
 h1 { font-family: var(--font-display); font-weight: 650; font-size: clamp(40px, 6.4vw, 64px); line-height: 1; letter-spacing: -0.025em; margin: 14px 0 18px; text-wrap: balance; }
 .dek { font-size: 22px; line-height: 1.42; color: var(--ink-2); margin: 0 0 28px; text-wrap: pretty; }
-h2 { font-family: var(--font-display); font-weight: 600; font-size: 24px; line-height: 1.2; letter-spacing: -0.01em; margin: 48px 0 12px; text-wrap: balance; }
-p { margin: 0 0 14px; }
-b, strong { font-weight: 600; }
-kbd { font: 500 0.82em var(--font-display); padding: 1px 6px; border: 1px solid var(--rule); border-radius: 5px; background: var(--sheet); }
-
 /* the five-line definition */
 .eqs { margin: 22px 0 24px; border-top: 1px solid var(--rule); overflow-x: auto; }
 .eqs-title { font: 600 12px/1 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); padding: 14px 0 6px; }
 .eq-row { display: grid; grid-template-columns: minmax(15.5em, auto) 1fr; gap: 4px 20px; padding: 7px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
 .eq-row code { font: 14.5px/1.5 var(--font-mono); color: var(--ink); white-space: nowrap; }
-.eq-row span { font-size: 16px; color: var(--ink-2); line-height: 1.4; }
 @media (max-width: 600px) { .eq-row { grid-template-columns: minmax(0, 1fr); } }
-
-/* figure */
-.fig { background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; padding: 18px 20px 20px; box-shadow: 0 1px 2px var(--shadow), 0 10px 30px var(--shadow); }
-@media (max-width: 520px) { .fig { padding: 14px 12px 16px; border-radius: 12px; } }
-.controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-end; padding-bottom: 16px; border-bottom: 1px solid var(--rule); }
-.ctl { display: flex; flex-direction: column; gap: 7px; }
-.lab { font: 600 11px/1 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
-.lab .nc { text-transform: none; letter-spacing: 0; font-size: 13px; }
-.btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .btn { font: 560 14px/1 var(--font-display); padding: 10px 14px; border-radius: 9px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
-.btn:hover { border-color: var(--ink-3); }
 .btn.primary { background: var(--ink); border-color: var(--ink); color: var(--sheet); min-width: 98px; justify-content: center; }
 .btn svg { width: 12px; height: 12px; fill: currentColor; }
 .seg { display: inline-flex; background: var(--well); border: 1px solid var(--rule); border-radius: 9px; padding: 2px; gap: 2px; }
-.seg button { font: 520 13px/1 var(--font-display); border: 0; background: transparent; color: var(--ink-2); padding: 9px 10px; border-radius: 7px; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--sheet); color: var(--ink); box-shadow: 0 0 0 1px var(--rule), 0 1px 2px var(--shadow); }
 .stepper { display: inline-flex; align-items: center; border: 1px solid var(--rule); border-radius: 9px; background: var(--well); }
 .stepper button { width: 34px; height: 33px; border: 0; background: transparent; color: var(--ink); font: 500 17px/1 var(--font-mono); cursor: pointer; border-radius: 8px; }
 .stepper button:disabled { color: var(--ink-3); opacity: 0.45; cursor: default; }
 .stepper output { min-width: 22px; text-align: center; font: 500 14px/1 var(--font-mono); }
 select { font: 500 13px/1.2 var(--font-mono); padding: 8px 8px; border-radius: 8px; border: 1px solid var(--rule); background: var(--well); color: var(--ink); max-width: 100%; }
 .btn:focus-visible, .seg button:focus-visible, .stepper button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-
 .fig-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 28px; padding-top: 18px; }
 @media (max-width: 899px) { .fig-grid { grid-template-columns: minmax(0, 1fr); gap: 22px; } }
 .pane-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; margin-bottom: 10px; min-height: 36px; }
@@ -94,12 +44,10 @@ select { font: 500 13px/1.2 var(--font-mono); padding: 8px 8px; border-radius: 8
 .legend { display: flex; gap: 14px; font: 13px/1 var(--font-display); color: var(--ink-2); }
 .sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--pos); margin-right: 6px; vertical-align: -1px; }
 .sw.neg { background: var(--neg); }
-
 #plot { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; border-radius: 10px; border: 1px solid var(--rule); cursor: crosshair; touch-action: manipulation; }
 .readouts { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 13px/1.3 var(--font-mono); color: var(--ink-3); margin: 12px 0 6px; font-variant-numeric: tabular-nums; }
 .readouts b { color: var(--ink); font-weight: 500; }
 #loss { display: block; width: 100%; height: 88px; cursor: default; }
-
 .net { position: relative; width: 100%; height: 380px; }
 .net svg { position: absolute; left: 0; top: 0; overflow: visible; }
 .edge { fill: none; stroke: var(--pos); stroke-linecap: round; opacity: 0.88; }
@@ -122,7 +70,6 @@ select { font: 500 13px/1.2 var(--font-mono); padding: 8px 8px; border-radius: 8
 .node.ping { animation: ping 0.9s ease-out infinite; }
 @keyframes ping { 0% { box-shadow: 0 0 0 2px var(--ink); } 100% { box-shadow: 0 0 0 12px transparent; } }
 .net-legend { font: 14px/1.45 var(--font-body); color: var(--ink-3); margin: 8px 0 0; }
-
 .story { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--rule); }
 .phases { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .phase { font: 600 11px/1 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); padding: 6px 9px; border-radius: 99px; border: 1px solid var(--rule); }
@@ -130,7 +77,9 @@ select { font: 500 13px/1.2 var(--font-mono); padding: 8px 8px; border-radius: 8
 .arrow { color: var(--ink-3); font: 12px var(--font-mono); }
 .narr { font: 17px/1.5 var(--font-body); color: var(--ink-2); min-height: 4.5em; margin: 10px 0 0; }
 .narr b { color: var(--ink); }
-
+.narr p { margin: 0; }
+.narr .rep.words p { font-size: 17px; }
+.insp-detail .rep.words p { font-size: 17px; color: var(--ink); }
 .insp { margin-top: 14px; padding-top: 16px; border-top: 1px solid var(--rule); }
 .insp-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; }
 .insp h3 { font: 620 21px/1.15 var(--font-display); margin: 6px 0 0; }
@@ -138,7 +87,6 @@ select { font: 500 13px/1.2 var(--font-mono); padding: 8px 8px; border-radius: 8
 .insp .val { font: 500 15px/1 var(--font-mono); color: var(--ink-2); margin-top: 8px; font-variant-numeric: tabular-nums; }
 .pick { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .slider-row { display: flex; align-items: center; gap: 12px; margin: 14px 0 4px; flex-wrap: wrap; }
-.slider-row label { font: 14px/1.3 var(--font-display); color: var(--ink-2); }
 .slider-row input { flex: 1 1 180px; min-width: 0; accent-color: var(--ink); }
 .ilead { font-size: 16px; color: var(--ink-2); margin: 12px 0 8px; }
 .chain { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; margin: 8px 0 10px; }
@@ -154,29 +102,11 @@ select { font: 500 13px/1.2 var(--font-mono); padding: 8px 8px; border-radius: 8
 .eqn { font: 14px/1.75 var(--font-mono); color: var(--ink); margin: 12px 0 6px; background: var(--well); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
 .eqn .cont { padding-left: 2.6ch; }
 .eqn b { font-weight: 500; }
-
-/* prose below the figure */
-dl.read { display: grid; grid-template-columns: 7.5em 1fr; gap: 10px 20px; margin: 0; }
-dl.read dt { font: 600 14px/1.6 var(--font-display); color: var(--ink); padding-top: 2px; }
-dl.read dd { margin: 0; }
-@media (max-width: 520px) { dl.read { grid-template-columns: minmax(0, 1fr); gap: 2px; } dl.read dd { margin-bottom: 10px; } }
-ul.tries { padding-left: 1.1em; margin: 0; }
-ul.tries li { margin-bottom: 10px; padding-left: 4px; }
 details { margin: 16px 0 0; }
-summary { cursor: pointer; font: 560 15px/1.4 var(--font-display); color: var(--ink); }
 pre.code { margin: 12px 0 0; background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font: 13px/1.55 var(--font-mono); color: var(--ink); }
-ol.road { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--rule); }
-ol.road li { display: grid; grid-template-columns: 2.4em minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--rule); font: 16px/1.35 var(--font-display); color: var(--ink-2); }
-ol.road .n { font: 500 13px var(--font-mono); color: var(--ink-3); }
-ol.road .tag { font: 600 10.5px/1 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--rule); border-radius: 99px; padding: 5px 8px; }
-ol.road li.here { color: var(--ink); font-weight: 600; }
-ol.road li.here .tag { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
-ol.road li.branch { padding-left: 1.2em; }
 .foot { margin-top: 40px; font: 14px/1.5 var(--font-display); color: var(--ink-3); }
-
 /* beginner introduction */
 header.col .dek { margin-bottom: 8px; }
-.intro h2:first-child { margin-top: 28px; }
 .puzzle { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 18px 24px; align-items: center; margin: 20px 0 24px; padding: 16px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; }
 #puz { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; border-radius: 8px; border: 1px solid var(--rule); touch-action: none; cursor: grab; }
 #puz.dragging { cursor: grabbing; }
@@ -187,13 +117,8 @@ header.col .dek { margin-bottom: 8px; }
 .puz-score span { font: 500 18px/1 var(--font-mono); color: var(--ink-3); }
 .puz-best b { color: var(--ink); font-weight: 600; }
 @media (max-width: 600px) { .puzzle { grid-template-columns: minmax(0, 1fr); } }
-ol.seq { list-style: none; counter-reset: seq; padding: 0; margin: 4px 0 18px; }
-ol.seq > li { counter-increment: seq; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 0 10px; margin-bottom: 10px; }
-ol.seq > li::before { content: counter(seq); width: 22px; height: 22px; margin-top: 4px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--sheet); font: 500 12px/1 var(--font-mono); }
 .live { font-family: var(--font-mono); font-size: 0.86em; background: var(--sheet); border: 1px solid var(--rule); border-radius: 5px; padding: 0 5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-details.math { margin: 4px 0 18px; }
 details.math .eqs { margin-top: 10px; }
-
 /* playground layout: data | network, then progress | story, then the inspector across */
 .fig-grid { grid-template-areas: "plot net" "stats story" "insp insp"; row-gap: 22px; }
 .area-plot { grid-area: plot; min-width: 0; }
@@ -237,53 +162,31 @@ details.math .eqs { margin-top: 10px; }
 @media (max-width: 899px) { .insp-grid { grid-template-columns: minmax(0, 1fr); } }
 .iplain { font: 17px/1.5 var(--font-body); color: var(--ink); margin: 14px 0 0; }
 .insp-detail .ilead:first-child, .insp-detail .eqn:first-child { margin-top: 2px; }
-
 /* shortcuts */
 html { scroll-behavior: smooth; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-#playground, #film { scroll-margin-top: 16px; }
-.jump { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 20px 0 4px; }
 a.btn { text-decoration: none; }
-.jump-note { font: 15px/1.4 var(--font-body); color: var(--ink-3); }
-.jump-pill { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 10; font: 600 14px/1 var(--font-display); background: var(--ink); color: var(--sheet); padding: 12px 16px; border-radius: 99px; text-decoration: none; box-shadow: 0 4px 18px var(--shadow); }
 .jump-pill:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
-.tog { display: inline-flex; align-items: center; gap: 7px; font: 13px/1.2 var(--font-display); color: var(--ink-2); cursor: pointer; }
-.tog input { accent-color: var(--ink); width: 15px; height: 15px; margin: 0; }
 .dline { display: inline-block; width: 18px; height: 0; border-top: 1.5px dashed var(--ink-2); }
-
-/* the training film */
-.film { margin: 18px 0 22px; padding: 16px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; }
 .film-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 14px; align-items: center; }
 #film-plane { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; border-radius: 8px; border: 1px solid var(--rule); }
 #film-net { display: block; width: 100%; max-width: 100%; aspect-ratio: 1.15; }
 @media (max-width: 560px) { .film-stage { grid-template-columns: minmax(0, 1fr); } #film-net { aspect-ratio: 1.3; } }
 .film-progress { height: 3px; background: var(--rule); border-radius: 2px; margin-top: 14px; overflow: hidden; }
-.film-progress i { display: block; height: 100%; width: 0; background: var(--ink); }
-.film-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 12px; }
 .film-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .film-chips button { font: 600 10.5px/1 var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); background: transparent; border: 1px solid var(--rule); border-radius: 99px; padding: 6px 8px; cursor: pointer; }
 .film-chips button.on { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
 .film-chips button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .film-meta { margin-left: auto; font: 12px/1.2 var(--font-mono); color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.film-cap { font: 17px/1.5 var(--font-body); color: var(--ink-2); margin: 12px 0 0; min-height: 4.5em; }
-.film-cap b { color: var(--ink); }
 .intro a { color: var(--ink); text-underline-offset: 3px; }
 .foot a { color: var(--ink-2); text-underline-offset: 3px; }
-
-.chapnav { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 20px; margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--rule); font: 15px/1.4 var(--font-display); color: var(--ink-3); }
 .chapnav a, ol.road a { color: var(--ink); text-underline-offset: 3px; }
-/* hover and focus descriptions */
-.tt { position: fixed; left: 0; top: 0; z-index: 30; max-width: min(300px, calc(100vw - 24px)); background: var(--ink); color: var(--sheet); font: 13px/1.45 var(--font-display); padding: 8px 11px; border-radius: 8px; box-shadow: 0 6px 22px var(--shadow); pointer-events: none; opacity: 0; transform: translateY(3px); transition: opacity 0.12s ease, transform 0.12s ease; }
-.tt.on { opacity: 1; transform: none; }
-.tt b { font-weight: 650; }
-.tt .k { font-family: var(--font-mono); font-size: 12px; }
-.tt .hint { display: block; margin-top: 4px; font-size: 12px; opacity: 0.72; }
 @media (prefers-reduced-motion: reduce) { .tt { transition: none; } }
 .stat, .phase { cursor: help; }
 </style>
 </head>
 <body>
 <div class="page">
+  <nav class="crumbs" aria-label="Breadcrumb"><span>Inside the Network</span><span aria-hidden="true">›</span><span>Chapter 1</span></nav>
   <header class="col">
     <div class="eyebrow">Chapter 1 · Prototype</div>
     <h1>A network you can touch</h1>
@@ -327,7 +230,7 @@ a.btn { text-decoration: none; }
       <figcaption>
         <div class="lab">Your line gets</div>
         <div class="puz-score"><b id="puz-score">–</b><span id="puz-pct"></span></div>
-        <p>Drag either round handle to move the line. The side with more blue dots is shaded blue. Hollow dots are on the wrong side.</p>
+        <p>Drag either round handle to move the line. The two sides are colored whichever way gets more dots right. Hollow dots are on the wrong side.</p>
         <p class="puz-best">The best any single straight line can do on these dots is <b id="puz-best">–</b>.</p>
       </figcaption>
     </figure>
@@ -345,7 +248,7 @@ a.btn { text-decoration: none; }
     </ol>
     <p>The first two steps describe a straight line across the plane: the places where the sum equals zero. The line you dragged in the puzzle is exactly one neuron. Right now it has w₁ = <span class="live" id="nl-w1">–</span>, w₂ = <span class="live" id="nl-w2">–</span> and b = <span class="live" id="nl-b">–</span>. Its sum is positive on the blue side, zero on the line and negative on the orange side. The activation turns that hard line into a soft edge.</p>
     <p>One neuron can only draw one line, which is why it cannot solve the puzzle. So we use several. Our network has a <b>hidden layer</b> of four neurons, each drawing its own line. One <b>output neuron</b> combines their answers into a single number called <b>ŷ</b> (“y-hat”), between 0 and 1. ŷ is the network's estimate of the probability that the dot is blue.</p>
-    <p>With four hidden neurons the network has 17 parameters. Each hidden neuron has 2 weights and 1 bias, which makes 12. The output neuron has 4 weights and 1 bias, which makes 5 more. They start as random numbers, so at first the network's answers are random too. Data and training fix that.</p>
+    <p>With four hidden neurons the network has 17 parameters. Each hidden neuron has 2 weights and 1 bias, which makes 12. The output neuron has 4 weights and 1 bias, which makes 5 more. The weights start as random numbers, so at first the network's answers are random too. Data and training fix that.</p>
     <details class="math">
       <summary>The same network in five lines of math</summary>
       <div class="eqs" aria-label="The network's equations">
@@ -353,7 +256,7 @@ a.btn { text-decoration: none; }
         <div class="eq-row"><code id="eq-act">h<sub>j</sub> = tanh(z<sub>j</sub>)</code><span>and bends the result</span></div>
         <div class="eq-row"><code>z<sub>out</sub> = Σ<sub>j</sub> v<sub>j</sub>·h<sub>j</sub> + c</code><span>the output weighs the hidden neurons</span></div>
         <div class="eq-row"><code>ŷ = σ(z<sub>out</sub>)</code><span>and squashes the sum into a probability</span></div>
-        <div class="eq-row"><code>L = −[y·log ŷ + (1−y)·log(1−ŷ)]</code><span>the loss, small when ŷ agrees with the color (y = 1 for blue)</span></div>
+        <div class="eq-row"><code>L = −[y·log ŷ + (1−y)·log(1−ŷ)]</code><span>the loss (log is the natural logarithm), small when ŷ agrees with the color (y = 1 for blue)</span></div>
       </div>
     </details>
 
@@ -367,8 +270,8 @@ a.btn { text-decoration: none; }
     <ol class="seq">
       <li><div><b>Forward pass.</b> Feed every dot through the network and collect its answers, ŷ.</div></li>
       <li><div><b>Loss.</b> Score how wrong each answer is. The loss is near 0 for a confident right answer and grows quickly for a confident wrong one. Averaged over all dots, it becomes one number that says how badly the network is doing.</div></li>
-      <li><div><b>Backward pass.</b> For every parameter, work out which way to nudge it to lower the loss, and how strongly. That number is the parameter's <b>gradient</b>. Backpropagation computes all of them in one sweep, from the output back toward the inputs, using the chain rule from calculus.</div></li>
-      <li><div><b>Update.</b> Move every parameter a small step against its gradient. The size of the step is the <b>learning rate</b>, written η (“eta”).</div></li>
+      <li><div><b>Backward pass.</b> For every parameter, work out how the loss would change if you nudged that parameter up a little. That number is the parameter's <b>gradient</b>: its sign says which way is uphill, its size how steep. Backpropagation computes all of them in one sweep, from the output back toward the inputs, using the chain rule from calculus.</div></li>
+      <li><div><b>Update.</b> Move every parameter a small step against its gradient, which means downhill. Each step is the gradient times a small number called the <b>learning rate</b>, written η (“eta”).</div></li>
     </ol>
     <p>Then repeat. Each round is one <b>training step</b>. The film at the top of the page shows this loop on the puzzle's dots, following the one dot the untrained network gets most wrong. <a href="#film">Watch it again ↑</a></p>
     <p>In the playground, <kbd>Step</kbd> walks through the four stages one click at a time, and <kbd>Train</kbd> runs them continuously.</p>
@@ -430,6 +333,7 @@ a.btn { text-decoration: none; }
             <button type="button" data-v="12" data-tip="speed-fast" aria-pressed="false">Fast</button>
           </div>
         </div>
+        <div class="ctl"><div class="lens" data-lens-ctl data-label="Explain with"></div></div>
       </div>
 
       <div class="fig-grid">
@@ -469,7 +373,7 @@ a.btn { text-decoration: none; }
           <div class="stats">
             <div class="stat" data-tip="stat-step"><span class="lab">Step</span><b id="r-step">0</b><span class="cap">training rounds so far</span></div>
             <div class="stat" data-tip="stat-loss"><span class="lab">Loss</span><b id="r-loss">–</b><span class="cap">average wrongness, lower is better</span></div>
-            <div class="stat" data-tip="stat-acc"><span class="lab">Accuracy</span><b id="r-acc">–</b><span class="cap">dots on the right side</span></div>
+            <div class="stat" data-tip="stat-acc"><span class="lab">Accuracy</span><b id="r-acc">–</b><span class="cap">dots on the correct side</span></div>
           </div>
           <div class="chart-head"><span class="lab">Loss over training</span><span class="cap" id="loss-hover">hover the chart for values</span></div>
           <canvas id="loss" aria-label="Average loss over training steps"></canvas>
@@ -482,7 +386,7 @@ a.btn { text-decoration: none; }
             <span class="phase" data-tip="phase-2">Backward</span><span class="arrow">→</span>
             <span class="phase" data-tip="phase-3">Update</span>
           </div>
-          <p class="narr" id="narr" aria-live="polite"></p>
+          <div class="narr" id="narr" aria-live="polite" data-reps></div>
         </div>
 
         <div class="area-insp insp" id="insp">
@@ -499,14 +403,13 @@ a.btn { text-decoration: none; }
                   <select id="pick" data-tip="pick"></select>
                 </div>
               </div>
-              <p class="iplain" id="i-plain"></p>
               <div class="slider-row" id="i-sl">
                 <label for="i-slider" id="i-sl-lab"></label>
                 <input type="range" id="i-slider" data-tip="slider" min="-4" max="4" step="0.01">
               </div>
             </div>
             <div class="insp-detail">
-              <div id="i-body"></div>
+              <div id="i-body" data-reps></div>
               <p class="ifoot" id="i-foot"></p>
             </div>
           </div>
@@ -519,7 +422,7 @@ a.btn { text-decoration: none; }
     <h2>How to read the figure</h2>
     <dl class="read">
       <dt>Color</dt>
-      <dd>Blue means positive and orange means negative, everywhere on this page.</dd>
+      <dd>Blue means positive and orange negative; for the dots, blue is y = 1 and orange y = 0. In the backward view, a wire's color shows which way the probe dot wants that weight to move: blue for up, orange for down. That is the opposite sign of its gradient, because training steps against the gradient.</dd>
       <dt>Background</dt>
       <dd>The shading behind the dots is the network's guess for every point of the plane. Deeper blue means more sure the point is blue. The dark curve is the boundary, where the guess is exactly 50%.</dd>
       <dt>Hollow dots</dt>
@@ -538,14 +441,14 @@ a.btn { text-decoration: none; }
     <ul class="tries">
       <li>Keep XOR and set hidden neurons to 1. A single line cannot separate XOR, so the loss stalls. Add neurons one at a time and watch it break through.</li>
       <li>Pause, pick a weight, and drag its slider. The boundary, the loss and every gradient follow your hand.</li>
-      <li>Set the learning rate to 3. Steps that large overshoot, and the loss curve starts to jump.</li>
+      <li>Pick Circle, then set the learning rate to 3. Steps that large overshoot, and the loss curve starts to jump.</li>
       <li>Pick a dot deep inside a region the network already gets right, then switch to the backward view. Its wires go thin: a dot that is already classified well asks for almost nothing.</li>
-      <li>Switch to ReLU and press Reset a few times. Sometimes a neuron's square goes blank. It outputs 0 for every dot, so its gradient is 0 and training can never revive it.</li>
+      <li>Switch to ReLU, pick Circle and press Train. Reset and train again a few times. Sometimes a neuron dies: it outputs 0 for every dot, so its square goes blank and it is labeled “dead”. Its gradient is 0, so training can never revive it.</li>
       <li>Try Spiral with 8 neurons, η = 1 and Fast. It sits on a plateau for a long time, then suddenly finds a way through. Chapter 4 shows why extra layers make this easier.</li>
     </ul>
 
     <h2>What runs where</h2>
-    <p>Everything runs in this page's JavaScript on your CPU, with no GPU, no server and no machine-learning library. Numbers are 64-bit floats and the random seed is fixed, so every visitor starts from the same weights and sees the same values. One training step over all 160 dots takes well under a millisecond on a laptop.</p>
+    <p>Everything runs in this page's JavaScript on your CPU, with no GPU, no server and no machine-learning library. Numbers are 64-bit floats and the random seed is fixed, so every visitor starts from the same weights and sees the same values, apart from the last digit or so, which can differ between browsers. One training step over all 160 dots takes well under a millisecond on a laptop.</p>
     <p>Gradients come from the small autograd below, which is the exact code this page runs. Every arithmetic operation writes its inputs and its local derivative onto a tape. The backward pass walks the tape in reverse and applies the chain rule at each entry. The inspector computes the same gradients by hand from the forward values and checks them against autograd.</p>
     <details>
       <summary>Show the autograd source</summary>
@@ -570,68 +473,20 @@ a.btn { text-decoration: none; }
   <a class="jump-pill" id="jump-pill" href="#playground" hidden>Playground ↓</a>
 </div>
 
-<script id="autograd">
-// A tape-based autograd, small enough to read in one sitting.
-// Every operation creates a Value and records, for each input,
-// the local derivative ∂output/∂input. backward() walks the
-// tape in reverse and applies the chain rule.
-let TAPE = null;
-
-class Value {
-  constructor(data, inputs = null, local = null) {
-    this.data = data;     // the number itself
-    this.grad = 0;        // ∂loss/∂this, filled in by backward()
-    this.inputs = inputs; // the Values this one was computed from
-    this.local = local;   // ∂this/∂input, one entry per input
-    if (TAPE) TAPE.push(this);
-  }
-}
-
-const add  = (a, b) => new Value(a.data + b.data, [a, b], [1, 1]);
-const mul  = (a, b) => new Value(a.data * b.data, [a, b], [b.data, a.data]);
-const mulc = (a, c) => new Value(a.data * c, [a], [c]); // times a constant
-
-function tanh(a) {
-  const t = Math.tanh(a.data);
-  return new Value(t, [a], [1 - t * t]);
-}
-const relu = (a) => new Value(Math.max(0, a.data), [a], [a.data > 0 ? 1 : 0]);
-
-const sigmoid = (z) => (z >= 0 ? 1 / (1 + Math.exp(-z)) : Math.exp(z) / (1 + Math.exp(z)));
-
-// Sigmoid and binary cross-entropy fused into one operation.
-// Its derivative simplifies to ŷ − y.
-function bceWithLogits(z, y) {
-  const loss = Math.max(z.data, 0) - z.data * y + Math.log1p(Math.exp(-Math.abs(z.data)));
-  return new Value(loss, [z], [sigmoid(z.data) - y]);
-}
-
-function backward(loss) {
-  loss.grad = 1;
-  for (let k = TAPE.length - 1; k >= 0; k--) {
-    const v = TAPE[k];
-    if (!v.inputs) continue;
-    for (let i = 0; i < v.inputs.length; i++) {
-      v.inputs[i].grad += v.local[i] * v.grad; // the chain rule
-    }
-  }
-}
-</script>
+<script id="autograd" src="assets/autograd.js"></script>
+<script src="assets/common.js"></script>
 
 <script>
 (function () {
   "use strict";
   const $ = (id) => document.getElementById(id);
   const SUBS = "₀₁₂₃₄₅₆₇₈₉";
-  const sb = (n) => String(n).replace(/\d/g, (d) => SUBS[d]);
-  function fmt(v, d = 2) {
-    if (!Number.isFinite(v)) return "–";
-    const s = Math.abs(v).toFixed(d);
-    return (v < 0 && Number(s) !== 0 ? "−" : "") + s;
-  }
-  const par = (v, d = 2) => { const s = fmt(v, d); return s[0] === "−" ? "(" + s + ")" : s; };
+  const { sb, fmt, par } = ITN;
+  // σ for plain numbers (the autograd's sig() takes a Value)
+  const sig = (z) => (z >= 0 ? 1 / (1 + Math.exp(-z)) : Math.exp(z) / (1 + Math.exp(z)));
+  const cn = (name) => name.replace(/[₀-₉]/g, (d) => String(SUBS.indexOf(d))).replace("ŷ", "yhat");
   const signed = (v, d = 3) => { const s = fmt(v, d); return s[0] === "−" ? s : "+" + s; };
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduceMotion = ITN.reduceMotion;
   const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
   const UI = '"Bricolage Grotesque", system-ui, -apple-system, sans-serif';
 
@@ -678,7 +533,7 @@ function backward(loss) {
     dataset: "xor", H: 4, act: "tanh", lr: 0.3, speed: 1, view: "fwd", seed: 3,
     running: false, step: 0, hist: [], probe: 0,
     sel: { type: "node", layer: 2 },
-    anim: null, viewOverride: null, dirty: true,
+    anim: null, viewOverride: null, dirty: true, narrStage: -1,
   };
   let data = [], P = null, PARAMS = [];
 
@@ -714,7 +569,7 @@ function backward(loss) {
       const zj = P.w1[j][0].data * x1 + P.w1[j][1].data * x2 + P.b1[j].data;
       const hj = actF(zj); z.push(zj); h.push(hj); zo += P.w2[j].data * hj;
     }
-    return { z, h, zo, yh: sigmoid(zo) };
+    return { z, h, zo, yh: sig(zo) };
   }
 
   // the same network, built from Values so autograd can see every operation
@@ -819,7 +674,7 @@ function backward(loss) {
         const x1 = -D + (2 * D * c) / (GP - 1);
         let zo = w.c2;
         for (let j = 0; j < H; j++) { const z = w.a[j] * x1 + w.b[j] * x2 + w.c[j]; zo += w.v[j] * (w.tanh ? Math.tanh(z) : z > 0 ? z : 0); }
-        gridP[r * GP + c] = sigmoid(zo);
+        gridP[r * GP + c] = sig(zo);
       }
     }
   }
@@ -1064,7 +919,7 @@ function backward(loss) {
           const z = w.a[j] * x1 + w.b[j] * x2 + w.c[j], h = w.tanh ? Math.tanh(z) : z > 0 ? z : 0;
           gridH[j][k] = h; if (h > maxH[j]) maxH[j] = h; zo += w.v[j] * h;
         }
-        gridO[k] = sigmoid(zo) * 2 - 1;
+        gridO[k] = sig(zo) * 2 - 1;
       }
     }
     return maxH;
@@ -1088,7 +943,8 @@ function backward(loss) {
         paintNode(n, (k) => { const r = Math.floor(k / GN), c = k % GN; return s.i === 0 ? -D + (2 * D * c) / (GN - 1) : D - (2 * D * r) / (GN - 1); });
       } else if (s.layer === 1) {
         const g = gridH[s.j], m = Math.max(maxH[s.j], 1e-9);
-        paintNode(n, tanhAct ? (k) => g[k] : (k) => g[k] / m);
+        // a dead neuron is 0 at every dot: show it blank, even if it would light up somewhere off the dots
+        paintNode(n, M.dead[s.j] ? () => 0 : tanhAct ? (k) => g[k] : (k) => g[k] / m);
         n.el.classList.toggle("dead", !!M.dead[s.j]);
       } else {
         paintNode(n, (k) => gridO[k]);
@@ -1190,13 +1046,15 @@ function backward(loss) {
     const slider = $("i-slider");
     if (p && document.activeElement !== slider) slider.value = p.data;
     const actName = S.act === "tanh" ? "tanh" : "ReLU";
-    let val = "", body = "", foot = "", plain = "";
+    let val = "", body = "", foot = "", plain = "", note = "", js = "", py = "";
+    const c = ITN.code;
     // a gradient, read aloud: what a small nudge would do to the loss
     const nudge = (nm, gp, gb) => {
       const d = Math.abs(gp * 0.1);
       const first = d < 5e-5
         ? `Nudging ${nm} up by 0.1 would barely change the probe dot's loss.`
         : `If ${nm} grew by 0.1, the probe dot's loss would <b>${gp > 0 ? "rise" : "fall"}</b> by about ${fmt(d, 4)}.`;
+      if (Math.abs(gb) < 1e-6) return `${first} Over all ${N} dots the average loss would not change, so training leaves ${nm} where it is.`;
       return `${first} Over all ${N} dots the average loss would ${gb > 0 ? "rise" : "fall"}, so the next training step <b>${gb > 0 ? "decreases" : "increases"}</b> ${nm}.`;
     };
 
@@ -1227,12 +1085,23 @@ function backward(loss) {
       body += `<p class="check">${same ? "✓" : "≠"} Autograd, walking the tape backward, got <b>${fmt(ag, 4)}</b> for the same dot.</p>`;
       foot = `Training averages this over all ${N} dots: ∂L/∂${nm} = <b>${fmt(M.g[p.idx], 4)}</b>. The next step moves ${nm} by −η·∂L/∂${nm} = <b>${signed(-S.lr * M.g[p.idx], 4)}</b>.`;
       plain = `${s.layer === 1 ? `This weight scales x${sb(s.i + 1)} on its way into hidden neuron h${J}.` : `This weight scales h${J}'s answer on its way into the output.`} ${nudge(nm, M.pg[p.idx], M.g[p.idx])}`;
+      note = `Its gradient for the probe dot is a product of slopes along the path from the loss back to this wire.`;
+      const jn = j + 1, nmc = cn(nm);
+      if (s.layer === 1) {
+        const inn = s.i + 1;
+        js = `// how the probe dot's loss responds to ${nmc}, by the chain rule\nconst g = (yhat - y) * v${jn} * ${S.act === "tanh" ? `(1 - h${jn} ** 2)` : `(z${jn} > 0 ? 1 : 0)`} * x${inn};   // ${c(prod, 4)}\n// backward() on the probe dot agrees: ${nmc}.grad = ${c(ag, 4)}`;
+        py = `# how the probe dot's loss responds to ${nmc}, by the chain rule\ng = (yhat - y) * v${jn} * ${S.act === "tanh" ? `(1 - h${jn} ** 2)` : `(1 if z${jn} > 0 else 0)`} * x${inn}   # ${c(prod, 4)}\n# backward() on the probe dot agrees: ${nmc}.grad = ${c(ag, 4)}`;
+      } else {
+        js = `// how the probe dot's loss responds to ${nmc}, by the chain rule\nconst g = (yhat - y) * h${jn};   // ${c(prod, 4)}\n// backward() on the probe dot agrees: ${nmc}.grad = ${c(ag, 4)}`;
+        py = `# how the probe dot's loss responds to ${nmc}, by the chain rule\ng = (yhat - y) * h${jn}   # ${c(prod, 4)}\n# backward() on the probe dot agrees: ${nmc}.grad = ${c(ag, 4)}`;
+      }
     } else if (s.layer === 0) {
       val = `x${sb(s.i + 1)} = ${fmt(x[s.i], 3)} for the probe`;
       plain = `An input is not learned. It is simply the probe dot's ${s.i === 0 ? "horizontal" : "vertical"} position, ${fmt(x[s.i])}, fed into every hidden neuron.`;
-      body = s.i === 0
-        ? `<p class="ilead">x₁ is a dot's horizontal position, so this square is a plain ramp: orange at the left edge, blue at the right. Inputs have no parameters. Nothing here is learned.</p>`
-        : `<p class="ilead">x₂ is a dot's vertical position, so this square is a plain ramp: orange at the bottom, blue at the top. Inputs have no parameters. Nothing here is learned.</p>`;
+      note = s.i === 0 ? "Its square is a plain ramp: orange at the left edge, blue at the right." : "Its square is a plain ramp: orange at the bottom, blue at the top.";
+      body = `<div class="eqn"><div>x${sb(s.i + 1)} = ${fmt(x[s.i], 3)}</div></div>`;
+      js = `const x${s.i + 1} = ${c(x[s.i])};   // the probe dot's ${s.i === 0 ? "horizontal" : "vertical"} position`;
+      py = `x${s.i + 1} = ${c(x[s.i])}   # the probe dot's ${s.i === 0 ? "horizontal" : "vertical"} position`;
     } else if (s.layer === 1) {
       const j = s.j, J = sb(j + 1);
       val = `h${J} = ${fmt(f.h[j], 3)} for the probe`;
@@ -1240,15 +1109,16 @@ function backward(loss) {
         `<div class="cont">= ${par(P.w1[j][0].data)}·${par(x[0])} + ${par(P.w1[j][1].data)}·${par(x[1])} + ${par(P.b1[j].data)}</div>` +
         `<div class="cont">= ${fmt(f.z[j], 3)}</div>` +
         `<div>h${J} = ${S.act === "tanh" ? `tanh(z${J})` : `max(0, z${J})`} = <b>${fmt(f.h[j], 3)}</b></div></div>`;
-      let note = S.act === "tanh"
+      note = S.act === "tanh"
         ? `The square shows h${J} at every point of the plane. The neuron splits the plane along one straight line, where z${J} = 0. The output can only combine lines like this one, which is why XOR needs at least two of them.`
         : `The square shows h${J} at every point of the plane. It is zero on one side of the line z${J} = 0 and grows on the other. The output combines these bent planes.`;
       if (M.dead[j]) note = `This neuron is dead: z${J} ≤ 0 for all ${N} dots, so h${J} is always 0 and every gradient through it is 0. Training cannot bring it back. Press Reset for new starting weights.`;
-      body += `<p class="ilead">${note}</p>`;
+      js = `const z${j + 1} = w${j + 1}1 * x1 + w${j + 1}2 * x2 + b${j + 1};   // ${c(f.z[j])}\nconst h${j + 1} = ${S.act === "tanh" ? `Math.tanh(z${j + 1})` : `Math.max(0, z${j + 1})`};   // ${c(f.h[j])}`;
+      py = `z${j + 1} = w${j + 1}1 * x1 + w${j + 1}2 * x2 + b${j + 1}   # ${c(f.z[j])}\nh${j + 1} = ${S.act === "tanh" ? `math.tanh(z${j + 1})` : `max(0.0, z${j + 1})`}   # ${c(f.h[j])}`;
       foot = `∂L/∂b${J} for the probe = (ŷ − y)·v${J}·slope = <b>${fmt(M.pg[p.idx], 4)}</b>. Averaged over all dots: <b>${fmt(M.g[p.idx], 4)}</b>.`;
       plain = M.dead[j]
         ? `h${J} has stopped working: it outputs 0 for every dot, so it contributes nothing.`
-        : `For the probe dot, h${J} answers <b>${fmt(f.h[j])}</b>: the dot is on the ${f.z[j] >= 0 ? "positive (blue)" : "negative (orange)"} side of this neuron's line${Math.abs(f.h[j]) > 0.9 ? ", far from it" : Math.abs(f.z[j]) < 0.3 ? ", close to it" : ""}. Its bias b${J} slides the line without turning it. ${nudge(`b${J}`, M.pg[p.idx], M.g[p.idx])}`;
+        : `For the probe dot, h${J} answers <b>${fmt(f.h[j])}</b>: the dot is on the ${f.z[j] >= 0 ? "positive (blue)" : "negative (orange)"} side of this neuron's line${(() => { const dist = Math.abs(f.z[j]) / Math.hypot(P.w1[j][0].data, P.w1[j][1].data); return dist > 0.5 ? ", far from it" : dist < 0.1 ? ", close to it" : ""; })()}. Its bias b${J} slides the line without turning it. ${nudge(`b${J}`, M.pg[p.idx], M.g[p.idx])}`;
     } else {
       val = `ŷ = ${fmt(f.yh, 3)} for the probe`;
       const H = S.H;
@@ -1258,24 +1128,36 @@ function backward(loss) {
         `<div class="cont">= ${terms} + ${par(P.b2.data)}</div>` +
         `<div class="cont">= ${fmt(f.zo, 3)}</div>` +
         `<div>ŷ = σ(z<sub>out</sub>) = <b>${fmt(f.yh, 3)}</b></div>` +
-        `<div>L = ${y ? "−log ŷ" : "−log(1 − ŷ)"} = <b>${fmt(M.pLoss, 3)}</b></div></div>` +
-        `<p class="ilead">ŷ is the network's probability that the dot is blue. The probe is ${y ? "blue, so y = 1 and the loss is −log ŷ" : "orange, so y = 0 and the loss is −log(1 − ŷ)"}. The loss grows without limit as the network becomes confidently wrong.</p>`;
+        `<div>L = ${y ? "−log ŷ" : "−log(1 − ŷ)"} = <b>${fmt(M.pLoss, 3)}</b></div></div>`;
+      note = `ŷ is the network's probability that the dot is blue. The probe is ${y ? "blue, so y = 1 and the loss is −log ŷ" : "orange, so y = 0 and the loss is −log(1 − ŷ)"}. The loss grows without limit as the network becomes confidently wrong.`;
+      const termsC = P.w2.map((_, j) => `v${j + 1} * h${j + 1}`).join(" + ");
+      js = `const zout = ${termsC} + c;   // ${c(f.zo)}\nconst yhat = 1 / (1 + Math.exp(-zout));   // ${c(f.yh)}\nconst L = ${y ? "-Math.log(yhat)" : "-Math.log(1 - yhat)"};   // ${c(M.pLoss)}: the dot is ${y ? "blue (y = 1)" : "orange (y = 0)"}`;
+      py = `zout = ${termsC} + c   # ${c(f.zo)}\nyhat = 1 / (1 + math.exp(-zout))   # ${c(f.yh)}\nL = ${y ? "-math.log(yhat)" : "-math.log(1 - yhat)"}   # ${c(M.pLoss)}: the dot is ${y ? "blue (y = 1)" : "orange (y = 0)"}`;
       foot = `∂L/∂c for the probe = ŷ − y = <b>${fmt(M.pg[p.idx], 4)}</b>. Averaged over all dots: <b>${fmt(M.g[p.idx], 4)}</b>. Tap any wire to see how its gradient is built.`;
-      const pct = Math.round(f.yh * 100), ok = (f.yh > 0.5 ? 1 : 0) === y;
-      const verdict = !ok ? "a wrong answer, so the loss is large" : M.pLoss < 0.3 ? "a good answer, so the loss is small" : "right, but not confident, so the loss is still noticeable";
-      plain = `The network thinks the probe dot is <b>${pct}% likely to be blue</b>. It is actually ${y ? "blue" : "orange"}: ${verdict} (${fmt(M.pLoss)}).`;
+      const pct = Math.round(f.yh * 100), vd = verdict(f.yh, y);
+      const verdictText = { right: "a confident right answer, so the loss is small", rightish: "a right answer, though not a confident one", justRight: "right, but only just, so the loss is still noticeable", justWrong: "wrong, but only just", wrong: "a wrong answer, so the loss is large", undecided: "a 50-50 guess, neither right nor wrong" }[vd];
+      plain = `The network thinks the probe dot is <b>${pct}% likely to be blue</b>. It is actually ${y ? "blue" : "orange"}: ${verdictText} (${fmt(M.pLoss)}).`;
     }
-    $("i-val").textContent = val; $("i-body").innerHTML = body; $("i-foot").innerHTML = foot; $("i-plain").innerHTML = plain;
+    $("i-val").textContent = val; $("i-foot").innerHTML = foot;
+    $("i-body").innerHTML = ITN.view.reps({ words: `${plain}${note ? " " + note : ""}`, mathHtml: body, js, py });
   }
 
+  // one scale of confidence for every sentence about a guess
+  function verdict(yh, y) {
+    const margin = Math.abs(yh - 0.5);
+    if (margin < 0.005) return "undecided";
+    const right = (yh > 0.5 ? 1 : 0) === y;
+    if (margin < 0.15) return right ? "justRight" : "justWrong";
+    return right ? (margin >= 0.35 ? "right" : "rightish") : "wrong";
+  }
   function updateReadouts() {
     $("r-step").textContent = S.step;
     $("r-loss").textContent = fmt(M.loss, 3);
     $("r-acc").textContent = Math.round(M.acc * 100) + "%";
     $("r-params").textContent = `${4 * S.H + 1} parameters`;
-    const pt = data[S.probe], pct = Math.round(M.f.yh * 100), ok = M.right[S.probe];
+    const pt = data[S.probe], pct = Math.round(M.f.yh * 100);
     $("probe-card").innerHTML = `<span class="ring"></span><b>Probe dot</b> at x₁ = ${fmt(pt.x1)}, x₂ = ${fmt(pt.x2)}. It is actually <b>${pt.y ? "blue" : "orange"}</b>. ` +
-      `The network says <b>${pct}% blue</b>, so right now it is <b>${ok ? "right" : "wrong"}</b>${ok && Math.abs(M.f.yh - 0.5) < 0.15 ? ", but not confident" : ""}. Tap another dot to change the probe.`;
+      `The network says <b>${pct}% blue</b>, so right now it is ${{ right: "<b>right</b>", rightish: "<b>right</b>", justRight: "<b>right</b>, but only just", justWrong: "<b>wrong</b>, but only just", wrong: "<b>wrong</b>", undecided: "<b>undecided</b>" }[verdict(M.f.yh, pt.y)]}. Tap another dot to change the probe.`;
   }
 
 
@@ -1285,7 +1167,9 @@ function backward(loss) {
   }
 
   // ---------- narration and the slow-motion step ----------
-  const narrate = (html) => { $("narr").innerHTML = html; };
+  // plain narration is words only; a training stage can be told in words, math or code
+  const narrate = (html) => { S.narrStage = -1; $("narr").innerHTML = `<p>${html}</p>`; };
+  function narrateStage(i, A) { S.narrStage = i; $("narr").innerHTML = ITN.view.reps(stageReps(i, A)); }
   const REST = "Press <b>Step</b> to walk through one round of training, one stage per click: forward pass, loss, backward pass, update. Press <b>Train</b> to let it run.";
   function setChip(i) { document.querySelectorAll(".phase").forEach((c, k) => c.classList.toggle("on", k === i)); }
 
@@ -1301,10 +1185,50 @@ function backward(loss) {
     switch (i) {
       case 0: return `<b>Forward pass.</b> The probe's coordinates, x₁ = ${fmt(pt.x1)} and x₂ = ${fmt(pt.x2)}, travel along every first-layer wire. Each hidden neuron adds up what arrives, adds its bias and applies ${act}. The output neuron then adds up the hidden values and squashes the sum into a probability: ŷ = ${fmt(f.yh)}.`;
       case 1: return `<b>Loss.</b> The probe is ${pt.y ? "blue" : "orange"}, so y = ${pt.y}. The network said ŷ = ${fmt(f.yh)}, which costs L = ${fmt(M.pLoss)}. Training uses the average over all ${N} dots: ${fmt(A.before, 3)}.`;
-      case 2: return `<b>Backward pass.</b> The output's error, ŷ − y = ${fmt(f.yh - pt.y)}, flows back along each wire. At every hidden neuron it is multiplied by the slope of ${act} before it reaches the first-layer weights. The wires now show which way each weight should move. Tap a wire to see its chain rule.`;
+      case 2: return `<b>Backward pass.</b> The output's error, ŷ − y = ${fmt(f.yh - pt.y)}, flows back along each wire. Along each second-layer wire it is multiplied by that wire's weight, and at each hidden neuron by the slope of ${act}, before it reaches the first-layer weights. The wires now show which way the probe dot would like each weight to move. Tap a wire to see its chain rule.`;
       case 3: return `<b>Update.</b> Every weight takes a small step against its gradient averaged over all ${N} dots: w ← w − η·∂L/∂w, with η = ${S.lr}. Watch the boundary shift.`;
     }
     return "";
+  }
+  function stageReps(i, A) {
+    const pt = data[S.probe], f = M.f, c = ITN.code, H = S.H, tanhAct = S.act === "tanh", words = stageText(i, A);
+    const W = (j) => [P.w1[j][0].data, P.w1[j][1].data], Jn = (j) => sb(j + 1);
+    const actM = (inner) => (tanhAct ? `tanh(${inner})` : `max(0, ${inner})`);
+    if (i === 0) {
+      const math = Array.from({ length: H }, (_, j) => `<i>h</i>${Jn(j)} = ${actM(`${par(W(j)[0])}·${par(pt.x1)} + ${par(W(j)[1])}·${par(pt.x2)} + ${par(P.b1[j].data)}`)} = ${fmt(f.h[j], 3)}`);
+      math.push(`<i>ŷ</i> = σ(${P.w2.map((v, j) => `${par(v.data)}·${par(f.h[j])}`).join(" + ")} + ${par(P.b2.data)}) = σ(${fmt(f.zo, 3)}) = ${fmt(f.yh, 3)}`);
+      const hs = f.h.map((v) => c(v, 2)).join(", ");
+      return {
+        words, math,
+        js: `// the forward pass for the probe dot\nconst x1 = ${c(pt.x1)}, x2 = ${c(pt.x2)};\nconst h = W.map((w, j) => ${tanhAct ? "Math.tanh" : "Math.max(0, "}(w[0] * x1 + w[1] * x2 + b[j])${tanhAct ? "" : ")"});   // [${hs}]\nconst zout = h.reduce((sum, hj, j) => sum + v[j] * hj, c);   // ${c(f.zo)}\nconst yhat = 1 / (1 + Math.exp(-zout));                 // ${c(f.yh)}`,
+        py: `# the forward pass for the probe dot\nx1, x2 = ${c(pt.x1)}, ${c(pt.x2)}\nh = [${tanhAct ? "math.tanh" : "max(0.0, "}(w1 * x1 + w2 * x2 + bj)${tanhAct ? "" : ")"} for (w1, w2), bj in zip(W, b)]   # [${hs}]\nzout = sum(vj * hj for vj, hj in zip(v, h)) + c   # ${c(f.zo)}\nyhat = 1 / (1 + math.exp(-zout))                  # ${c(f.yh)}`,
+      };
+    }
+    if (i === 1) {
+      const lossM = pt.y ? `−log <i>ŷ</i> = −log ${fmt(f.yh, 3)}` : `−log(1 − <i>ŷ</i>) = −log(1 − ${fmt(f.yh, 3)})`;
+      return {
+        words,
+        math: [`<i>L</i> = ${lossM} = ${fmt(M.pLoss, 3)}&emsp;(the dot is ${pt.y ? "blue, y = 1" : "orange, y = 0"})`, `averaged over all ${N} dots: (1/${N}) Σ <i>L<sub>i</sub></i> = ${fmt(A.before, 3)}`],
+        js: `const y = ${pt.y};   // the probe dot is ${pt.y ? "blue" : "orange"}\nconst loss = -(y * Math.log(yhat) + (1 - y) * Math.log(1 - yhat));   // ${c(M.pLoss)}\n// training uses the average over all ${N} dots: ${c(A.before)}`,
+        py: `y = ${pt.y}   # the probe dot is ${pt.y ? "blue" : "orange"}\nloss = -(y * math.log(yhat) + (1 - y) * math.log(1 - yhat))   # ${c(M.pLoss)}\n# training uses the average over all ${N} dots: ${c(A.before)}`,
+      };
+    }
+    if (i === 2) {
+      const slopeM = tanhAct ? "(1 − <i>h<sub>j</sub></i>²)" : "(1 if <i>z<sub>j</sub></i> > 0, else 0)";
+      return {
+        words,
+        math: [`∂<i>L</i>/∂<i>z</i><sub>out</sub> = <i>ŷ</i> − <i>y</i> = ${fmt(f.yh - pt.y, 3)}`, `∂<i>L</i>/∂<i>v<sub>j</sub></i> = (<i>ŷ</i> − <i>y</i>) · <i>h<sub>j</sub></i>`, `∂<i>L</i>/∂<i>w<sub>ji</sub></i> = (<i>ŷ</i> − <i>y</i>) · <i>v<sub>j</sub></i> · ${slopeM} · <i>x<sub>i</sub></i>`, `training averages these over all ${N} dots; for example ∂<i>L</i>/∂<i>w</i>₁₁ = ${fmt(M.g[P.w1[0][0].idx], 4)}`],
+        js: `TAPE = [];\nconst L = meanLoss(dots);   // the forward pass for all ${N} dots, recorded on the tape\nbackward(L);                // fills .grad for all ${4 * H + 1} parameters\n// for example w11.grad = ${c(M.g[P.w1[0][0].idx], 4)}`,
+        py: `TAPE = []\nL = mean_loss(dots)   # the forward pass for all ${N} dots, recorded on the tape\nbackward(L)           # fills .grad for all ${4 * H + 1} parameters\n# for example w11.grad = ${c(M.g[P.w1[0][0].idx], 4)}`,
+      };
+    }
+    const g11 = M.g[P.w1[0][0].idx], w11 = A.old[P.w1[0][0].idx];
+    return {
+      words,
+      math: [`<i>w</i> ← <i>w</i> − η · ∂<i>L</i>/∂<i>w</i>&emsp;for all ${4 * H + 1} parameters, with η = ${S.lr}`, `for example <i>w</i>₁₁: ${fmt(w11, 3)} − ${S.lr} × ${par(g11, 4)} = ${fmt(w11 - S.lr * g11, 3)}`],
+      js: `for (const p of params) p.data -= ${S.lr} * p.grad;   // for example w11: ${c(w11)} -> ${c(w11 - S.lr * g11)}`,
+      py: `for p in params:\n    p.data -= ${S.lr} * p.grad   # for example w11: ${c(w11)} -> ${c(w11 - S.lr * g11)}`,
+    };
   }
   function enterStage(i) {
     const A = S.anim;
@@ -1312,7 +1236,7 @@ function backward(loss) {
     setChip(STAGES[i].chip);
     S.viewOverride = i >= 2 ? "bwd" : null;
     NET.out.el.classList.toggle("ping", i === 1 && !reduceMotion);
-    narrate(stageText(i, A));
+    narrateStage(i, A);
     $("b-step").textContent = STAGES[i].next;
     S.dirty = true;
     if (i === 3 && reduceMotion) finishAnim();
@@ -1580,7 +1504,7 @@ function backward(loss) {
     function fw(s, x1, x2) {
       const h = []; let zo = c2(s);
       for (let j = 0; j < H; j++) { const t = Math.tanh(wa(s, j) * x1 + wb(s, j) * x2 + bj(s, j)); h.push(t); zo += vj(s, j) * t; }
-      return { h, yh: sigmoid(zo) };
+      return { h, yh: sig(zo) };
     }
     function graphLoss(p) {
       let zo = b2;
@@ -1647,13 +1571,13 @@ function backward(loss) {
     function caption(k, u) {
       const f0 = fw(traj[0], SP.x1, SP.x2);
       switch (k) {
-        case "start": return `<b>Start.</b> The 17 parameters are random. Each hidden neuron draws one line (dashed), and the output neuron mixes them into a boundary (solid). Only ${pct(accs[0])} of the dots are on the right side.`;
+        case "start": return `<b>Start.</b> The weights are random. Each hidden neuron draws one line (dashed), and the output neuron mixes them into a boundary (solid). Only ${pct(accs[0])} of the dots are on the correct side.`;
         case "fwd": return `<b>Forward.</b> Follow one dot through the network. Each hidden neuron reports which side of its line the dot is on, as a number between −1 and 1. The output neuron combines the four reports into a guess: ${pct(f0.yh)} blue.`;
         case "cmp": return SP.y
           ? `<b>Compare.</b> The dot is actually blue, but the network gave it only a ${pct(f0.yh)} chance of blue. The loss turns the size of the mistake into one number: ${fmt(worst)}. A confident wrong guess costs a lot.`
           : `<b>Compare.</b> The dot is actually orange, but the network gave it a ${pct(f0.yh)} chance of blue. The loss turns the size of the mistake into one number: ${fmt(worst)}. A confident wrong guess costs a lot.`;
-        case "bwd": return `<b>Backward.</b> The mistake flows back along the same wires. Each weight finds out which way it should move to make this guess less wrong: blue wires want to grow, orange wires want to shrink.`;
-        case "upd": return `<b>Update.</b> Every weight moves a small step the way it wants. Real training does this for all ${N} dots at once and averages their wishes, so one step moves the lines only a little.`;
+        case "bwd": return `<b>Backward.</b> The mistake flows back along the same wires. Each weight finds out which way it should move to make this guess less wrong: blue wires should increase, orange wires decrease.`;
+        case "upd": return `<b>Update.</b> Every weight takes a small step. Training averages the wishes of all ${N} dots, so a weight can even move against this one dot's wish. One step moves the lines only a little.`;
         case "rep": return `<b>Repeat.</b> Forward, compare, backward, update, over and over. Watch the dashed lines move into place and the hollow dots fill in.`;
         case "res":
           if (!storyOK) return `<b>Result.</b> The lines have moved to where the colors meet. The output neuron combines which side of each line a dot is on, and the result is a boundary no single straight line could draw: ${pct(accs[STEPS])} of the dots are right.`;
@@ -1837,15 +1761,7 @@ function backward(loss) {
     return { render: () => { capKey = ""; render(); } };
   }
 
-  // the floating shortcut, shown while reading the introduction
-  const pill = $("jump-pill");
-  let pillQueued = false;
-  function updatePill() {
-    pillQueued = false;
-    const pg = $("playground").getBoundingClientRect();
-    pill.hidden = !(window.scrollY > 500 && pg.top > window.innerHeight * 0.5);
-  }
-  window.addEventListener("scroll", () => { if (!pillQueued) { pillQueued = true; requestAnimationFrame(updatePill); } }, { passive: true });
+  ITN.pill();
 
   // ---------- descriptions on hover, keyboard focus, or after a tap ----------
   const NEXT_STAGE = ["Compare the guess with the dot's true color.", "Send the error backward to every weight.", "Move every weight a small step.", "Finish the step now."];
@@ -1854,21 +1770,21 @@ function backward(loss) {
   const TIPS = {
     train: () => S.running
       ? "<b>Pause</b> training. Everything stays where it is, so you can inspect any number."
-      : `<b>Train</b> continuously. Each step runs the forward pass, loss, backward pass and update on all ${N} dots, ${S.speed === 1 ? "about 60 steps a second" : "about 700 steps a second"}.`,
+      : `<b>Train</b> continuously. Each step runs the forward pass, loss, backward pass and update on all ${N} dots, ${S.speed === 1 ? "one step per screen refresh, about 60 a second" : "12 steps per screen refresh, about 700 a second"}.`,
     step: () => S.anim
       ? `<b>${$("b-step").textContent}.</b> ${NEXT_STAGE[S.anim.stage]}`
       : "<b>Step</b> through one round of training, one stage per click: forward pass, loss, backward pass, update.",
     reset: () => `<b>Reset</b> to new random starting weights (seed ${S.seed} → ${S.seed + 1}). The dots stay the same. A fixed seed means every visitor sees the same numbers.`,
-    "data-clusters": () => "<b>Clusters</b>: two blobs. One straight line separates them, so even 1 hidden neuron is enough. The easy warm-up.",
-    "data-xor": () => "<b>XOR</b>: blue in two opposite corners, orange in the other two. No single line works, so it needs at least 2 hidden neurons. This is the puzzle from the top of the page.",
+    "data-clusters": () => "<b>Clusters</b>: two blobs. One straight line separates all but one dot, so even 1 hidden neuron is enough. The easy warm-up.",
+    "data-xor": () => "<b>XOR</b>: blue in two opposite corners, orange in the other two. No single line works, so it needs at least 2 hidden neurons, and 3 to get every dot right. This is the puzzle from the top of the page.",
     "data-circle": () => "<b>Circle</b>: blue inside, orange in a ring around it. It takes at least 3 lines, so 3 hidden neurons, to fence in the middle.",
     "data-spiral": () => "<b>Spiral</b>: two arms wound around each other. Hard for one hidden layer. Try 8 neurons, η = 1 and Fast, and be patient.",
     neurons: () => `<b>${S.H} hidden neuron${S.H > 1 ? "s" : ""}, ${4 * S.H + 1} parameters.</b> Each neuron draws one line and adds 4 parameters: 2 weights in, a bias, and 1 weight out. Changing this restarts training.`,
     "act-tanh": () => "<b>tanh</b> squashes each neuron's sum into the range −1 to 1 along a smooth S-curve, so every line becomes a soft edge.",
     "act-relu": () => "<b>ReLU</b> keeps a positive sum and turns a negative one into 0. It is popular in large networks, but a neuron can die: if it outputs 0 for every dot, it stops learning.",
     lr: () => `<b>Learning rate η = ${S.lr}.</b> Each update moves a weight by η × its gradient. Too small and training crawls. Too large and it overshoots, so the loss jumps around.`,
-    "speed-slow": () => "<b>Slow</b>: one training step per frame, about 60 a second. Good for watching the boundary move.",
-    "speed-fast": () => "<b>Fast</b>: 12 training steps per frame, about 700 a second. Use it for Spiral.",
+    "speed-slow": () => "<b>Slow</b>: one training step per screen refresh, about 60 a second on most screens. Good for watching the boundary move.",
+    "speed-fast": () => "<b>Fast</b>: 12 training steps per screen refresh, about 700 a second on most screens. Use it for Spiral.",
     lines: () => "Draw each hidden neuron's line on the data: the places where its sum is zero. The output neuron combines these lines into the boundary.",
     "view-fwd": () => "<b>Forward view</b>: wires show the weights. Blue is positive, orange negative, and thicker is larger.",
     "view-bwd": () => "<b>Backward view</b>: wires show what the probe dot asks of each weight. Blue means increase it, orange means decrease it, and thickness is how hard it pushes.",
@@ -1876,7 +1792,7 @@ function backward(loss) {
     slider: () => "Drag to set this number by hand. Training pauses, so you see exactly what your change does to the boundary, the loss and every gradient.",
     "stat-step": () => `<b>${S.step} steps</b> so far. Each step uses all ${N} dots once.`,
     "stat-loss": () => `<b>Loss ${fmt(M.loss, 3)}</b>: the average penalty over all ${N} dots. A perfect, fully confident network would score 0. One that always says 50% scores about 0.69.`,
-    "stat-acc": () => `<b>${Math.round(M.acc * N)} of ${N} dots</b> are on the right side of the boundary. Accuracy only counts right or wrong; the loss also counts how confident each answer is.`,
+    "stat-acc": () => `<b>${Math.round(M.acc * N)} of ${N} dots</b> are on the correct side of the boundary. Accuracy only counts right or wrong; the loss also counts how confident each answer is.`,
     wire: (el) => {
       const s = parseKey(el.dataset.sel), p = paramOf(s), J = sb(s.j + 1);
       const nm = s.layer === 1 ? `w${J}${sb(s.i + 1)}` : `v${J}`, wire = s.layer === 1 ? `x${sb(s.i + 1)} → h${J}` : `h${J} → output`;
@@ -1900,96 +1816,9 @@ function backward(loss) {
   for (let i = 0; i < 4; i++) TIPS[`phase-${i}`] = () => PHASE_TIPS[i];
   for (let i = 0; i < 7; i++) TIPS[`film-${i}`] = () => `${FILM_TIPS[i]} <span class="hint">Click to jump here</span>`;
 
-  const tt = document.createElement("div");
-  tt.className = "tt"; tt.id = "tt"; tt.setAttribute("role", "tooltip"); tt.setAttribute("aria-hidden", "true");
-  document.body.appendChild(tt);
-  // tipMode says what opened the tip: "hover", "focus" or "touch"
-  let tipEl = null, tipPoint = null, tipTimer = 0, tipHide = 0, tipMode = "";
-  const tipHtml = (el) => { const f = TIPS[el.dataset.tip]; return f ? f(el) : ""; };
-  function placeTip() {
-    const w = tt.offsetWidth, h = tt.offsetHeight;
-    let x, y;
-    if (tipPoint) { x = tipPoint[0] - w / 2; y = tipPoint[1] - h - 16; if (y < 8) y = tipPoint[1] + 20; }
-    else { const r = tipEl.getBoundingClientRect(); x = r.left + r.width / 2 - w / 2; y = r.top - h - 8; if (y < 8) y = r.bottom + 8; }
-    tt.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, x)) + "px";
-    tt.style.top = Math.max(8, y) + "px";
-  }
-  function showTip(el, point, mode) {
-    clearTimeout(tipHide);
-    if (tipEl && tipEl !== el) tipEl.removeAttribute("aria-describedby");
-    tipEl = el; tipMode = mode; tipPoint = point && el.hasAttribute("data-follow") ? point : null;
-    const html = tipHtml(el); if (!html) return;
-    tt.innerHTML = html; tt.classList.add("on"); tt.setAttribute("aria-hidden", "false");
-    el.setAttribute("aria-describedby", "tt");
-    placeTip();
-  }
-  function hideTip() {
-    clearTimeout(tipHide);
-    if (tipEl) tipEl.removeAttribute("aria-describedby");
-    tipEl = null; tipPoint = null; tipMode = ""; tt.classList.remove("on"); tt.setAttribute("aria-hidden", "true");
-  }
-
-  // Hover is tracked by pointer position, not by enter/leave events. The playground redraws
-  // and rebuilds parts of itself under a still mouse; those events then fire constantly and
-  // would keep restarting the delay. A control is identified by what it is, not which node it is.
-  let mouse = null, hoverKey = "";
-  const keyOf = (el) => (el ? `${el.dataset.tip}|${el.dataset.sel || ""}|${el.id}` : "");
-  function tipTargetAt(pt) {
-    const hit = pt && document.elementFromPoint(pt[0], pt[1]);
-    return hit && hit.closest ? hit.closest("[data-tip]") : null;
-  }
-  function hoverCheck() {
-    if (!mouse) return;
-    const el = tipTargetAt(mouse), key = keyOf(el);
-    if (key !== hoverKey) {
-      hoverKey = key; clearTimeout(tipTimer);
-      if (tipMode === "hover") hideTip();
-      if (el) tipTimer = setTimeout(() => {
-        const now = tipTargetAt(mouse);
-        if (now && keyOf(now) === hoverKey && tipMode !== "focus") showTip(now, mouse, "hover");
-      }, el.hasAttribute("data-fast") ? 120 : 450);
-    } else if (el && tipMode === "hover" && tipEl !== el) {
-      tipEl = el; // the same control, rebuilt under the mouse: keep the tip on the new node
-    }
-  }
-  // called every frame the page redraws, so open tips show live values
-  function refreshTip() {
-    hoverCheck();
-    if (tipEl && tipEl.isConnected && tt.classList.contains("on")) { tt.innerHTML = tipHtml(tipEl); placeTip(); }
-  }
-
-  document.addEventListener("pointermove", (e) => {
-    if (e.pointerType !== "mouse") return;
-    mouse = [e.clientX, e.clientY];
-    hoverCheck();
-    if (tipEl && tipPoint && tipMode === "hover") { tipPoint = mouse; placeTip(); }
-  });
-  document.documentElement.addEventListener("pointerleave", (e) => {
-    if (e.pointerType !== "mouse") return;
-    mouse = null; hoverKey = ""; clearTimeout(tipTimer);
-    if (tipMode === "hover") hideTip();
-  });
-  // on touch there is no hover: describe what was just tapped, briefly
-  document.addEventListener("click", (e) => {
-    const el = e.target.closest("[data-tip]");
-    if (!el) return;
-    if (e.pointerType === "touch" || (!e.pointerType && matchMedia("(hover: none)").matches)) {
-      requestAnimationFrame(() => { showTip(el, null, "touch"); tipHide = setTimeout(hideTip, 2600); });
-    } else if (el === tipEl) requestAnimationFrame(refreshTip);
-  });
-  document.addEventListener("focusin", (e) => {
-    const el = e.target.closest("[data-tip]");
-    if (el && e.target.matches(":focus-visible")) { clearTimeout(tipTimer); showTip(el, null, "focus"); }
-  });
-  document.addEventListener("focusout", () => { if (tipMode === "focus") hideTip(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { hideTip(); hoverKey = ""; } });
-  // scrolling moves the page under a still mouse: re-check what is under it, then re-anchor
-  window.addEventListener("scroll", () => {
-    if (tipMode === "touch") hideTip();
-    if (tipPoint) hideTip();
-    hoverCheck();
-    if (tipEl && tipEl.isConnected) placeTip();
-  }, { passive: true });
+  ITN.tips.add(TIPS);
+  const refreshTip = ITN.tips.refresh;
+  ITN.view.onChange(() => { if (S.anim && S.narrStage >= 0) narrateStage(S.narrStage, S.anim); S.dirty = true; });
 
   // ---------- main loop ----------
   function frame() {
@@ -2000,7 +1829,7 @@ function backward(loss) {
   }
 
   // ---------- boot ----------
-  $("ag-code").textContent = $("autograd").textContent.trim();
+  ITN.source("autograd").then((t) => { $("ag-code").textContent = t; });
   data = makeData(S.dataset);
   S.probe = nearestPoint(...PROBE_TARGET[S.dataset]);
   initNet();

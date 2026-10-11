@@ -14,113 +14,21 @@ img { max-width: 100%; }
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
 <style>
-/* Layout: the series' reading column with figures on a wide bench. New token: --loss, one sequential hue for loss maps (deeper = lower). */
-:root {
-  --paper: #f3f4f6;
-  --sheet: #ffffff;
-  --well: #f5f6f8;
-  --ink: #14171c;
-  --ink-2: #4a515e;
-  --ink-3: #656d7b;
-  --rule: #dcdfe5;
-  --pos: #2a78d6;
-  --neg: #eb6834;
-  --loss: #5b3fc4;
-  --shadow: rgba(20, 23, 28, 0.06);
-  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-body: "Newsreader", "Iowan Old Style", Georgia, "Times New Roman", serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #0e1014; --sheet: #15181e; --well: #1b1f26; --ink: #e8eaee; --ink-2: #b0b6c1; --ink-3: #8b929e;
-    --rule: #2a2f38; --pos: #3987e5; --neg: #d95926; --loss: #9b84f2; --shadow: rgba(0, 0, 0, 0.35); color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --paper: #0e1014; --sheet: #15181e; --well: #1b1f26; --ink: #e8eaee; --ink-2: #b0b6c1; --ink-3: #8b929e;
-  --rule: #2a2f38; --pos: #3987e5; --neg: #d95926; --loss: #9b84f2; --shadow: rgba(0, 0, 0, 0.35); color-scheme: dark;
-}
-
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-body { background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 18px; line-height: 1.6; }
-.page { padding-block: 28px 72px; padding-inline: 20px; }
-.col { max-width: 680px; margin-inline: auto; }
-.bench { max-width: 1180px; margin: 36px auto; }
-@media (max-width: 520px) { .page { padding-inline: 16px; padding-block: 20px 56px; } body { font-size: 17px; } }
-
-.crumbs { max-width: 680px; margin: 0 auto 28px; font: 14px/1.4 var(--font-display); color: var(--ink-3); display: flex; gap: 8px; flex-wrap: wrap; }
-.crumbs a { color: var(--ink-2); text-underline-offset: 3px; }
-.eyebrow { font: 600 12px/1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); }
-h1 { font-family: var(--font-display); font-weight: 650; font-size: clamp(38px, 6vw, 60px); line-height: 1.02; letter-spacing: -0.025em; margin: 14px 0 18px; text-wrap: balance; }
-.dek { font-size: 22px; line-height: 1.42; color: var(--ink-2); margin: 0 0 8px; text-wrap: pretty; }
-h2 { font-family: var(--font-display); font-weight: 600; font-size: 24px; line-height: 1.2; letter-spacing: -0.01em; margin: 48px 0 12px; text-wrap: balance; }
-.intro h2:first-child { margin-top: 28px; }
-p { margin: 0 0 14px; }
-b, strong { font-weight: 600; }
-a { color: var(--ink); text-underline-offset: 3px; }
-kbd { font: 500 0.82em var(--font-display); padding: 1px 6px; border: 1px solid var(--rule); border-radius: 5px; background: var(--sheet); }
-pre, code, .mono { font-variant-ligatures: none; }
-
-.jump { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 20px 0 4px; }
-.jump-note { font: 15px/1.4 var(--font-body); color: var(--ink-3); }
-.jump-pill { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 10; font: 600 14px/1 var(--font-display); background: var(--ink); color: var(--sheet); padding: 12px 16px; border-radius: 99px; text-decoration: none; box-shadow: 0 4px 18px var(--shadow); }
-#playground, #film { scroll-margin-top: 16px; }
-
-.lab { font: 600 11px/1 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
-.lab .nc { text-transform: none; letter-spacing: 0; font-size: 13px; }
-.btns { display: flex; gap: 8px; flex-wrap: wrap; }
-.btn { font: 560 14px/1 var(--font-display); padding: 10px 14px; border-radius: 9px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
-.btn:hover { border-color: var(--ink-3); }
-.btn.primary { background: var(--ink); border-color: var(--ink); color: var(--sheet); min-width: 96px; justify-content: center; }
-.seg { display: inline-flex; flex-wrap: wrap; background: var(--well); border: 1px solid var(--rule); border-radius: 9px; padding: 2px; gap: 2px; }
-.seg button { font: 520 13px/1 var(--font-display); border: 0; background: transparent; color: var(--ink-2); padding: 9px 10px; border-radius: 7px; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--sheet); color: var(--ink); box-shadow: 0 0 0 1px var(--rule), 0 1px 2px var(--shadow); }
-.tog { display: inline-flex; align-items: center; gap: 7px; font: 13px/1.2 var(--font-display); color: var(--ink-2); cursor: pointer; }
-.tog input { accent-color: var(--ink); width: 15px; height: 15px; margin: 0; }
-select { font: 500 13px/1.2 var(--font-mono); padding: 8px 8px; border-radius: 8px; border: 1px solid var(--rule); background: var(--well); color: var(--ink); }
-input[type="range"] { accent-color: var(--ink); }
 .btn:focus-visible, .seg button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, .chips button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-
-.card { margin: 18px 0 22px; padding: 16px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; }
 .card canvas { display: block; width: 100%; max-width: 100%; border-radius: 8px; }
-.read { font: 16px/1.5 var(--font-body); color: var(--ink-2); margin: 10px 0 0; font-variant-numeric: tabular-nums; }
-.read b { color: var(--ink); }
-.chips { display: flex; flex-wrap: wrap; gap: 4px; }
-.chips button { font: 600 10.5px/1 var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); background: transparent; border: 1px solid var(--rule); border-radius: 99px; padding: 6px 8px; cursor: pointer; }
-.chips button.on { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
-ol.seq { list-style: none; counter-reset: seq; padding: 0; margin: 4px 0 18px; }
-ol.seq > li { counter-increment: seq; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 0 10px; margin-bottom: 10px; }
-ol.seq > li::before { content: counter(seq); width: 22px; height: 22px; margin-top: 4px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--sheet); font: 500 12px/1 var(--font-mono); }
-details.math { margin: 4px 0 18px; }
-summary { cursor: pointer; font: 560 15px/1.4 var(--font-display); color: var(--ink); }
-.eqs { margin-top: 10px; border-top: 1px solid var(--rule); }
-.eq-row { display: grid; grid-template-columns: minmax(14em, auto) 1fr; gap: 4px 20px; padding: 7px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
-.eq-row code { font: 14px/1.5 var(--font-mono); color: var(--ink); white-space: nowrap; }
-.eq-row span { font-size: 16px; color: var(--ink-2); line-height: 1.4; }
-@media (max-width: 600px) { .eq-row { grid-template-columns: minmax(0, 1fr); } .eq-row code { white-space: normal; } }
-
-/* film */
-.film { margin: 18px 0 22px; padding: 16px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; }
+.readout { font: 16px/1.5 var(--font-body); color: var(--ink-2); margin: 10px 0 0; font-variant-numeric: tabular-nums; }
+.readout b { color: var(--ink); }
 .pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 @media (max-width: 520px) { .pair { grid-template-columns: minmax(0, 1fr); } }
 .panel { position: relative; min-width: 0; }
 .panel canvas { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; border-radius: 8px; border: 1px solid var(--rule); }
 .panel .ptitle { font: 600 11px/1 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 6px; }
-.film-stage { position: relative; }
 .film-over { position: absolute; inset: 0; background: var(--sheet); display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 12px 6px; }
-.over-title { font: 600 12px/1.3 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
 .orow2 { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--rule); font: 16px/1.35 var(--font-display); color: var(--ink); }
 .orow2 span:last-child { font: 14px/1.3 var(--font-body); color: var(--ink-2); text-align: right; }
 .film-ticker { font: 500 13px/1.5 var(--font-mono); color: var(--ink); background: var(--well); border-radius: 8px; padding: 8px 12px; margin-top: 10px; min-height: 1.5em; overflow-x: auto; white-space: pre; font-variant-numeric: tabular-nums; font-variant-ligatures: none; }
-.film-progress { height: 3px; background: var(--rule); border-radius: 2px; margin-top: 12px; overflow: hidden; }
-.film-progress i { display: block; height: 100%; width: 0; background: var(--ink); }
-.film-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 12px; }
-.film-cap { font: 17px/1.5 var(--font-body); color: var(--ink-2); margin: 12px 0 0; min-height: 4.5em; }
-.film-cap b { color: var(--ink); }
-
 /* penalty widget */
 .pen-top { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .pen-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: center; }
@@ -136,12 +44,6 @@ summary { cursor: pointer; font: 560 15px/1.4 var(--font-display); color: var(--
 .pushbar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ink); border-radius: 3px; }
 .pushbar i.dash { background: var(--ink-3); }
 #pen-p { width: 100%; margin-top: 10px; }
-
-/* playground */
-.fig { background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; padding: 18px 20px 20px; box-shadow: 0 1px 2px var(--shadow), 0 10px 30px var(--shadow); }
-@media (max-width: 520px) { .fig { padding: 14px 12px 16px; border-radius: 12px; } }
-.controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-end; padding-bottom: 16px; border-bottom: 1px solid var(--rule); }
-.ctl { display: flex; flex-direction: column; gap: 7px; }
 .pl-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; margin-top: 16px; }
 @media (max-width: 760px) { .pl-pair { grid-template-columns: minmax(0, 1fr); } }
 .pl-pair canvas { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; border-radius: 10px; border: 1px solid var(--rule); }
@@ -166,32 +68,7 @@ summary { cursor: pointer; font: 560 15px/1.4 var(--font-display); color: var(--
 .stat b { font: 500 20px/1.15 var(--font-mono); color: var(--ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .stat .cap { font: 13px/1.3 var(--font-body); color: var(--ink-3); }
 .pl-explain { margin-top: 14px; background: var(--well); border-radius: 10px; padding: 14px 16px; }
-.pl-explain p { font: 17px/1.5 var(--font-body); color: var(--ink-2); margin: 0; }
-.pl-explain p b { color: var(--ink); }
-.pl-explain .mono { font: 13px/1.6 var(--font-mono); color: var(--ink); margin-top: 8px; font-variant-numeric: tabular-nums; overflow-x: auto; white-space: nowrap; }
-
-dl.read2 { display: grid; grid-template-columns: 7.5em 1fr; gap: 10px 20px; margin: 0; }
-dl.read2 dt { font: 600 14px/1.6 var(--font-display); color: var(--ink); padding-top: 2px; }
-dl.read2 dd { margin: 0; }
-@media (max-width: 520px) { dl.read2 { grid-template-columns: minmax(0, 1fr); gap: 2px; } dl.read2 dd { margin-bottom: 10px; } }
-ul.tries { padding-left: 1.1em; margin: 0; }
-ul.tries li { margin-bottom: 10px; padding-left: 4px; }
-ol.road { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--rule); }
-ol.road li { display: grid; grid-template-columns: 2.4em minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--rule); font: 16px/1.35 var(--font-display); color: var(--ink-2); }
-ol.road .n { font: 500 13px var(--font-mono); color: var(--ink-3); }
-ol.road .tag { font: 600 10.5px/1 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--rule); border-radius: 99px; padding: 5px 8px; }
-ol.road li.here { color: var(--ink); font-weight: 600; }
-ol.road li.here .tag { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
-ol.road li.branch { padding-left: 1.2em; }
-ol.road a { color: inherit; }
-.chapnav { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 20px; margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--rule); font: 15px/1.4 var(--font-display); color: var(--ink-3); }
-.chapnav a { color: var(--ink); }
-.foot { margin-top: 18px; font: 14px/1.5 var(--font-display); color: var(--ink-3); }
-.foot a { color: var(--ink-2); }
-
-.tt { position: fixed; left: 0; top: 0; z-index: 30; max-width: min(300px, calc(100vw - 24px)); background: var(--ink); color: var(--sheet); font: 13px/1.45 var(--font-display); padding: 8px 11px; border-radius: 8px; box-shadow: 0 6px 22px var(--shadow); pointer-events: none; opacity: 0; transform: translateY(3px); transition: opacity 0.12s ease, transform 0.12s ease; }
-.tt.on { opacity: 1; transform: none; }
-.tt b { font-weight: 650; }
+.pl-explain .rep.words p { font-size: 17px; }
 .tt .hint { display: block; margin-top: 4px; font-size: 12px; opacity: 0.72; color: inherit; }
 @media (prefers-reduced-motion: reduce) { .tt { transition: none; } }
 </style>
@@ -211,19 +88,19 @@ ol.road a { color: inherit; }
 
   <main class="col intro">
     <h2>What this is</h2>
-    <p>In this film, a neuron with just two weights learns to separate two groups of dots. On the right is every possible setting of its two weights, colored by loss. Training is the ball rolling downhill.</p>
+    <p>In this film, a neuron with just two weights learns to separate two groups of dots. On the right is a window of settings of its two weights, centered on the best one and colored by loss. Training is the ball rolling downhill.</p>
 
     <figure class="film" id="film" aria-label="Animation of gradient descent on a loss landscape">
       <div class="film-stage">
         <div class="pair">
           <div class="panel"><div class="ptitle">The dots and the neuron's line</div><canvas id="f-data" aria-label="The dots, with the neuron's line for the current weights"></canvas></div>
-          <div class="panel"><div class="ptitle" id="f-map-title">Every pair of weights: a map, seen from above</div><canvas id="f-map" aria-label="The loss landscape over the two weights, with the ball"></canvas></div>
+          <div class="panel"><div class="ptitle" id="f-map-title">Pairs of weights: a map, seen from above</div><canvas id="f-map" aria-label="The loss landscape over the two weights, with the ball"></canvas></div>
         </div>
         <div class="film-over" id="f-over" hidden>
           <div class="over-title">Same rules, more weights</div>
           <div class="orow2"><span>This neuron: 2 weights</span><span>a map you can see</span></div>
-          <div class="orow2"><span>Chapter 1's network: 17 weights</span><span>a landscape in 17 dimensions</span></div>
-          <div class="orow2"><span>GPT-3: 175 billion weights</span><span>the same idea, unimaginably bigger</span></div>
+          <div class="orow2"><span>Chapter 1's network: 17 parameters</span><span>a landscape in 17 dimensions</span></div>
+          <div class="orow2"><span>GPT-3: 175 billion parameters</span><span>the same idea, unimaginably bigger</span></div>
         </div>
       </div>
       <div class="film-ticker" id="f-ticker" aria-hidden="true"></div>
@@ -231,7 +108,7 @@ ol.road a { color: inherit; }
       <div class="film-bar">
         <button type="button" class="btn primary" id="f-play">Play</button>
         <div class="chips" id="f-chips" role="group" aria-label="Jump to a scene">
-          <button type="button" data-i="0" data-tip="film-0">Two knobs</button><button type="button" data-i="1" data-tip="film-1">Height</button><button type="button" data-i="2" data-tip="film-2">Slope</button><button type="button" data-i="3" data-tip="film-3">Step</button><button type="button" data-i="4" data-tip="film-4">Repeat</button><button type="button" data-i="5" data-tip="film-5">Too big</button><button type="button" data-i="6" data-tip="film-6">More weights</button>
+          <button type="button" data-i="0" data-tip="film-0">Two knobs</button><button type="button" data-i="1" data-tip="film-1">Height</button><button type="button" data-i="2" data-tip="film-2">Slope</button><button type="button" data-i="3" data-tip="film-3">Step</button><button type="button" data-i="4" data-tip="film-4">Repeat</button><button type="button" data-i="5" data-tip="film-5">Too big</button><button type="button" data-i="6" data-tip="film-6">More parameters</button>
         </div>
       </div>
       <p class="film-cap" id="f-cap" aria-live="polite"></p>
@@ -245,7 +122,7 @@ ol.road a { color: inherit; }
     <figure class="card" aria-label="Accuracy and loss as one weight changes">
       <canvas id="stair-cv" style="aspect-ratio: 16 / 10; touch-action: pan-y; cursor: ew-resize; border: 1px solid var(--rule);" aria-label="Two charts sharing one axis: accuracy on top, loss below, as w₁ changes"></canvas>
       <input type="range" id="stair-x" min="0" max="1000" step="1" aria-label="w₁" style="width: 100%; margin-top: 8px;">
-      <p class="read" id="stair-read"></p>
+      <p class="readout" id="stair-read"></p>
     </figure>
 
     <p>Accuracy only changes when the line jumps past a dot. Between jumps it is perfectly flat, so nudging a weight usually tells you nothing at all. The loss changes smoothly everywhere: every nudge says whether things got better or worse, and by how much. That is why networks are trained on a loss and judged on accuracy.</p>
@@ -269,7 +146,7 @@ ol.road a { color: inherit; }
         </div>
       </div>
       <input type="range" id="pen-p" min="1" max="999" step="1" value="100" aria-label="The network's estimate that the dot is blue">
-      <p class="read" id="pen-read"></p>
+      <p class="readout" id="pen-read"></p>
     </figure>
 
     <p>Three things make cross-entropy a good penalty. It is close to 0 for a confident right answer. It is 0.69 for a 50-50 shrug. And it grows without limit for a confident wrong answer. Squared error never goes above 1, and together with σ its push almost vanishes exactly when the network is confidently wrong, so the network learns slowly from its worst mistakes. The network's total loss is the average over all its dots.</p>
@@ -278,24 +155,27 @@ ol.road a { color: inherit; }
       <div class="eqs">
         <div class="eq-row"><code>L = −[y·log ŷ + (1−y)·log(1−ŷ)]</code><span>cross-entropy for one dot, y = 1 for blue</span></div>
         <div class="eq-row"><code>L = (ŷ − y)²</code><span>squared error for one dot</span></div>
-        <div class="eq-row"><code>∂L/∂z = ŷ − y</code><span>cross-entropy's push on the neuron's sum z</span></div>
-        <div class="eq-row"><code>∂L/∂z = 2(ŷ − y)·ŷ(1 − ŷ)</code><span>squared error's push: the ŷ(1 − ŷ) factor shrinks to 0 when ŷ is near 0 or 1</span></div>
+        <div class="eq-row"><code>∂L/∂z = ŷ − y</code><span>cross-entropy's slope on the neuron's sum z; training pushes z the opposite way, by −(ŷ − y)</span></div>
+        <div class="eq-row"><code>∂L/∂z = 2(ŷ − y)·ŷ(1 − ŷ)</code><span>squared error's slope: the ŷ(1 − ŷ) factor shrinks to 0 when ŷ is near 0 or 1</span></div>
       </div>
     </details>
 
     <h2>The loss landscape</h2>
     <p>Now give the neuron two weights, w₁ and w₂, so it computes ŷ = σ(w₁x₁ + w₂x₂). Every pair of values is one point on a flat map, and every point has a loss: the average over all 160 dots. Lift every point to a height equal to its loss, and the map becomes ground, with hills where the neuron does badly and a valley where it does well. The best weights sit at the bottom of the valley.</p>
     <p>The loss curve you dragged across earlier is one slice through this ground, cut along w₁. And the flat, colored map is the same ground seen from directly above, the way a hiking map shows height with color and contour lines. The film opens from above and then tilts, so you can watch one turn into the other.</p>
-    <p>The point on the map and the neuron are the same thing seen two ways. The point (w₁, w₂) is also an arrow from the center of the dot plot, and the neuron's line always runs at right angles to that arrow. Move the point and the line turns.</p>
+    <p>The point on the map and the neuron are the same thing seen two ways. The point (w₁, w₂) is also an arrow from the center of the dot plot, and the neuron's line always runs at right angles to that arrow. Swing the point around the center and the line turns. Move it straight outward and the line stays put, but the neuron grows more confident, so its edge gets sharper.</p>
 
     <h2>The gradient: which way is down</h2>
     <p>Standing at one point, the network cannot see the valley. It can only feel the slope under its feet, like walking downhill in fog. It measures the slope one weight at a time: nudge w₁ and see how the loss changes, then nudge w₂. Those two slopes together are the <b>gradient</b>. Drawn on the map, the gradient is an arrow pointing straight uphill, and its length says how steep the ground is. Training repeats three steps:</p>
-    <ol class="seq">
+    <ol class="seq" id="gd-steps">
       <li><div><b>Measure the gradient</b> where you stand.</div></li>
       <li><div><b>Step the opposite way:</b> w ← w − η × gradient. The learning rate η sets the size of the step.</div></li>
       <li><div><b>Repeat</b> until the ground is flat.</div></li>
     </ol>
-    <p>This is called <b>gradient descent</b>. With 17 weights the map has 17 dimensions and nobody can draw it, but the rules are the same: the gradient is just a list of 17 slopes. Measuring them by nudging costs one run of the network per weight. <a href="../backprop/">Chapter 3</a> shows how backpropagation gets all of them at once.</p>
+    <p>Here is the whole procedure for this neuron, in words, in math, or as a short program you could run yourself:</p>
+    <div class="lens" data-lens-ctl data-label="Explain with"></div>
+    <div class="annot" id="gd-algo" data-reps></div>
+    <p>This is called <b>gradient descent</b>. Chapter 1's network has 17 parameters (12 weights and 5 biases), so its map has 17 dimensions and nobody can draw it. The rules are the same: the gradient is just a list of 17 slopes. Measuring them by nudging costs one or two runs of the network per parameter. <a href="../backprop/">Chapter 3</a> shows how backpropagation gets all of them at once.</p>
 
     <h2>The playground</h2>
     <p>Click anywhere on the ground to drop the ball, then press <kbd>Run</kbd>. Drag to turn the ground and look at it from any side. Try different learning rates. Then switch to squared error or to accuracy, and see why they make poor landscapes.</p>
@@ -335,6 +215,7 @@ ol.road a { color: inherit; }
           <span class="lab">Show</span>
           <label class="tog" for="pl-field" data-tip="field"><input type="checkbox" id="pl-field">downhill arrows (map view)</label>
         </div>
+        <div class="ctl"><div class="lens" data-lens-ctl data-label="Explain each step with"></div></div>
       </div>
       <div class="pl-pair">
         <div>
@@ -355,16 +236,13 @@ ol.road a { color: inherit; }
         <div class="stat" data-tip="st-acc"><span class="lab">Accuracy</span><b id="st-acc"></b><span class="cap">dots on the right side</span></div>
         <div class="stat" data-tip="st-steps"><span class="lab">Steps</span><b id="st-steps"></b><span class="cap">since the ball was dropped</span></div>
       </div>
-      <div class="pl-explain" aria-live="polite">
-        <p id="pl-text"></p>
-        <div class="mono" id="pl-grad"></div>
-      </div>
+      <div class="pl-explain" aria-live="polite" id="pl-explain" data-reps></div>
     </div>
   </section>
 
   <section class="col">
     <h2>How to read the figures</h2>
-    <dl class="read2">
+    <dl class="read">
       <dt>3D view</dt>
       <dd>The floor holds every pair of weights, w₁ one way and w₂ the other. The height of the ground above each point is the loss for those weights. Its color repeats the height, deeper for lower, and the shading is light falling from one side, so slopes are easy to see.</dd>
       <dt>Map view</dt>
@@ -374,7 +252,7 @@ ol.road a { color: inherit; }
       <dt>Arrows</dt>
       <dd>The dashed arrow is the gradient, pointing uphill; longer means steeper. The solid arrow is the step the ball will take: downhill, η times the gradient.</dd>
       <dt>The dots</dt>
-      <dd>The neuron's line for the current weights, with the shading showing its guess, blue for blue. Hollow dots are on the wrong side. The arrow from the center is the point (w₁, w₂) itself.</dd>
+      <dd>The neuron's line for the current weights, with the shading showing its guess, blue for blue. Hollow dots are on the wrong side. The arrow from the center is the point (w₁, w₂) itself, shortened to fit when it would run off the plot.</dd>
       <dt>Colors</dt>
       <dd>Blue and orange keep their meaning from the series. Purple is new: it is the loss map, and deeper always means better.</dd>
     </dl>
@@ -384,13 +262,13 @@ ol.road a { color: inherit; }
       <li>Drop the ball in a pale corner and press Run with η = 1. Watch the line on the left swing into place as the ball rolls.</li>
       <li>Set η to 15 and drop the ball in the upper part of the valley. It bounces from side to side forever, because every step overshoots the floor.</li>
       <li>From a pale corner, try η = 10. The first step is so big the ball flies off the map, then has to find its way back.</li>
-      <li>Switch to Accuracy and turn the 3D view. The ground is a staircase of flat terraces. Press Step: the ball cannot move, because the slope is zero everywhere.</li>
-      <li>Switch to Squared error and look for the high, flat plateau. Drop the ball on it: it crawls, because the push vanishes when the neuron is confidently wrong.</li>
+      <li>Switch to Accuracy and turn the 3D view. The ground is a staircase of flat terraces. Press Step: the ball cannot move, because the slope is zero almost everywhere.</li>
+      <li>Switch to Squared error, drop the ball in the pale lower-left corner and press Run with η = 1. It needs about 600 steps to settle, against about 160 for cross-entropy: its walls are gentler and its valley floor almost flat. (Farther out, beyond this window, it flattens into a plateau where the neuron is confidently wrong.)</li>
       <li>Look at the bottom of the valley. Even the best weights get some dots wrong, because no straight line through the middle can separate these two groups perfectly.</li>
     </ul>
 
     <h2>What runs where</h2>
-    <p>Everything runs in your browser, with no graphics library. Each map is computed by evaluating the loss at 110 × 110 pairs of weights over all 160 dots, and the 3D ground is a 41 × 41 mesh of the same loss, drawn from back to front. The ball's gradient comes from the same autograd as the other chapters. The explanation box also shows the gradient measured by nudging each weight, so you can see the two agree.</p>
+    <p>Everything runs in your browser, with no graphics library. Each map is computed by evaluating the loss at 110 × 110 pairs of weights (160 × 160 for accuracy) over all 160 dots, and the 3D ground is a 57 × 57 mesh of the same loss (61 × 61 for accuracy), drawn from back to front. The ball's gradient comes from the same autograd as the other chapters. The explanation box also shows the gradient measured by nudging each weight, so you can see the two agree.</p>
 
     <h2>Where this is going</h2>
     <ol class="road">
@@ -410,45 +288,75 @@ ol.road a { color: inherit; }
   <a class="jump-pill" id="jump-pill" href="#playground" hidden>Playground ↓</a>
 </div>
 
-<script id="autograd">
-// The series' tape-based autograd (see chapter 3 for a walk through it).
-let TAPE = null;
-class Value {
-  constructor(data, inputs = null, local = null) {
-    this.data = data; this.grad = 0; this.inputs = inputs; this.local = local;
-    if (TAPE) TAPE.push(this);
+<script id="autograd" src="../assets/autograd.js"></script>
+<script src="../assets/common.js"></script>
+<script type="text/plain" id="gd-js1">
+const sigmoid = (z) => 1 / (1 + Math.exp(-z));
+
+// the average cross-entropy over all the dots, for weights (w1, w2)
+function loss(w1, w2) {
+  let total = 0;
+  for (const { x1, x2, y } of dots) {
+    const yhat = sigmoid(w1 * x1 + w2 * x2);
+    total += -(y * Math.log(yhat) + (1 - y) * Math.log(1 - yhat));
   }
-}
-const add = (a, b) => new Value(a.data + b.data, [a, b], [1, 1]);
-const mulc = (a, c) => new Value(a.data * c, [a], [c]);
-function sigmoid(a) { const s = 1 / (1 + Math.exp(-a.data)); return new Value(s, [a], [s * (1 - s)]); }
-const square = (a) => new Value(a.data * a.data, [a], [2 * a.data]);
-function bceWithLogits(z, y) {
-  const s = 1 / (1 + Math.exp(-z.data));
-  return new Value(Math.max(z.data, 0) - z.data * y + Math.log1p(Math.exp(-Math.abs(z.data))), [z], [s - y]);
-}
-function backward(loss) {
-  loss.grad = 1;
-  for (let k = TAPE.length - 1; k >= 0; k--) {
-    const v = TAPE[k];
-    if (!v.inputs) continue;
-    for (let i = 0; i < v.inputs.length; i++) v.inputs[i].grad += v.local[i] * v.grad;
-  }
+  return total / dots.length;
 }
 </script>
+<script type="text/plain" id="gd-py1">
+import math
 
+def sigmoid(z):
+    return 1 / (1 + math.exp(-z))
+
+def loss(w1, w2):
+    """The average cross-entropy over all the dots, for weights (w1, w2)."""
+    total = 0.0
+    for x1, x2, y in dots:
+        yhat = sigmoid(w1 * x1 + w2 * x2)
+        total += -(y * math.log(yhat) + (1 - y) * math.log(1 - yhat))
+    return total / len(dots)
+</script>
+<script type="text/plain" id="gd-js2">
+// the gradient, measured by nudging each weight a tiny bit both ways
+function gradient(w1, w2, eps = 1e-4) {
+  return [
+    (loss(w1 + eps, w2) - loss(w1 - eps, w2)) / (2 * eps),
+    (loss(w1, w2 + eps) - loss(w1, w2 - eps)) / (2 * eps),
+  ];
+}
+
+// gradient descent: step against the gradient, again and again
+let w1 = -1.2, w2 = -0.9;
+const lr = 1;
+for (let step = 0; step < 200; step++) {
+  const [g1, g2] = gradient(w1, w2);
+  w1 -= lr * g1;
+  w2 -= lr * g2;
+}
+</script>
+<script type="text/plain" id="gd-py2">
+def gradient(w1, w2, eps=1e-4):
+    """The gradient, measured by nudging each weight a tiny bit both ways."""
+    return ((loss(w1 + eps, w2) - loss(w1 - eps, w2)) / (2 * eps),
+            (loss(w1, w2 + eps) - loss(w1, w2 - eps)) / (2 * eps))
+
+# gradient descent: step against the gradient, again and again
+w1, w2 = -1.2, -0.9
+lr = 1.0
+for step in range(200):
+    g1, g2 = gradient(w1, w2)
+    w1 -= lr * g1
+    w2 -= lr * g2
+</script>
 <script>
 (function () {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  function fmt(v, d = 2) {
-    if (!Number.isFinite(v)) return "–";
-    const s = Math.abs(v).toFixed(d);
-    return (v < 0 && Number(s) !== 0 ? "−" : "") + s;
-  }
+  const { fmt } = ITN;
   const signed = (v, d = 2) => { const s = fmt(v, d); return s[0] === "−" ? s : "+" + s; };
   const pair = (a, d = 2) => `(${fmt(a[0], d)}, ${fmt(a[1], d)})`;
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduceMotion = ITN.reduceMotion;
   const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
   const UI = '"Bricolage Grotesque", system-ui, -apple-system, sans-serif';
 
@@ -677,7 +585,7 @@ function backward(loss) {
     }
     const inside = s.w[0] >= dom[0] && s.w[0] <= dom[1] && s.w[1] >= dom[2] && s.w[1] <= dom[3];
     const bx = Math.max(8, Math.min(W - 8, X(s.w[0]))), by = Math.max(8, Math.min(H - 8, Y(s.w[1])));
-    const GS = 1.1 * (dom[1] - dom[0]) / 6; // map units per unit of gradient, for drawing
+    const GS = 1; // the gradient arrow is drawn in weight units, so at η = 1 the step arrow is the same length
     if (inside && s.comps) {
       ctx.lineWidth = 2; ctx.strokeStyle = rgba(C["ink-2"]); ctx.fillStyle = rgba(C["ink-2"]);
       if (s.comps.g1) { const x1 = X(s.w[0] + s.grad[0] * GS); ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(x1, by); ctx.stroke(); arrowHead(ctx, bx, by, x1, by, 7); }
@@ -800,7 +708,7 @@ function backward(loss) {
       pts.forEach((q, k) => (k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.stroke();
       if (s.trail.length < 120) { ctx.fillStyle = rgba(C.ink, 0.9); for (const q of pts.slice(0, -1)) { ctx.beginPath(); ctx.arc(q[0], q[1], 2, 0, Math.PI * 2); ctx.fill(); } }
     }
-    const inside = inDom(s.w), b = onG(...clampW(s.w)), GS = 1.1;
+    const inside = inDom(s.w), b = onG(...clampW(s.w)), GS = 1;
     const arrowTo = (v, dashed, color, width) => {
       const e = onG(...clampW([s.w[0] + v[0], s.w[1] + v[1]]));
       if (Math.hypot(e[0] - b[0], e[1] - b[1]) < 3) return;
@@ -852,13 +760,13 @@ function backward(loss) {
     const pct = (v) => Math.round(v * 100) + "%";
     const endW = path[path.length - 1];
     const CAP = {
-      knobs: "<b>Two knobs.</b> This neuron has two weights. Each pair (w₁, w₂) is one point on this map, seen from above, and it is also the arrow on the left. Move the point and the neuron's line turns with it.",
+      knobs: "<b>Two knobs.</b> This neuron has two weights. Each pair (w₁, w₂) is one point on this map, seen from above, and it is also the arrow on the left. Swing the point around the center and the neuron's line turns with it.",
       height: `<b>Height is loss.</b> Now lift every point on the map to a height equal to its loss. The flat map becomes ground: high where the neuron does badly, a valley where it does well. The ball starts high up, at loss ${fmt(lossAt("ce", ...A))}, where the neuron has the colors backwards. The bottom of the valley is marked ×.`,
       slope: "<b>Feel the slope.</b> The network cannot see the valley. It nudges each weight and measures how the loss responds: one slope for w₁, one for w₂. Together they are the gradient, an arrow pointing straight uphill.",
       step: `<b>Step downhill.</b> Move the opposite way, scaled by the learning rate η = ${LR}. One small step, and the line on the left turns a little.`,
       repeat: "<b>Repeat.</b> Feel the slope, step downhill, over and over. The steps shrink as the ground flattens, and the line on the left swings into place.",
       big: `<b>Too big a step.</b> Zoomed in, looking along the valley. With η = ${ZLR}, every step overshoots the floor and lands on the opposite wall. The ball bounces from side to side and never settles.`,
-      more: "<b>More weights.</b> Chapter 1's network has 17 weights, so its landscape has 17 dimensions. Nobody can draw it, but the rules are the same. Chapter 3 shows how backpropagation measures all 17 slopes at once.",
+      more: "<b>More parameters.</b> Chapter 1's network has 17 parameters, its weights and biases, so its landscape has 17 dimensions. Nobody can draw it, but the rules are the same. Chapter 3 shows how backpropagation measures all 17 slopes at once.",
     };
     let t = 0, playing = false, last = 0, started = false, autoPaused = false, capKey = "";
     const chips = [...$("f-chips").querySelectorAll("button")];
@@ -893,10 +801,10 @@ function backward(loss) {
         ticker = `η = ${ZLR}   step ${lo}   (w₁, w₂) = ${pair(w)}   loss ${fmt(lossAt("ce", ...w), 3)}`;
       } else {
         w = endW; map = { mode: "ce", w, trail: path };
-        ticker = "2 weights: a map.   17 weights: 17 dimensions.   175 billion: same rules.";
+        ticker = "2 parameters: a map.   17 parameters: 17 dimensions.   175 billion: same rules.";
       }
       drawData($("f-data"), w); drawSurface($("f-map"), map);
-      $("f-map-title").textContent = k === "knobs" ? "Every pair of weights: a map, seen from above" : "Height is the loss";
+      $("f-map-title").textContent = k === "knobs" ? "Pairs of weights: a map, seen from above" : "Height is the loss";
       $("f-over").hidden = k !== "more";
       $("f-ticker").textContent = ticker;
       if (k !== capKey) { capKey = k; $("f-cap").innerHTML = CAP[k]; }
@@ -952,7 +860,7 @@ function backward(loss) {
     for (const [y] of [[Ya(a)], [Yl(l)]]) { ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2); ctx.fillStyle = rgba(C.ink); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = rgba(C.sheet); ctx.stroke(); }
     const e = 0.01, da = accAt(stair.w1 + e, stair.w2) - a, dl = lossAt("ce", stair.w1 + e, stair.w2) - l;
     const accTxt = Math.abs(da) < 1e-12 ? `a nudge of 0.01 leaves it at ${(a * 100).toFixed(1)}%, so its slope is <b>0</b>` : `a nudge of 0.01 makes it jump to ${((a + da) * 100).toFixed(1)}%: you happened to stand right at a step`;
-    $("stair-read").innerHTML = `At w₁ = <b>${fmt(stair.w1)}</b>: accuracy is <b>${(a * 100).toFixed(1)}%</b>, and ${accTxt}. The loss is <b>${fmt(l, 3)}</b>, and the same nudge ${dl < 0 ? "lowers" : "raises"} it by ${fmt(Math.abs(dl), 4)}, a slope of <b>${fmt(dl / e)}</b>: it says which way is better.`;
+    $("stair-read").innerHTML = `At w₁ = <b>${fmt(stair.w1)}</b>: accuracy is <b>${(a * 100).toFixed(1)}%</b>, and ${accTxt}. The loss is <b>${fmt(l, 3)}</b>, and ${Math.abs(dl / e) < 0.005 ? "the same nudge barely changes it: the slope is about 0, because along w₁ you are at the bottom" : `the same nudge ${dl < 0 ? "lowers" : "raises"} it by ${fmt(Math.abs(dl), 4)}, a slope of <b>${fmt(dl / e)}</b>: it says which way is better`}.`;
     $("stair-x").value = Math.round(((stair.w1 + WR) / (2 * WR)) * 1000);
   }
   function stairFrom(px) { const r = scv.getBoundingClientRect(), padL = 44, padR = 12, u = (px - r.left - scv.clientLeft - padL) / (scv.clientWidth - padL - padR); stair.w1 = Math.max(-WR, Math.min(WR, -WR + u * 2 * WR)); drawStair(); }
@@ -982,12 +890,15 @@ function backward(loss) {
     ctx.strokeStyle = rgba(C.ink, 0.35); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + 0.5, top); ctx.lineTo(x + 0.5, top + ih); ctx.stroke();
     for (const [v, c] of [[ce(pen.p), C.ink], [se(pen.p), C["ink-3"]]]) { ctx.beginPath(); ctx.arc(x, Y(v), 5, 0, Math.PI * 2); ctx.fillStyle = rgba(c); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = rgba(C.sheet); ctx.stroke(); }
     const pushCE = pen.p - pen.y, pushSE = 2 * (pen.p - pen.y) * pen.p * (1 - pen.p);
-    $("pen-ce").textContent = `penalty ${fmt(ce(pen.p))}   push on z ${fmt(pushCE)}`;
-    $("pen-se").textContent = `penalty ${fmt(se(pen.p))}   push on z ${fmt(pushSE)}`;
+    // the push is the way training moves z: against the slope
+    const push = (sl) => (Math.abs(sl) < 5e-4 ? "push on z 0.00" : `push on z ${sl < 0 ? "+" : "−"}${fmt(Math.abs(sl))} (${sl < 0 ? "raises" : "lowers"} z)`);
+    $("pen-ce").textContent = `penalty ${fmt(ce(pen.p))}   ${push(pushCE)}`;
+    $("pen-se").textContent = `penalty ${fmt(se(pen.p))}   ${push(pushSE)}`;
     $("pen-ce-bar").style.width = (100 * Math.min(1, Math.abs(pushCE))) + "%";
     $("pen-se-bar").style.width = (100 * Math.min(1, Math.abs(pushSE))) + "%";
     const right = (pen.p > 0.5 ? 1 : 0) === pen.y, col = pen.y ? "blue" : "orange";
-    $("pen-read").innerHTML = `The network says <b>${Math.round(pen.p * 100)}% blue</b> for a ${col} dot, so it is ${right ? (Math.abs(pen.p - 0.5) > 0.4 ? "confidently right" : "right") : Math.abs(pen.p - 0.5) > 0.4 ? "<b>confidently wrong</b>" : "wrong"}. The bars show how hard each loss pushes the neuron's sum z to fix it.${!right && Math.abs(pen.p - 0.5) > 0.4 ? " Squared error barely pushes at all." : ""}`;
+    const margin = Math.abs(pen.p - 0.5), state = margin < 0.005 ? "undecided: a 50-50 guess is neither right nor wrong" : right ? (margin > 0.4 ? "confidently right" : "right") : margin > 0.4 ? "<b>confidently wrong</b>" : "wrong";
+    $("pen-read").innerHTML = `The network says <b>${Math.round(pen.p * 100)}% blue</b> for ${pen.y ? "a blue" : "an orange"} dot, so it is ${state}. The bars show how hard each loss pushes the neuron's sum z to fix it.${!right && margin > 0.4 ? ` Squared error pushes far less than cross-entropy (${fmt(Math.abs(pushSE))} against ${fmt(Math.abs(pushCE))}).` : ""}`;
   }
   $("pen-p").addEventListener("input", (e) => { pen.p = Number(e.target.value) / 1000; drawPen(); });
   $("pen-y").addEventListener("click", (e) => {
@@ -997,9 +908,32 @@ function backward(loss) {
   });
   new ResizeObserver(() => drawPen()).observe(pcv);
 
+  // ---------- gradient descent, in words, math or code ----------
+  const GD_PARTS = [
+    {
+      title: "The loss for one pair of weights",
+      words: "Run every dot through the neuron, score each answer with cross-entropy, and average the scores. That one number is the height of the ground at (w₁, w₂).",
+      math: ["<i>L</i>(<i>w</i>₁, <i>w</i>₂) = (1/<i>N</i>) Σ<sub><i>i</i></sub> −[<i>y<sub>i</sub></i> log <i>ŷ<sub>i</sub></i> + (1 − <i>y<sub>i</sub></i>) log(1 − <i>ŷ<sub>i</sub></i>)]",
+        "where <i>ŷ<sub>i</sub></i> = σ(<i>w</i>₁<i>x</i>₁<sub><i>i</i></sub> + <i>w</i>₂<i>x</i>₂<sub><i>i</i></sub>), over the <i>N</i> = 160 dots"],
+      code: ["js1", "py1"],
+    },
+    {
+      title: "Gradient descent",
+      words: "<b>Measure the gradient</b> where you stand: nudge each weight a tiny bit and see how the loss changes. <b>Step the opposite way</b>, moving each weight by η times its slope. <b>Repeat</b> until the ground is flat.",
+      math: ["∂<i>L</i>/∂<i>w</i>₁ ≈ [<i>L</i>(<i>w</i>₁ + ε, <i>w</i>₂) − <i>L</i>(<i>w</i>₁ − ε, <i>w</i>₂)] / 2ε, and likewise for <i>w</i>₂",
+        "∇<i>L</i> = (∂<i>L</i>/∂<i>w</i>₁, ∂<i>L</i>/∂<i>w</i>₂)",
+        "<i>w</i> ← <i>w</i> − η∇<i>L</i>, repeated until ∇<i>L</i> ≈ (0, 0)"],
+      code: ["js2", "py2"],
+    },
+  ];
+  function renderGD() {
+    $("gd-algo").innerHTML = GD_PARTS.map((part, i) => `<div class="ablock"><div class="atitle"><span class="n">${i + 1}</span>${part.title}</div>${ITN.view.reps({ words: part.words, math: part.math, js: $("gd-" + part.code[0]).textContent.trim(), py: $("gd-" + part.code[1]).textContent.trim() })}</div>`).join("");
+  }
+
   // ---------- the playground ----------
   const START = [-1.2, -0.9];
-  const PL = { w: START.slice(), trail: [], mode: "ce", lr: 1, running: false, steps: 0, field: false, view: "3d", cam: { ...CAM_3D, f: [0, 0, 0] } };
+  const PL = { w: START.slice(), trail: [], mode: "ce", lr: 1, running: false, steps: 0, field: false, view: "3d", cam: { ...CAM_3D, f: [0, 0, 0] }, reversals: 0, lastStep: null, lastLen: 0 };
+  const resetMotion = () => { PL.reversals = 0; PL.lastStep = null; PL.lastLen = 0; };
   const MODE_NAME = { ce: "cross-entropy loss", mse: "squared-error loss", acc: "error rate" };
   function plState() {
     const g = gradAt(PL.mode, ...PL.w);
@@ -1023,15 +957,27 @@ function backward(loss) {
     const off = !inDom(PL.w);
     let text;
     if (PL.mode === "acc") text = "<b>The accuracy map is flat terraces.</b> Nudge either weight a little and the share of wrong dots does not change, so both slopes are 0 and the ball has nowhere to go. This is why networks are not trained on accuracy.";
-    else if (off) text = `<b>The ball flew off the map.</b> With η = ${PL.lr}, the step was much bigger than the valley. It is now at ${pair(PL.w)}, where the ground is ${gm > 0.05 ? "still sloping back toward the valley" : "almost flat"}. Press Run to see whether it finds its way back.`;
+    else if (off) text = PL.lastLen > 1
+      ? `<b>The ball flew off the map.</b> With η = ${PL.lr}, its last step was ${fmt(PL.lastLen)} long, bigger than the valley. It is now at ${pair(PL.w)}, where the ground is ${gm > 0.05 ? "still sloping back toward the valley" : "almost flat"}. Press Run to see whether it finds its way back.`
+      : `<b>The ball has rolled just past the edge of the map</b>, to ${pair(PL.w)}. The map is only a window; the ground goes on beyond it. Press Run to keep following the slope.`;
     else if (gm < 2e-4) text = "<b>The ground is flat: the ball has reached the bottom.</b> Both slopes are about 0, so the steps have shrunk to nothing. These are the best weights this neuron can have.";
-    else if (PL.lr >= 15 && PL.steps > 3) text = `<b>Every step overshoots.</b> With η = ${PL.lr}, the ball jumps past the valley floor each time and lands on the opposite slope. It may bounce like this forever.`;
-    else if (PL.mode === "mse" && gm < 0.02 && st.acc < 0.5) text = "<b>Almost no slope here.</b> On the squared-error map this whole region is a plateau: the neuron is confidently wrong about many dots, and squared error barely pushes. The ball creeps.";
-    else text = `The dashed arrow is the gradient: the loss rises fastest in that direction. The ball will step the opposite way, η = ${PL.lr} times as far (solid arrow).`;
-    $("pl-text").innerHTML = text;
-    $("pl-grad").textContent = PL.mode === "acc"
-      ? `nudging w₁ or w₂ by 0.0001 changes the error rate by 0   →   gradient (0, 0)`
-      : `gradient by autograd ${pair(g, 4)}   by nudging each weight ${pair(st.nudge, 4)}   next step −η × gradient = (${signed(step[0])}, ${signed(step[1])})`;
+    else if (PL.reversals >= 3) text = `<b>Every step overshoots.</b> With η = ${PL.lr}, the ball jumps past the valley floor each time and lands on the opposite slope. It may bounce like this forever.`;
+        else text = `The dashed arrow is the gradient: the loss rises fastest in that direction. The ball will step the opposite way, η = ${PL.lr} times as far (solid arrow).`;
+    const nw = [PL.w[0] + step[0], PL.w[1] + step[1]], c = ITN.code, eta = String(PL.lr);
+    const lossName = PL.mode === "mse" ? "the squared-error loss" : "the loss";
+    const r = PL.mode === "acc" ? {
+      words: text,
+      math: [`nudging each weight by ε = 0.0001 changes the error rate by ${fmt(st.nudge[0] * 1e-4, 4)} and ${fmt(st.nudge[1] * 1e-4, 4)}, so the gradient is (0, 0)`, `<i>w</i> ← <i>w</i> − ${eta} · (0, 0) = ${pair(PL.w)}: the ball stays where it is`],
+      js: `const [g1, g2] = gradient(w1, w2);   // [0.000, 0.000]: the error rate is flat\n// so w1 and w2 do not change`,
+      py: `g1, g2 = gradient(w1, w2)   # (0.000, 0.000): the error rate is flat\n# so w1 and w2 do not change`,
+    } : {
+      words: text,
+      math: [`∇<i>L</i> = (∂<i>L</i>/∂<i>w</i>₁, ∂<i>L</i>/∂<i>w</i>₂) = ${pair(g, 3)}&emsp;(by nudging each weight: ${pair(st.nudge, 3)})`,
+        `<i>w</i> ← <i>w</i> − η∇<i>L</i> = ${pair(PL.w)} − ${eta} × ${pair(g, 3)} = ${pair(nw)}`],
+      js: `const [g1, g2] = gradient(w1, w2);   // [${c(g[0])}, ${c(g[1])}], the gradient of ${lossName}\nw1 -= ${eta} * g1;   // w1 is now ${c(nw[0])}\nw2 -= ${eta} * g2;   // w2 is now ${c(nw[1])}`,
+      py: `g1, g2 = gradient(w1, w2)   # (${c(g[0])}, ${c(g[1])}), the gradient of ${lossName}\nw1 -= ${eta} * g1   # w1 is now ${c(nw[0])}\nw2 -= ${eta} * g2   # w2 is now ${c(nw[1])}`,
+    };
+    $("pl-explain").innerHTML = ITN.view.reps(r);
     $("pl-run").textContent = PL.running ? "Pause" : "Run";
     refreshTip();
   }
@@ -1039,7 +985,11 @@ function backward(loss) {
     const g = gradAt(PL.mode, ...PL.w);
     if (Math.hypot(g[0], g[1]) < 1e-12) return false;
     PL.trail.push(PL.w.slice());
-    PL.w = [PL.w[0] - PL.lr * g[0], PL.w[1] - PL.lr * g[1]];
+    const st = [-PL.lr * g[0], -PL.lr * g[1]];
+    // count steps in a row that reverse the previous one: that is overshooting
+    PL.reversals = PL.lastStep && PL.lastStep[0] * st[0] + PL.lastStep[1] * st[1] < 0 ? PL.reversals + 1 : 0;
+    PL.lastStep = st; PL.lastLen = Math.hypot(st[0], st[1]);
+    PL.w = [PL.w[0] + st[0], PL.w[1] + st[1]];
     PL.steps++;
     return true;
   }
@@ -1055,13 +1005,13 @@ function backward(loss) {
   function plRun(on) { PL.running = on; if (on) { runLast = performance.now(); runAcc = 70; requestAnimationFrame(runTick); } plRender(); }
   $("pl-run").addEventListener("click", () => plRun(!PL.running));
   $("pl-step").addEventListener("click", () => { plRun(false); plStep(); plRender(); });
-  $("pl-reset").addEventListener("click", () => { plRun(false); PL.w = START.slice(); PL.trail = []; PL.steps = 0; plRender(); });
+  $("pl-reset").addEventListener("click", () => { plRun(false); PL.w = START.slice(); PL.trail = []; PL.steps = 0; resetMotion(); plRender(); });
   $("pl-lr").addEventListener("change", (e) => { PL.lr = Number(e.target.value); plRender(); });
   $("pl-field").addEventListener("change", (e) => { PL.field = e.target.checked; plRender(); });
   $("pl-mode").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-v]"); if (!b) return;
     $("pl-mode").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
-    PL.mode = b.dataset.v; plRun(false); PL.trail = []; PL.steps = 0; plRender();
+    PL.mode = b.dataset.v; plRun(false); PL.trail = []; PL.steps = 0; resetMotion(); plRender();
   });
   function dropAt(e) {
     const cv = $("pl-map");
@@ -1069,7 +1019,7 @@ function backward(loss) {
     if (PL.view === "3d") w = pickSurface(cv, PL.mode, PL.cam, e.clientX, e.clientY);
     else { const r = cv.getBoundingClientRect(); w = [DOM[0] + ((e.clientX - r.left - cv.clientLeft) / cv.clientWidth) * (DOM[1] - DOM[0]), DOM[3] - ((e.clientY - r.top - cv.clientTop) / cv.clientHeight) * (DOM[3] - DOM[2])]; }
     if (!w) return;
-    plRun(false); PL.w = w; PL.trail = []; PL.steps = 0; plRender();
+    plRun(false); PL.w = w; PL.trail = []; PL.steps = 0; resetMotion(); plRender();
   }
   let drag = null;
   $("pl-map").addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, az: PL.cam.az, el: PL.cam.el, moved: false }; $("pl-map").setPointerCapture(e.pointerId); });
@@ -1093,14 +1043,14 @@ function backward(loss) {
   new ResizeObserver(() => plRender()).observe($("pl-map"));
 
   // ---------- descriptions on hover, keyboard focus, or after a tap ----------
-  const FILM_TIPS = ["Two weights: a point on the map, an arrow on the dots.", "The map's color is the loss.", "Measure the slope of each weight.", "One step downhill.", "Hundreds of steps.", "What a too-large learning rate does.", "Why the same idea works for big networks."];
+  const FILM_TIPS = ["Two weights: a point on the map, an arrow on the dots.", "The map's color is the loss.", "Measure the slope of each weight.", "One step downhill.", "160 steps, fast-forwarded.", "What a too-large learning rate does.", "Why the same idea works for big networks."];
   const TIPS = {
     run: () => (PL.running ? "<b>Pause</b> the descent." : "<b>Run</b> gradient descent: about 14 steps a second until the ground is flat."),
     step: () => "<b>Step</b>: measure the gradient where the ball is, and take one step downhill.",
     reset: () => "<b>Reset</b> the ball to its starting point, where the neuron has the colors backwards, and clear the trail.",
-    lr: () => `<b>Learning rate η = ${PL.lr}.</b> Each step moves the weights by η × the gradient. Small values crawl, 3 or more leaps, and 15 overshoots the valley floor.`,
+    lr: () => `<b>Learning rate η = ${PL.lr}.</b> Each step moves the weights by η × the gradient. Small values crawl, 3 or more leaps, and on the cross-entropy map 15 overshoots the valley floor.`,
     "mode-ce": () => "<b>Cross-entropy</b>: the loss chapter 1 trains on. Smooth, with a single valley.",
-    "mode-mse": () => "<b>Squared error</b>: a simpler loss. Look for the flat plateau where the neuron is confidently wrong.",
+    "mode-mse": () => "<b>Squared error</b>: a simpler loss. Its walls are gentler and its floor flatter than cross-entropy's, so the ball rolls more slowly.",
     "mode-acc": () => "<b>Accuracy</b> (shown as error rate): flat terraces, so the gradient is zero almost everywhere.",
     field: () => "In the map view, draw small arrows pointing downhill all over the map. Gradient descent follows them.",
     "view-3d": () => "<b>3D</b>: the loss as ground, with height for loss. Drag to turn it.",
@@ -1111,55 +1061,12 @@ function backward(loss) {
     "st-steps": () => `${PL.steps} steps of gradient descent since the ball was dropped.`,
   };
   for (let i = 0; i < 7; i++) TIPS[`film-${i}`] = () => `${FILM_TIPS[i]} <span class="hint">Click to jump here</span>`;
-  const tt = document.createElement("div");
-  tt.className = "tt"; tt.id = "tt"; tt.setAttribute("role", "tooltip"); tt.setAttribute("aria-hidden", "true");
-  document.body.appendChild(tt);
-  let tipEl = null, tipTimer = 0, tipHide = 0, tipMode = "";
-  const tipHtml = (el) => { const f = TIPS[el.dataset.tip]; return f ? f(el) : ""; };
-  function placeTip() {
-    const w = tt.offsetWidth, h = tt.offsetHeight, r = tipEl.getBoundingClientRect();
-    let x = r.left + r.width / 2 - w / 2, y = r.top - h - 8; if (y < 8) y = r.bottom + 8;
-    tt.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, x)) + "px"; tt.style.top = Math.max(8, y) + "px";
-  }
-  function showTip(el, mode) {
-    clearTimeout(tipHide);
-    if (tipEl && tipEl !== el) tipEl.removeAttribute("aria-describedby");
-    tipEl = el; tipMode = mode;
-    const html = tipHtml(el); if (!html) return;
-    tt.innerHTML = html; tt.classList.add("on"); tt.setAttribute("aria-hidden", "false"); el.setAttribute("aria-describedby", "tt"); placeTip();
-  }
-  function hideTip() { clearTimeout(tipHide); if (tipEl) tipEl.removeAttribute("aria-describedby"); tipEl = null; tipMode = ""; tt.classList.remove("on"); tt.setAttribute("aria-hidden", "true"); }
-  let mouse = null, hoverKey = "";
-  const keyOf = (el) => (el ? `${el.dataset.tip}|${el.id}` : "");
-  const tipTargetAt = (pt) => { const hit = pt && document.elementFromPoint(pt[0], pt[1]); return hit && hit.closest ? hit.closest("[data-tip]") : null; };
-  function hoverCheck() {
-    if (!mouse) return;
-    const el = tipTargetAt(mouse), key = keyOf(el);
-    if (key !== hoverKey) {
-      hoverKey = key; clearTimeout(tipTimer);
-      if (tipMode === "hover") hideTip();
-      if (el) tipTimer = setTimeout(() => { const now = tipTargetAt(mouse); if (now && keyOf(now) === hoverKey && tipMode !== "focus") showTip(now, "hover"); }, 450);
-    } else if (el && tipMode === "hover" && tipEl !== el) tipEl = el;
-  }
-  function refreshTip() { hoverCheck(); if (tipEl && tipEl.isConnected && tt.classList.contains("on")) { tt.innerHTML = tipHtml(tipEl); placeTip(); } }
-  document.addEventListener("pointermove", (e) => { if (e.pointerType !== "mouse") return; mouse = [e.clientX, e.clientY]; hoverCheck(); });
-  document.documentElement.addEventListener("pointerleave", (e) => { if (e.pointerType !== "mouse") return; mouse = null; hoverKey = ""; clearTimeout(tipTimer); if (tipMode === "hover") hideTip(); });
-  document.addEventListener("click", (e) => {
-    const el = e.target.closest("[data-tip]"); if (!el) return;
-    if (e.pointerType === "touch" || (!e.pointerType && matchMedia("(hover: none)").matches)) requestAnimationFrame(() => { showTip(el, "touch"); tipHide = setTimeout(hideTip, 2600); });
-    else if (el === tipEl) requestAnimationFrame(refreshTip);
-  });
-  document.addEventListener("focusin", (e) => { const el = e.target.closest("[data-tip]"); if (el && e.target.matches(":focus-visible")) { clearTimeout(tipTimer); showTip(el, "focus"); } });
-  document.addEventListener("focusout", () => { if (tipMode === "focus") hideTip(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { hideTip(); hoverKey = ""; } });
-  window.addEventListener("scroll", () => { if (tipMode === "touch") hideTip(); hoverCheck(); if (tipEl && tipEl.isConnected) placeTip(); }, { passive: true });
+  ITN.tips.add(TIPS);
+  const refreshTip = ITN.tips.refresh;
 
   // ---------- shortcuts and theme ----------
-  const pill = $("jump-pill"); let pillQueued = false;
-  window.addEventListener("scroll", () => {
-    if (pillQueued) return; pillQueued = true;
-    requestAnimationFrame(() => { pillQueued = false; const pg = $("playground").getBoundingClientRect(); pill.hidden = !(window.scrollY > 500 && pg.top > window.innerHeight * 0.5); });
-  }, { passive: true });
+  ITN.pill();
+  ITN.view.onChange(() => { renderGD(); plRender(); });
   const retheme = () => { readTheme(); film.render(); drawStair(); drawPen(); plRender(); };
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
   new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
@@ -1167,7 +1074,7 @@ function backward(loss) {
   // ---------- boot ----------
   readTheme();
   film.render(); film.setLabel();
-  drawStair(); drawPen(); plRender();
+  drawStair(); drawPen(); ITN.view.sync(); renderGD(); plRender();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { film.render(); drawStair(); drawPen(); plRender(); });
 })();
 </script>
