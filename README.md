@@ -26,6 +26,12 @@ What happens inside the Backward click. A film follows one neuron's gradients ba
 
 Why a network with two narrow hidden layers learns some shapes far faster than one wide layer with more parameters. A race on four rings of dots, a slider that moves each dot to the coordinates a layer gives it, every neuron of a trained network drawn as a square (lines, then curves, then shapes), the layer-by-layer backward pass in words, math, JavaScript and Python, and a measurement of vanishing gradients in a network with six hidden layers. The playground builds networks of up to three hidden layers.
 
+## Chapter 5: Seeing, convolutional networks
+
+A small convolutional network reads handwritten digits, and the chapter opens it up. A stencil you can edit slides over a digit, a layer-by-layer view shows every feature map, and three secrets follow. First, the stencils teach themselves: a fresh network trains in your browser and its first-layer stencils turn from noise into edge detectors. Second, gradient ascent on the pixels shows what the network thinks each digit looks like. Third, a faint, aimed change to the pixels fools it. The playground lets you draw a digit, compare it with a plain network, move it around, see where the network looks, and train your own.
+
+The digits are a 7,000-image subset of the MNIST database by Yann LeCun and Corinna Cortes, under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/); `seeing/digits.js` is shared under that license. `seeing/weights.js` holds the two networks trained in advance with the chapter's own code.
+
 ## Run it locally
 
 The chapters share files in `assets/`, and some pages read their own code from there to display it, which browsers block for pages opened straight from disk. Serve the folder instead:
@@ -37,7 +43,7 @@ python3 -m http.server 8000
 
 ## Project layout
 
-- `index.html`, `loss-and-gradients/`, `backprop/`, `going-deeper/`: one folder per chapter, each a self-contained page.
+- `index.html`, `loss-and-gradients/`, `backprop/`, `going-deeper/`, `seeing/`: one folder per chapter, each a self-contained page.
 - `assets/site.css`: the shared design tokens and components.
 - `assets/autograd.js`: the one autograd every chapter runs. Chapter 3 shows it in five parts, split at blank lines, next to a Python translation with the same five parts, so keep exactly five blank-line-separated sections in both.
 - `assets/common.js`: shared helpers: number formatting, hover descriptions, the Words · Math · Code switch.
@@ -48,7 +54,7 @@ python3 -m http.server 8000
 2. [Loss and gradients: walking downhill](https://taoyiran.github.io/inside-the-network/loss-and-gradients/)
 3. [Backprop, one operation at a time](https://taoyiran.github.io/inside-the-network/backprop/)
 4. [Going deeper: why layers help](https://taoyiran.github.io/inside-the-network/going-deeper/)
-5. Seeing: convolutional networks
+5. [Seeing: convolutional networks](https://taoyiran.github.io/inside-the-network/seeing/)
    - 5′. Listening: spectrograms and sound
 6. Words as vectors: tokens and embeddings
 7. Attention
@@ -58,3 +64,4 @@ python3 -m http.server 8000
 
 - Code: [MIT](LICENSE)
 - Text and figures: [CC BY 4.0](LICENSE-CONTENT.md)
+- MNIST digits in `seeing/digits.js`: [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/), by Yann LeCun and Corinna Cortes
