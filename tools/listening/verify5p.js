@@ -1,0 +1,16 @@
+const P = require("./pagecode5p.js"), fs = require("fs");
+const ref = (f) => JSON.parse(fs.readFileSync(__dirname + "/" + f, "utf8"));
+const same = (a, b) => a.every((L, l) => !L.W || (L.W.every((v, i) => v === b[l].W[i]) && L.b.every((v, i) => v === b[l].b[i])));
+console.log("weights.js == trained:", same(P.NET, ref("final_cnn.json")), same(P.PLAIN, ref("final_plain.json")), same(P.SHIFTED, ref("final_aug.json")));
+console.log("sounds.js features == stored features:", (() => { const b = fs.readFileSync(__dirname + "/data/test.bin"); for (let i = 0; i < 1000 * 1024; i++) if (P.DATA.test.q[i] !== b[i]) return false; return true; })());
+const acc = (f) => { let c = 0, m = 0; for (let k = 0; k < 1000; k++) { const s = f(P.specOf(P.DATA.test, k)), y = P.DATA.test.labels[k]; if (P.argmax(P.probsOf(P.NET, s)) === y) c++; if (P.argmax(P.probsOf(P.PLAIN, s)) === y) m++; } return `${(c / 10).toFixed(1)} / ${(m / 10).toFixed(1)}`; };
+console.log("as recorded (cnn / plain):", acc((s) => s));
+for (const [dt, dp] of [[2, 0], [4, 0], [6, 0], [-2, 0], [0, 1], [0, 2], [0, 3], [0, -2]]) console.log(`moved (${dt}, ${dp}):`, acc((s) => P.moved(s, dt, dp)));
+const accS = (f) => { let c = 0; for (let k = 0; k < 1000; k++) if (P.argmax(P.probsOf(P.SHIFTED, f(P.specOf(P.DATA.test, k)))) === P.DATA.test.labels[k]) c++; return (c / 10).toFixed(1); };
+console.log("pitch-shift-trained: unmoved", accS((s) => s), "| 2 up", accS((s) => P.moved(s, 0, 2)), "| 3 up", accS((s) => P.moved(s, 0, 3)));
+const T = P.trainer(1); while (T.step < 4000) T.next();
+console.log("page trainer, 4,000 steps == trained cnn:", same(T.net, ref("final_cnn.json")));
+const T3 = P.trainer(1, P.makeCNN, 3); while (T3.step < 4000) T3.next();
+console.log("page trainer with shift 3 == shifted network:", same(T3.net, ref("final_aug.json")));
+const T2 = P.trainer(1, P.makePlain); while (T2.step < 4000) T2.next();
+console.log("page trainer, 4,000 steps == trained plain:", same(T2.net, ref("final_plain.json")));

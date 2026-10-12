@@ -1,1 +1,12 @@
 .DS_Store
+
+# build work: downloads, token files, checkpoints, logs, screenshots
+tools/*/work/
+tools/seeing/data/
+tools/seeing/*.json
+tools/seeing/*.png
+tools/listening/data/
+tools/listening/dl/
+tools/listening/*.json
+tools/listening/*.png
+tools/listening/*.txt
