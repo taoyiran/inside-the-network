@@ -1,0 +1,1764 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="How a network reads text: cutting it into tokens, giving every token a list of numbers, and learning those numbers by guessing the next word of 20,000 children's stories. What the lists learn, and what they cannot.">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; font: 14px system-ui, -apple-system, "Segoe UI", sans-serif; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>Words as vectors</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='8' cy='16' r='4' fill='%232a78d6'/%3E%3Ccircle cx='24' cy='9' r='4' fill='%23eb6834'/%3E%3Ccircle cx='24' cy='23' r='4' fill='%232a78d6'/%3E%3Cpath d='M11 15 21 10M11 17l10 5' stroke='%2314171c' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* Chapter 6: tokens as chips, rows of the table as strips of colored cells, words on a map. */
+:root {
+  /* the map's six word groups: the site's categorical order (blue and orange are --pos and --neg) */
+  --g1: #2a78d6; --g2: #eb6834; --g3: #1baf7a; --g4: #eda100; --g5: #e87ba4; --g6: #008300;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --g1: #3987e5; --g2: #d95926; --g3: #199e70; --g4: #c98500; --g5: #d55181; --g6: #008300; }
+}
+:root[data-theme="dark"] { --g1: #3987e5; --g2: #d95926; --g3: #199e70; --g4: #c98500; --g5: #d55181; --g6: #008300; }
+.pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 520px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+.panel { position: relative; min-width: 0; }
+.ptitle { font: 600 11px/1.2 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 6px; min-height: 1.2em; }
+.readout { font: 16px/1.5 var(--font-body); color: var(--ink-2); margin: 10px 0 0; font-variant-numeric: tabular-nums; }
+.readout b { color: var(--ink); }
+.status { font: 13px/1.4 var(--font-mono); color: var(--ink-3); margin: 8px 0 0; }
+.btn.small { padding: 7px 10px; font-size: 13px; }
+.hint { font: 13px/1.3 var(--font-display); color: var(--ink-3); }
+.cap2 { font: 13px/1.35 var(--font-display); color: var(--ink-3); margin: 6px 0 0; }
+.cap2 b { color: var(--ink); font-weight: 600; }
+h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6px; }
+.ctl-row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 12px; }
+.ctl-row label, .ctl-row .lb { font: 13px var(--font-display); color: var(--ink-2); display: inline-flex; gap: 8px; align-items: center; }
+.in { font: 15px/1.3 var(--font-mono); padding: 8px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); color: var(--ink); min-width: 0; }
+.in:focus-visible, textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.in.wide { flex: 1 1 260px; }
+.in.word { width: 8.5em; }
+textarea.in { width: 100%; box-sizing: border-box; resize: vertical; min-height: 5.5em; font-size: 14px; line-height: 1.45; }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.presets button { font: 13px/1 var(--font-mono); padding: 6px 9px; border: 1px solid var(--rule); border-radius: 99px; background: var(--well); color: var(--ink-2); cursor: pointer; }
+.presets button[aria-pressed="true"] { background: var(--sheet); color: var(--ink); border-color: var(--ink); }
+.presets button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* tokens: one chip per token; the pieces of one word sit glued together */
+.toks { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 5px; font: 13.5px/1 var(--font-mono); }
+.toks .w { display: inline-flex; }
+.tk { display: inline-block; padding: 5px 6px 4px; border: 1px solid var(--rule); background: var(--well); color: var(--ink); border-radius: 6px; white-space: pre; position: relative; }
+.w .tk + .tk { border-left: 1px dashed var(--ink-3); border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
+.w .tk:not(:last-child) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.tk small { display: block; font: 10px/1 var(--font-mono); color: var(--ink-3); margin-top: 3px; text-align: center; }
+.tk.new { background: color-mix(in srgb, var(--neg) 20%, var(--sheet)); border-color: color-mix(in srgb, var(--neg) 60%, var(--rule)); }
+.tk.cur { box-shadow: 0 0 0 2px var(--ink); }
+.tk.dim { color: var(--ink-3); }
+.toks .br { flex-basis: 100%; height: 0; }
+.toks.big { font-size: 15px; }
+.merges { font: 12.5px/1.5 var(--font-mono); color: var(--ink-3); margin-top: 10px; }
+.merges b { color: var(--ink); font-weight: 600; }
+/* probability bars, with a word on the left */
+.bars { display: grid; grid-template-columns: minmax(3.5em, max-content) minmax(0, 1fr) 3.4em; gap: 3px 8px; align-items: center; font: 12.5px/1.2 var(--font-mono); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.bars .bar { height: 10px; background: var(--well); border-radius: 3px; overflow: hidden; }
+.bars .bar i { display: block; height: 100%; background: var(--ink-3); border-radius: 3px; }
+.bars .top { color: var(--ink); font-weight: 600; }
+.bars .bar.top i { background: var(--ink); }
+.bars .hit { color: var(--ink); }
+.bars .bar.hit i { background: var(--pos); }
+.guess { font: 600 15px/1.3 var(--font-display); color: var(--ink); margin: 0 0 6px; }
+.guess small { font: 13px var(--font-body); color: var(--ink-3); font-weight: 400; }
+/* the ladder */
+.ladder { display: grid; gap: 12px; }
+.lr { display: grid; grid-template-columns: minmax(0, 17em) minmax(0, 1fr) 3em; gap: 4px 12px; align-items: center; font: 14px/1.3 var(--font-display); color: var(--ink); }
+.lr .bar { height: 14px; background: var(--well); border-radius: 4px; overflow: hidden; }
+.lr .bar i { display: block; height: 100%; background: var(--ink-3); border-radius: 4px; }
+.lr.best .bar i { background: var(--ink); }
+.lr b { font: 600 14px var(--font-mono); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.lr small { display: block; font: 12.5px var(--font-body); color: var(--ink-3); }
+@media (max-width: 520px) { .lr { grid-template-columns: minmax(0, 1fr) 3em; grid-template-areas: "l v" "b b"; } .lr > span:first-child { grid-area: l; } .lr .bar { grid-area: b; } .lr b { grid-area: v; } }
+/* counting, row by row */
+.counts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; font: 13px/1.35 var(--font-mono); color: var(--ink-2); }
+.counts .k { color: var(--ink-3); }
+.counts b { color: var(--ink); font-weight: 600; }
+.counts .no { color: var(--ink-3); }
+.qgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-top: 14px; }
+@media (max-width: 600px) { .qgrid { grid-template-columns: minmax(0, 1fr); } }
+/* rows of the table as strips of 32 cells */
+.strips { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 10px; align-items: center; font: 13px/1 var(--font-mono); color: var(--ink); }
+.strips canvas { display: block; width: 100%; height: 18px; }
+.strips .lab2 { text-align: right; }
+.strips .lab2 small { color: var(--ink-3); font-size: 10.5px; margin-left: 4px; }
+/* the walk through the network */
+.stages { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr) minmax(0, 1fr); gap: 18px 16px; align-items: start; margin-top: 14px; }
+@media (max-width: 640px) { .stages { grid-template-columns: minmax(0, 1fr); } }
+.stage { min-width: 0; }
+.stage .sh { font: 600 12px/1.25 var(--font-display); color: var(--ink); margin: 0 0 6px; }
+.stage .sd { font: 12px/1.35 var(--font-body); color: var(--ink-3); margin: 6px 0 0; }
+.stage canvas { display: block; width: 100%; }
+/* the map */
+.map-wrap { position: relative; }
+.map { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 8px; border: 1px solid var(--rule); background: var(--sheet); touch-action: manipulation; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font: 13px/1.3 var(--font-display); color: var(--ink-2); margin-top: 8px; }
+.legend button { font: inherit; color: inherit; background: none; border: 0; padding: 2px 0; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.legend button[aria-pressed="false"] { opacity: 0.45; }
+.legend button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.g1 { background: var(--g1); } .g2 { background: var(--g2); } .g3 { background: var(--g3); } .g4 { background: var(--g4); } .g5 { background: var(--g5); } .g6 { background: var(--g6); }
+/* neighbors */
+.nb-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 560px) { .nb-grid { grid-template-columns: minmax(0, 1fr); } }
+.arith { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font: 600 18px/1 var(--font-mono); color: var(--ink-2); }
+.ex { font: 15px/1.5 var(--font-body); color: var(--ink-2); margin: 4px 0; }
+.ex mark { background: color-mix(in srgb, var(--pos) 22%, var(--sheet)); color: var(--ink); border-radius: 3px; padding: 0 2px; }
+/* playground */
+.pg-grid { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 28px; padding-top: 18px; }
+@media (max-width: 899px) { .pg-grid { grid-template-columns: minmax(0, 1fr); } }
+.box { min-width: 0; }
+.box h4 { font: 600 14px/1.2 var(--font-display); color: var(--ink); margin: 0 0 8px; }
+.sep { border-top: 1px solid var(--rule); padding-top: 14px; margin-top: 18px; }
+.row-gap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.written { font: 16px/1.55 var(--font-body); color: var(--ink); white-space: pre-wrap; margin: 10px 0 0; min-height: 3em; }
+.written .gen { background: color-mix(in srgb, var(--pos) 14%, var(--sheet)); border-radius: 3px; }
+#pl-map { aspect-ratio: 1; }
+.film-cap { min-height: 5.5em; }
+.fpanel { position: relative; aspect-ratio: 1; border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); overflow: hidden; }
+.fpanel > * { position: absolute; inset: 0; }
+.fpanel .fhtml { padding: 14px; overflow: hidden; }
+.fpanel > canvas { width: 100%; height: 100%; display: block; }
+.big-text { font: 22px/1.45 var(--font-body); color: var(--ink); }
+.codes { font: 12px/1.6 var(--font-mono); color: var(--ink-3); word-break: break-all; }
+.codes b { color: var(--ink); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="page">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Inside the Network</a><span aria-hidden="true">›</span><span>Chapter 6</span></nav>
+  <header class="col">
+    <div class="eyebrow">Chapter 6</div>
+    <h1>Words as vectors: tokens and embeddings</h1>
+    <p class="dek">A network takes only numbers. To read a story it cuts the text into tokens and gives each token a list of numbers. Nobody chooses those numbers: a small network learns them while it practices guessing the next word, and words that are used alike end up with similar lists.</p>
+    <nav class="jump" aria-label="Page shortcuts">
+      <a class="btn primary" href="#playground">Skip to the playground ↓</a>
+      <span class="jump-note">or read the introduction below</span>
+    </nav>
+  </header>
+
+  <main class="col intro">
+    <h2>The problem: getting a computer to read</h2>
+    <p>Read "Once upon a time, there was a little" and you already expect "girl" or "dog", never "upon". A computer gets only the characters, each stored as a number that says nothing about meaning. Guessing what comes next in a text is called <b>language modeling</b>. Phone keyboards do it to suggest your next word, and the large language models behind chat assistants are, at their core, very good guessers of the next piece of text; chapter 8 trains a tiny one.</p>
+
+    <h3>Why guess the next word?</h3>
+    <p>Because guessing well takes a lot of knowledge: grammar ("a girl", not "a girls"), meaning (after "she ate a" comes something to eat), and the story so far. And text is its own answer key. Nobody has to label anything, because every word is the right answer for the text before it. This chapter's network learns from 20,000 short stories from <b>TinyStories</b>, a collection of stories written to use only words a 3- or 4-year-old understands. Researchers at Microsoft had GPT-3.5 and GPT-4 write them in 2023, to study how small language models learn to write; this chapter uses stories written by GPT-4.</p>
+
+    <h3>Why is it hard?</h3>
+    <p>Words are symbols, not numbers. "Cat" and "dog" share no letters but are used in the same places; "cat" and "car" share most of their letters but are not. Worse, much of any text is new, and the longer the stretch, the more of it is new. Here is a story the network never saw, cut into its tokens (the next section explains them). A token is marked when the tokens just before it, in that order, appear nowhere in the 20,000 training stories.</p>
+
+    <figure class="card" id="story" aria-label="A test story, with every token marked whose recent context never appears in the training stories">
+      <div class="ctl-row">
+        <span class="lb">Look back <span class="seg" role="group" aria-label="How many tokens to look back" id="st-n"><button type="button" data-v="1" data-tip="st-n">1</button><button type="button" data-v="2" data-tip="st-n">2</button><button type="button" data-v="4" data-tip="st-n">4</button><button type="button" data-v="8" data-tip="st-n">8</button></span> tokens</span>
+        <span class="row-gap" style="margin:0"><button type="button" class="btn small" id="st-prev" data-tip="st-prev">← Story</button><button type="button" class="btn small" id="st-next" data-tip="st-next">Story →</button></span>
+      </div>
+      <div class="toks" id="st-toks"></div>
+      <p class="readout" id="st-read">Loading 21,000 stories…</p>
+    </figure>
+
+    <p>The simplest idea is to count: after the last few tokens, which token came next most often in the training stories? When those tokens never appeared together, fall back to fewer of them. Counting works best when the exact phrase was seen; when it was not, it can only answer from a shorter piece of it. Looking further back does not help: long stretches rarely repeat, so counting with the last 8 tokens does no better than with the last 4.</p>
+
+    <h3>What a neural network does differently</h3>
+    <ul class="tries">
+      <li><b>A token becomes a list of numbers.</b> Each of the 2,000 tokens gets its own list of 32 numbers, called its <b>embedding</b>. The network reads those numbers, never the spelling.</li>
+      <li><b>Words used alike get similar lists.</b> The lists are learned, and tokens that appear in similar places end up with similar numbers. What the network learns about "cat" then carries over to "dog", and a phrase it never saw can still look like phrases it did.</li>
+      <li><b>It learns from its mistakes.</b> The network is trained on one task, guessing the next token, by gradient descent on the 4.3 million tokens of the training stories.</li>
+    </ul>
+
+    <figure class="card" aria-label="Five ways of guessing the next token, on the same test stories">
+      <div class="ladder" id="ladder"></div>
+      <p class="cap2" id="ladder-cap">Share of the tokens of 100 test stories whose first guess is right, measured in your browser. The test stories are not among the training stories.</p>
+      <div class="ptitle" style="margin-top:18px">The same, split by whether the last 4 tokens appear in the training stories</div>
+      <div class="ladder" id="ladder-split"></div>
+    </figure>
+
+    <p id="ladder-after">Measuring…</p>
+
+    <h2>What this is</h2>
+    <p>This film follows one phrase from characters to the network's guess, then shows what training did to the lists of numbers.</p>
+
+    <figure class="film" id="film" aria-label="Animation: from characters to tokens to lists of numbers to a guess, and how training arranged the lists">
+      <div class="film-stage">
+        <div class="pair">
+          <div class="panel"><div class="ptitle" id="f-lt"></div><div class="fpanel" id="f-left"></div></div>
+          <div class="panel"><div class="ptitle" id="f-rt"></div><div class="fpanel" id="f-right"></div></div>
+        </div>
+      </div>
+      <div class="film-ticker" id="f-ticker" aria-hidden="true"></div>
+      <div class="film-progress"><i id="f-fill"></i></div>
+      <div class="film-bar">
+        <button type="button" class="btn primary" id="f-play">Play</button>
+        <div class="chips" id="f-chips" role="group" aria-label="Jump to a scene">
+          <button type="button" data-i="0" data-tip="film-0">Characters</button><button type="button" data-i="1" data-tip="film-1">Tokens</button><button type="button" data-i="2" data-tip="film-2">Rows</button><button type="button" data-i="3" data-tip="film-3">A guess</button><button type="button" data-i="4" data-tip="film-4">Learning</button><button type="button" data-i="5" data-tip="film-5">Neighbors</button><button type="button" data-i="6" data-tip="film-6">In short</button>
+        </div>
+      </div>
+      <p class="film-cap" id="f-cap" aria-live="polite"></p>
+    </figure>
+
+    <h2>The question</h2>
+    <p>Counting can only answer for phrases it has seen. What does a network do with a phrase its training stories never contain? Pick one, or type your own, and compare.</p>
+
+    <figure class="card" id="question" aria-label="Counting and the network guessing what comes after a phrase">
+      <div class="presets" id="qt-pre" role="group" aria-label="Example phrases"></div>
+      <div class="ctl-row" style="margin:12px 0 0"><input class="in wide" id="qt-in" type="text" spellcheck="false" autocomplete="off" aria-label="The start of a sentence" data-tip="qt-in"></div>
+      <div class="qgrid">
+        <div><p class="guess">Counting</p><div class="counts" id="qt-count"></div></div>
+        <div><p class="guess" id="qt-net-g">The network</p><div class="bars" id="qt-net"></div></div>
+      </div>
+      <p class="readout" id="qt-read">Loading 21,000 stories…</p>
+    </figure>
+
+    <p id="qt-after">Counting needs the exact tokens. When the last 8 have never appeared together, it falls back to fewer, until it finds a stretch it has seen, and then answers from that alone, forgetting the rest. The network always reads all 8 tokens, through their lists of numbers, and usually gives a sensible guess even for a phrase that appears nowhere in its training. The tools below show how.</p>
+
+    <h2>Tool 1: cutting text into tokens</h2>
+    <p>A network reads from a fixed list of tokens, its <b>vocabulary</b>. A token for every whole word would need a very long list, and new words would still turn up: the 20,000 training stories use 9,597 different words (counting forms such as "lily's" separately), and 1,000 other stories bring 99 more, such as "tulip", "pudding" and "excellent". Single letters need only a few dozen tokens, but every word becomes a long row of them, and a letter alone says little. Most language models use pieces in between, and a common way to find them is <b>byte-pair encoding</b>: start from single letters, find the pair of neighbors that appears most often in the training text, glue it into one new piece, and repeat. Drag the slider to replay the 1,922 merges learned from the training stories.</p>
+
+    <figure class="card" id="tool1" aria-label="Byte-pair encoding replayed on a sentence">
+      <div class="ctl-row">
+        <input class="in wide" id="t1-in" type="text" spellcheck="false" autocomplete="off" aria-label="Text to cut into tokens" data-tip="t1-in">
+      </div>
+      <label class="ptitle" for="t1-merges" style="display:block">Merges learned so far: <span id="t1-merges-v">1,922</span></label>
+      <input type="range" id="t1-merges" min="0" max="1922" value="1922" style="width:100%" data-tip="t1-merges">
+      <div class="toks big" id="t1-toks" style="margin-top:12px"></div>
+      <div class="merges" id="t1-list"></div>
+      <p class="readout" id="t1-read"></p>
+    </figure>
+
+    <p>After all 1,922 merges the vocabulary has 2,000 tokens: the end of a story, a line break, 13 punctuation marks, the 10 digits, 52 single letters (a letter that starts a word, or one glued on with "##"), a glued-on apostrophe, and the 1,922 pieces. Common words become one token, as 93% of the words in other stories do, counting every time a word appears; rarer words are cut into a few pieces, such as "tow" and "##ers"; and any word at all can still be spelled out letter by letter. The tokenizers of GPT models work the same way on bytes instead of letters, keep capitals and spaces inside their tokens, and have between about 50,000 and 200,000 tokens.</p>
+
+    <h2>Tool 2: a token becomes a list of numbers</h2>
+    <p>Each token is now a number, its place in the vocabulary, and that number means nothing: token 1,203 is not "more" than token 87. So every token gets a list of 32 numbers of its own, its row in a table of 2,000 rows, the <b>embedding table</b>. Reading a token means looking up its row. Here are some rows of the finished network's table; type any word to add its row.</p>
+
+    <figure class="card" id="tool2" aria-label="Rows of the embedding table">
+      <div class="ctl-row"><input class="in word" id="t2-in" type="text" spellcheck="false" autocomplete="off" aria-label="A word to add" data-tip="t2-in"><button type="button" class="btn small" id="t2-add" data-tip="t2-add">Add its row</button><button type="button" class="btn small" id="t2-reset" data-tip="t2-reset">Start over</button></div>
+      <div class="strips" id="t2-strips"></div>
+      <p class="readout" id="t2-read"></p>
+    </figure>
+
+    <p>Looking up a row is a layer of weighted sums in disguise, like those of chapter 1 but without the bias or the tanh. Write the token as 2,000 numbers that are all 0 except for a single 1 at its place, a <b>one-hot</b> list, and multiply it by the table: only the row at the 1 survives. One-hot lists say nothing about similarity: every two of them are exactly as far apart, so "cat" differs from "dog" as much as from "the". The table is where similarity can live, and training is what puts it there.</p>
+
+    <h2>Tool 3: the network that guesses the next token</h2>
+    <p>The network reads the last 8 tokens. It looks up their 8 rows and lays them side by side into one list of 256 numbers. A hidden layer of 128 tanh neurons, as in chapter 1, reads that list, and an output layer gives each of the 2,000 tokens a score. Softmax turns the scores into probabilities. Type a phrase and follow it through.</p>
+
+    <figure class="card" id="tool3" aria-label="A phrase passing through the network">
+      <div class="ctl-row" style="margin:0"><input class="in wide" id="t3-in" type="text" spellcheck="false" autocomplete="off" aria-label="The start of a sentence" data-tip="t3-in"></div>
+      <div class="stages">
+        <div class="stage"><p class="sh">The last 8 tokens and their rows</p><div class="strips" id="t3-rows"></div><p class="sd">8 rows of 32 numbers, side by side: 256 numbers<br>table: 2,000 × 32 = 64,000 parameters</p></div>
+        <div class="stage"><p class="sh">→ 128 tanh neurons</p><canvas id="t3-hid" style="aspect-ratio: 16 / 9" aria-label="The 128 hidden neurons' values"></canvas><p class="sd">each reads all 256 numbers<br>256 × 128 + 128 = 32,896 parameters</p></div>
+        <div class="stage"><p class="sh">→ 2,000 probabilities, the top 10</p><div class="bars" id="t3-out"></div><p class="sd">a score per token, then softmax<br>128 × 2,000 + 2,000 = 258,000 parameters</p></div>
+      </div>
+      <p class="readout" id="t3-read"></p>
+    </figure>
+
+    <p>Training is the backward pass of chapters 3 and 4. The loss is −log of the probability the network gave to the token that really came next, and its gradient flows back through the output layer and the hidden layer into the 8 rows that were read. Those rows, and only those, get a gradient from this example, and it nudges them toward what would have helped; the table is just more weights, learned like the others. One change from earlier chapters: the steps are taken with <b>Adam</b>, a version of gradient descent that gives every weight its own step size. The row of "the" gets a gradient in almost every batch, the row of a rare word once in a long while; Adam divides each weight's step by the typical size of its recent gradients, so both move at a useful pace. Most language models are trained with Adam or a close relative.</p>
+
+    <h2>Secret 1: nobody told it what words mean</h2>
+    <p>The table starts as small random numbers, so at first every word is nowhere in particular. The map below shows 42 words in six groups. A row has 32 numbers, too many to draw, so the map shows the flat view of the rows that keeps the most of their spread (principal component analysis); words with similar rows land close together on the map (two words can also land close without having similar rows, because the flat view keeps only part of the spread). The early moments are that network's own first steps, replayed in your browser right now: a fresh network with the same starting numbers, trained on the same batches. The later moments were saved by the run that trained the finished network.</p>
+
+    <figure class="card" id="learn" aria-label="A map of 42 words' rows, at several moments of training">
+      <div class="seg" role="group" aria-label="Moment of training" id="ln-when"></div>
+      <div class="map-wrap" style="margin-top:12px"><canvas class="map" id="ln-map" aria-label="A map of 42 words, placed by their rows" data-tip="ln-map" data-follow></canvas></div>
+      <div class="legend" id="ln-legend" role="group" aria-label="Word groups"></div>
+      <p class="readout" id="ln-read">Loading 21,000 stories…</p>
+    </figure>
+
+    <p id="ln-after">Nobody told the network that "red" and "blue" are colors or that "park" and "garden" are places. It only ever tried to guess the next token, and a token's row changes only when that token is among the 8 being read, to help guess what comes after them. So words that are followed by similar tokens got pushed in similar directions. Colors gather because they come before the same words, most often "ball" and "car". The actions gather less, and the map shows why: "ran" comes before "to" or "away", like other ways of moving, while "laughed", "smiled" and "cried" come before "and" or a full stop, and sit near the feelings.</p>
+
+    <h2>Secret 2: close means used alike, not the same</h2>
+    <p>Pick a word to see the words whose rows are closest to its row. Closeness is measured by the angle between two rows (the <b>cosine similarity</b>: 1 when they point the same way, 0 when they are at right angles, negative when they point apart).</p>
+
+    <figure class="card" id="near" aria-label="The nearest words to a word">
+      <div class="presets" id="nb-pre" role="group" aria-label="Words"></div>
+      <div class="ctl-row" style="margin:12px 0 0"><input class="in word" id="nb-in" type="text" spellcheck="false" autocomplete="off" aria-label="A word" data-tip="nb-in"></div>
+      <div class="bars" id="nb-list" style="margin-top:12px"></div>
+      <p class="readout" id="nb-read"></p>
+    </figure>
+
+    <p id="nb-after">Opposites are often neighbors: "big" and "small", "up" and "down". They fit the same slots ("a … dog", "climbed … the hill"), so guessing the next token after either is much the same job. The table holds how words are used. That is related to what they mean, but it is not the same thing.</p>
+
+    <h2>Secret 3: directions mean something too</h2>
+    <p>The steps between rows can carry meaning as well. If the step from "he" to "she" is roughly the same as the step from "boy" to "girl", then the row of "she", minus the row of "he", plus the row of "boy", should land near the row of "girl". Try it.</p>
+
+    <figure class="card" id="arith" aria-label="Adding and subtracting rows">
+      <div class="presets" id="ar-pre" role="group" aria-label="Examples"></div>
+      <div class="arith" style="margin-top:12px"><input class="in word" id="ar-b" type="text" spellcheck="false" autocomplete="off" aria-label="First word" data-tip="ar-b"><span>−</span><input class="in word" id="ar-a" type="text" spellcheck="false" autocomplete="off" aria-label="Word to subtract" data-tip="ar-a"><span>+</span><input class="in word" id="ar-c" type="text" spellcheck="false" autocomplete="off" aria-label="Word to add" data-tip="ar-c"><span>≈ ?</span></div>
+      <div class="nb-grid" style="margin-top:14px">
+        <div><p class="guess">Nearest, leaving out the three words</p><div class="bars" id="ar-ex"></div></div>
+        <div><p class="guess">Nearest of all</p><div class="bars" id="ar-all"></div></div>
+      </div>
+      <p class="readout" id="ar-read"></p>
+    </figure>
+
+    <p id="ar-after">Many of these puzzles come out right, but not all, and the result often depends on a detail: whether the three words of the puzzle may themselves be the answer. Left in, the nearest word is often one of them, usually the one added last; famous examples such as king − man + woman ≈ queen are reported with them left out. Those come from much larger networks trained on far more text. ("Queen" and "woman" are too rare in these stories to be single tokens here.)</p>
+
+    <h2>Secret 4: one word, one row</h2>
+    <p>Each token has a single row, whatever it means in its sentence. "Saw" is a tool in "he cut the wood with a saw" and a past tense in "she saw a bird", and both read the same 32 numbers. Pick a word with two meanings to see it used both ways in the training stories, and what the network expects next in each.</p>
+
+    <figure class="card" id="poly" aria-label="A word with two meanings, read through one row">
+      <div class="presets" id="po-pre" role="group" aria-label="Words with two meanings"></div>
+      <div class="nb-grid" style="margin-top:14px">
+        <div><p class="guess" id="po-a-g"></p><div id="po-a-ex"></div><div class="bars" id="po-a" style="margin-top:8px"></div></div>
+        <div><p class="guess" id="po-b-g"></p><div id="po-b-ex"></div><div class="bars" id="po-b" style="margin-top:8px"></div></div>
+      </div>
+      <p class="readout" id="po-read"></p>
+    </figure>
+
+    <p>The network can still tell the two meanings apart a little, from the 7 tokens before it, but the word's own numbers cannot change with its sentence, and its row ends up mostly about the more common meaning. The network also has a short memory: it sees 8 tokens back, so a name mentioned 30 tokens ago is gone. Both are what <b>attention</b> fixes, in chapter 7: it rebuilds each token's numbers from the tokens before it, as far back as the model's window reaches.</p>
+
+    <h2>The algorithm: tokens, and the network</h2>
+    <p>Seven parts: three that cut text into tokens, and four that make up the network and its training. This is the JavaScript this page actually runs, or the same program in Python.</p>
+    <div class="lens" data-lens-ctl data-label="Explain with"></div>
+    <div class="annot" id="algo" data-reps></div>
+
+    <h2>The playground</h2>
+    <p>Start a story and watch it being cut into tokens and what the network expects next. Let it write on, look up any word's neighbors, or train your own network from scratch.</p>
+  </main>
+
+  <section class="bench" id="playground" aria-label="Words playground">
+    <div class="fig">
+      <div class="pg-grid">
+        <div>
+          <div class="box">
+            <h4>Your text</h4>
+            <textarea class="in" id="pl-text" spellcheck="false" aria-label="The start of a story" data-tip="pl-text"></textarea>
+            <div class="toks" id="pl-toks" style="margin-top:10px"></div>
+            <p class="status" id="pl-count"></p>
+          </div>
+          <div class="box sep">
+            <h4>What comes next</h4>
+            <div class="bars" id="pl-next"></div>
+            <div class="row-gap"><button type="button" class="btn small" id="pl-take" data-tip="pl-take">Add the top guess</button><button type="button" class="btn primary small" id="pl-write" data-tip="pl-write">Write 60 tokens</button><label class="hint" style="display:inline-flex;gap:6px;align-items:center">Boldness <input type="range" id="pl-temp" min="0" max="4" value="2" data-tip="pl-temp"> <span id="pl-temp-v">0.8</span></label></div>
+            <p class="written" id="pl-written"></p>
+          </div>
+        </div>
+        <div>
+          <div class="box">
+            <h4>Words near a word</h4>
+            <div class="row-gap" style="margin-top:0"><input class="in word" id="pl-nb-in" type="text" spellcheck="false" autocomplete="off" aria-label="A word" data-tip="pl-nb-in"></div>
+            <div class="bars" id="pl-nb" style="margin-top:10px"></div>
+          </div>
+          <div class="box sep">
+            <h4>Which network</h4>
+            <div class="seg" role="group" aria-label="Which network" id="pl-net"><button type="button" data-v="ref" data-tip="net-ref" aria-pressed="true">Trained</button><button type="button" data-v="own" data-tip="net-own" aria-pressed="false">Your own</button></div>
+            <div class="row-gap"><button type="button" class="btn primary small" id="pl-train" data-tip="pl-train">Train</button><button type="button" class="btn small" id="pl-reset" data-tip="pl-reset">Reset</button></div>
+            <p class="status" id="pl-status"></p>
+            <div class="map-wrap" style="margin-top:10px"><canvas class="map" id="pl-map" aria-label="The map of 42 words for the chosen network" data-tip="ln-map" data-follow></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="col">
+    <h2>How to read the figures</h2>
+    <dl class="read">
+      <dt>Tokens</dt>
+      <dd>Each chip is one token. Pieces of one word sit glued together, the later ones starting with "##". "↵" is a line break. In the first figure, orange chips are tokens whose recent context never appears in the training stories.</dd>
+      <dt>Rows</dt>
+      <dd>A row of the embedding table is drawn as 32 cells: blue for a positive number, orange for a negative one, paper-colored for zero. All rows share one scale, so stronger colors mean larger numbers; the largest 1% of the table's numbers show at full color.</dd>
+      <dt>The map</dt>
+      <dd>Each word's row, made unit length, and shown along the two directions in which the 42 rows spread the most. The map's axes have no meaning of their own, and distances on it are only approximate: a flat view of 32 numbers keeps only part of their spread (the readout says how much).</dd>
+      <dt>Bars</dt>
+      <dd>Probabilities, or cosine similarities in the neighbor figures. The darkest bar is the top one; a blue bar marks the right answer.</dd>
+    </dl>
+
+    <h2>Things to try</h2>
+    <ul class="tries">
+      <li>In the first figure, switch from looking back 4 tokens to 8. How much of the story turns orange?</li>
+      <li>In Tool 1, drag the slider to the far left, then move it slowly to the right. Which pieces appear first?</li>
+      <li>In the question, type a phrase about something unusual, such as "the dragon wanted to eat a big". Does counting find it? What does the network guess?</li>
+      <li>In Secret 2, look up "mom", "ran" and "red", then a name such as "lily".</li>
+      <li>In the playground, start a story, press "Write 60 tokens" a few times, and see how soon it loses track of who the story is about.</li>
+      <li>Train your own network and watch its map. How soon do the colors gather?</li>
+    </ul>
+
+    <h2>What runs where</h2>
+    <p id="runs">Everything runs in your browser, with no machine-learning library. The stories are 21,000 from the <a href="https://huggingface.co/datasets/roneneldan/TinyStories">TinyStories dataset</a> by Ronen Eldan and Yuanzhi Li (Microsoft Research), shared under the <a href="https://cdla.dev/sharing-1-0/">Community Data License Agreement – Sharing 1.0</a>: stories 2 to 20,001 of its GPT-4 training file for training, and the first 1,000 complete stories of its validation file for testing. The page carries them lowercased, tidied and cut into tokens with the code above, which is also how the 1,922 merges were learned. The finished network was trained in advance with this page's code: <span id="runs-train">600,000 steps of 64 examples from the training stories, about 9 passes over them, with a learning rate of 0.001 that slows down to 0 over the last 30% of the steps; each step's 64 examples were shared out among 8 processor cores, which changes only the order in which their gradients are added up</span>. Its weights load from a file, rounded to 32-bit numbers to halve the download. Secret 1's fresh network uses the same random seed and the same batches: run outside the browser, its table after 1,000 steps matched the reference run's table after its first 1,000 steps to 13 decimal places. Everything else runs live: the counting, the accuracy measurements, the training in Secret 1 and in the playground, and every guess. When this page loaded it checked the backward pass the slow way: <span id="gc-check">the check is running…</span> Browsers round a few math functions very slightly differently, so live training can come out a little differently from one browser to another.</p>
+
+    <h2>Where this is going</h2>
+    <ol class="road">
+      <li><span class="n">1</span><span><a href="../">A network you can touch</a></span><span></span></li>
+      <li><span class="n">2</span><span><a href="../loss-and-gradients/">Loss and gradients: walking downhill</a></span><span></span></li>
+      <li><span class="n">3</span><span><a href="../backprop/">Backprop, one operation at a time</a></span><span></span></li>
+      <li><span class="n">4</span><span><a href="../going-deeper/">Going deeper: why layers help</a></span><span></span></li>
+      <li><span class="n">5</span><span><a href="../seeing/">Seeing: convolutional networks</a></span><span></span></li>
+      <li class="branch"><span class="n">5′</span><span><a href="../listening/">Listening: spectrograms and sound</a></span><span class="tag">Branch</span></li>
+      <li class="here"><span class="n">6</span><span>Words as vectors: tokens and embeddings</span><span class="tag">This page</span></li>
+      <li><span class="n">7</span><span>Attention</span><span></span></li>
+      <li><span class="n">8</span><span>A tiny GPT, trained in your browser</span><span></span></li>
+    </ol>
+    <nav class="chapnav" aria-label="Chapters"><a href="../listening/">← Chapter 5′: Listening</a><span>Chapter 7: Attention, coming next</span></nav>
+    <p class="foot">Working prototype, October 2026. Every figure on this page is computed live, except the saved moments of training in Secret 1 and the film.<br><a href="https://github.com/taoyiran/inside-the-network">Source on GitHub</a> · code under MIT, text and figures under CC BY 4.0, TinyStories under CDLA-Sharing-1.0 (Ronen Eldan and Yuanzhi Li).</p>
+  </section>
+  <a class="jump-pill" id="jump-pill" href="#playground" hidden>Playground ↓</a>
+</div>
+
+<script src="../assets/common.js"></script>
+<script src="stories.js"></script>
+<script src="weights.js"></script>
+<script id="tok">
+// Text in, tokens out. First the text is tidied: lowercase, and only letters, digits, a few punctuation
+// marks and line breaks. Quotation marks are turned to face the way they open or close, and a spaced hyphen
+// becomes a dash, so the text can be put back together from its tokens: exactly for almost every story here, though
+// a few unusual spellings, such as "3.50" or a space just inside a quotation mark, come back slightly different.
+function tidy(text) {
+  const t = text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[‘’`´]/g, "'").replace(/[“”]/g, '"').replace(/…/g, "...")
+    .replace(/ *(?:[–—]|--+) */g, " — ").replace(/ - /g, " — ")
+    .replace(/[^a-z0-9.,!?;:'"\-—\n ]/g, " ").replace(/[ \t]+/g, " ").replace(/ *\n[ \n]*/g, "\n").trim();
+  return t.split("\n").map((line) => {
+    let out = "", single = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i], before = out ? out[out.length - 1] : " ", after = line[i + 1] || " ", opens = /[ —“‘]/.test(before);
+      if (c === '"') out += opens ? "“" : "”";
+      else if (c === "'" && opens && /[a-z]/.test(after)) { out += "‘"; single = true; }
+      else if (c === "'" && single && !/[a-z]/.test(after)) { out += "’"; single = false; }
+      else out += c;
+    }
+    return out;
+  }).join("\n");
+}
+// Then it is split into words and marks: a word is a run of letters (with apostrophes inside, as in "don't"),
+// and every digit, punctuation mark and line break stands alone. Spaces are dropped; they can be put back.
+const pieces = (text) => tidy(text).match(/[a-z]+(?:'[a-z]+)*|[^ a-z]/g) || [];
+
+// A word starts as its letters. Letters after the first carry "##", meaning "glued to the piece before".
+const letters = (word) => Array.from(word, (c, i) => (i ? "##" + c : c));
+const glue = (a, b) => a + b.slice(2); // "pl" + "##ay" = "play", "##a" + "##y" = "##ay"
+// Byte-pair encoding learns the pieces from text. Count every pair of neighboring pieces inside words,
+// glue the most frequent pair into one new piece, and repeat. Common words end up as one piece;
+// rare words stay split into a few, so any word can still be written.
+// counts: how often each word appears in the text.
+function learnMerges(counts, howMany) {
+  const words = [...counts].map(([w, n]) => ({ s: letters(w), n }));
+  const merges = [];
+  while (merges.length < howMany) {
+    const pairs = new Map();
+    for (const { s, n } of words) for (let i = 0; i + 1 < s.length; i++) { const k = s[i] + " " + s[i + 1]; pairs.set(k, (pairs.get(k) || 0) + n); }
+    let best = "", most = 0;
+    for (const [k, n] of pairs) if (n > most || (n === most && k < best)) { best = k; most = n; }
+    if (!most) break;
+    const [a, b] = best.split(" ");
+    merges.push([a, b]);
+    for (const w of words) {
+      const s = w.s, out = [];
+      for (let i = 0; i < s.length; i++) if (i + 1 < s.length && s[i] === a && s[i + 1] === b) { out.push(glue(a, b)); i++; } else out.push(s[i]);
+      w.s = out;
+    }
+  }
+  return merges;
+}
+
+// To cut a new word, start from its letters and apply the learned merges, earliest learned first.
+// upto: use only the first upto merges (to replay how the pieces grew).
+function cutWord(word, rank, upto = Infinity) {
+  let s = letters(word);
+  for (;;) {
+    let at = -1, best = Infinity;
+    for (let i = 0; i + 1 < s.length; i++) { const r = rank.get(s[i] + " " + s[i + 1]); if (r !== undefined && r < upto && r < best) { best = r; at = i; } }
+    if (at < 0) return s;
+    s = [...s.slice(0, at), glue(s[at], s[at + 1]), ...s.slice(at + 2)];
+  }
+}
+// The vocabulary: "<end>" (the end of a story), the marks, every single letter, then one token per merge.
+// A token's number is its place in this list; the network only ever sees these numbers.
+const END = "<end>";
+function makeTokenizer(merges) {
+  const marks = [END, "\n", ".", ",", "!", "?", ";", ":", "'", "“", "”", "‘", "’", "-", "—", ..."0123456789"];
+  const abc = "abcdefghijklmnopqrstuvwxyz'", single = [...abc.slice(0, 26)].concat([...abc].map((c) => "##" + c));
+  const vocab = [...marks, ...single, ...merges.map(([a, b]) => glue(a, b))];
+  const id = new Map(vocab.map((t, i) => [t, i])), rank = new Map(merges.map(([a, b], i) => [a + " " + b, i])), cache = new Map();
+  function encode(text) {
+    const out = [];
+    for (const p of pieces(text)) {
+      if (!/^[a-z]/.test(p)) { out.push(id.get(p)); continue; }
+      let ids = cache.get(p);
+      if (!ids) { ids = cutWord(p, rank).map((t) => id.get(t)); cache.set(p, ids); }
+      out.push(...ids);
+    }
+    return out;
+  }
+  // Back to text: glue "##" pieces on and put a space between tokens, except before closing marks,
+  // after opening ones, and between digits.
+  const noSpaceBefore = new Set([".", ",", "!", "?", ";", ":", "'", "”", "’", "-", "\n"]), noSpaceAfter = new Set(["“", "‘", "-", "\n"]);
+  function decode(ids) {
+    let text = "", prev = "\n";
+    for (const i of ids) {
+      const t = vocab[i];
+      if (t === END) { text += "\n\n"; prev = "\n"; continue; }
+      if (t.startsWith("##")) text += t.slice(2);
+      else text += (noSpaceBefore.has(t) || noSpaceAfter.has(prev) || (/\d/.test(t) && /\d/.test(prev)) ? "" : " ") + t;
+      prev = t;
+    }
+    return text;
+  }
+  return { vocab, id, merges, rank, encode, decode, size: vocab.length };
+}
+</script>
+<script id="nwm">
+// A next-token network, written out by hand. It reads the last k tokens and gives every token in the
+// vocabulary a probability of coming next. Its first layer is the embedding table E: one row of d numbers
+// per token, so reading a token means looking up its row. The table starts as small random numbers.
+function makeModel({ V, k, d, h }, rand, scale = 0.1) {
+  const gauss = () => Math.sqrt(-2 * Math.log(1 - rand())) * Math.cos(2 * Math.PI * rand());
+  const fill = (n, s) => Float64Array.from({ length: n }, () => s * gauss());
+  return {
+    V, k, d, h,
+    E: fill(V * d, scale),                                               // the embedding table, V rows of d
+    W1: fill(h * k * d, 1 / Math.sqrt(k * d)), b1: new Float64Array(h), // the hidden layer, h neurons
+    W2: fill(V * h, 1 / Math.sqrt(h)), b2: new Float64Array(V),         // one score per token
+  };
+}
+
+// The forward pass. The k rows are laid side by side into one list of k·d numbers (x), a hidden layer of
+// h tanh neurons reads it (a), and every token gets a score; softmax turns the scores into probabilities.
+function forward(m, context) {
+  const { V, k, d, h, E, W1, b1, W2, b2 } = m, x = new Float64Array(k * d), a = new Float64Array(h), p = new Float64Array(V);
+  for (let j = 0; j < k; j++) for (let i = 0; i < d; i++) x[j * d + i] = E[context[j] * d + i];
+  for (let u = 0; u < h; u++) { let z = b1[u]; for (let i = 0; i < k * d; i++) z += W1[u * k * d + i] * x[i]; a[u] = Math.tanh(z); }
+  let top = -Infinity;
+  for (let t = 0; t < V; t++) { let s = b2[t]; for (let u = 0; u < h; u++) s += W2[t * h + u] * a[u]; p[t] = s; if (s > top) top = s; }
+  let total = 0;
+  for (let t = 0; t < V; t++) { p[t] = Math.exp(p[t] - top); total += p[t]; }
+  for (let t = 0; t < V; t++) p[t] /= total;
+  return { x, a, p };
+}
+
+// The backward pass for one example, by the chain rule, adding into the gradients g. The loss is
+// −log p(next): small when the right token got a high probability. Only the k rows of the table
+// that were read get a gradient, so a token's row learns only from examples in which the token is read.
+function backward(m, context, next, { x, a, p }, g) {
+  const { V, k, d, h, W1, W2 } = m, ga = new Float64Array(h), gx = new Float64Array(k * d);
+  for (let t = 0; t < V; t++) {
+    const gs = t === next ? p[t] - 1 : p[t]; // softmax with cross-entropy: p − y
+    g.b2[t] += gs;
+    for (let u = 0; u < h; u++) { g.W2[t * h + u] += gs * a[u]; ga[u] += W2[t * h + u] * gs; }
+  }
+  for (let u = 0; u < h; u++) {
+    const gz = ga[u] * (1 - a[u] * a[u]); // tanh′ = 1 − tanh²
+    g.b1[u] += gz;
+    for (let i = 0; i < k * d; i++) { g.W1[u * k * d + i] += gz * x[i]; gx[i] += W1[u * k * d + i] * gz; }
+  }
+  for (let j = 0; j < k; j++) for (let i = 0; i < d; i++) g.E[context[j] * d + i] += gx[j * d + i];
+}
+
+// One step of training on a small batch: add up the gradients and step downhill, with Adam.
+// Plain gradient descent moves every weight by the same multiple of its slope. That fits a table badly:
+// the row of "the" gets a gradient in almost every batch, the row of "danger" (55 times in 4.3 million tokens) once in about 150.
+// Adam gives each weight its own step size. It keeps a running average of the weight's recent slopes (am)
+// and of their squares (as), and steps by am / √as, so every weight moves at a similar pace.
+const KEYS = ["E", "W1", "b1", "W2", "b2"];
+const zeros = (m) => Object.fromEntries(KEYS.map((key) => [key, new Float64Array(m[key].length)]));
+const makeAdam = (m) => ({ step: 0, m: zeros(m), s: zeros(m) });
+function trainStep(m, batch, lr, adam, g = zeros(m)) {
+  let loss = 0;
+  for (const { context, next } of batch) {
+    const f = forward(m, context);
+    loss -= Math.log(f.p[next]);
+    backward(m, context, next, f, g);
+  }
+  const t = ++adam.step, c1 = 1 - 0.9 ** t, c2 = 1 - 0.999 ** t; // the averages start at 0: early on, scale them up
+  for (const key of KEYS) {
+    const w = m[key], gw = g[key], am = adam.m[key], as = adam.s[key];
+    for (let i = 0; i < w.length; i++) {
+      const slope = gw[i] / batch.length;
+      am[i] = 0.9 * am[i] + 0.1 * slope;
+      as[i] = 0.999 * as[i] + 0.001 * slope * slope;
+      w[i] -= (lr * am[i]) / c1 / (Math.sqrt(as[i] / c2) + 1e-8);
+      gw[i] = 0;
+    }
+  }
+  return loss / batch.length;
+}
+</script>
+<script type="text/plain" id="tok-py">
+# Text in, tokens out. First the text is tidied: lowercase, and only letters, digits, a few punctuation
+# marks and line breaks. Quotation marks are turned to face the way they open or close, and a spaced hyphen
+# becomes a dash, so the text can be put back together from its tokens: exactly for almost every story here, though
+# a few unusual spellings, such as "3.50" or a space just inside a quotation mark, come back slightly different.
+import re, unicodedata
+def tidy(text):
+    t = re.sub(r"[\u0300-\u036f]", "", unicodedata.normalize("NFKD", text)).lower()
+    t = re.sub(r"[‘’`´]", "'", t)
+    t = re.sub(r"[“”]", '"', t).replace("…", "...")
+    t = re.sub(r" *(?:[–—]|--+) *", " — ", t).replace(" - ", " — ")
+    t = re.sub(r"[^a-z0-9.,!?;:'\"\-—\n ]", " ", t)
+    t = re.sub(r" *\n[ \n]*", "\n", re.sub(r"[ \t]+", " ", t)).strip()
+    lines = []
+    for line in t.split("\n"):
+        out, single = "", False
+        for i, c in enumerate(line):
+            before = out[-1] if out else " "
+            after = line[i + 1] if i + 1 < len(line) else " "
+            opens = before in " —“‘"
+            if c == '"': out += "“" if opens else "”"
+            elif c == "'" and opens and "a" <= after <= "z": out += "‘"; single = True
+            elif c == "'" and single and not "a" <= after <= "z": out += "’"; single = False
+            else: out += c
+        lines.append(out)
+    return "\n".join(lines)
+# Then it is split into words and marks: a word is a run of letters (with apostrophes inside, as in "don't"),
+# and every digit, punctuation mark and line break stands alone. Spaces are dropped; they can be put back.
+def pieces(text): return re.findall(r"[a-z]+(?:'[a-z]+)*|[^ a-z]", tidy(text))
+
+# A word starts as its letters. Letters after the first carry "##", meaning "glued to the piece before".
+def letters(word): return [c if i == 0 else "##" + c for i, c in enumerate(word)]
+def glue(a, b): return a + b[2:]  # "pl" + "##ay" = "play", "##a" + "##y" = "##ay"
+# Byte-pair encoding learns the pieces from text. Count every pair of neighboring pieces inside words,
+# glue the most frequent pair into one new piece, and repeat. Common words end up as one piece;
+# rare words stay split into a few, so any word can still be written.
+# counts: how often each word appears in the text.
+def learn_merges(counts, how_many):
+    words = [[letters(w), n] for w, n in counts.items()]
+    merges = []
+    while len(merges) < how_many:
+        pairs = {}
+        for s, n in words:
+            for i in range(len(s) - 1):
+                k = s[i] + " " + s[i + 1]
+                pairs[k] = pairs.get(k, 0) + n
+        if not pairs:
+            break
+        best = min(pairs, key=lambda k: (-pairs[k], k))  # the most frequent; on a tie, the first in order
+        a, b = best.split(" ")
+        merges.append((a, b))
+        for w in words:
+            s, out, i = w[0], [], 0
+            while i < len(s):
+                if i + 1 < len(s) and s[i] == a and s[i + 1] == b: out.append(glue(a, b)); i += 2
+                else: out.append(s[i]); i += 1
+            w[0] = out
+    return merges
+
+# To cut a new word, start from its letters and apply the learned merges, earliest learned first.
+# upto: use only the first upto merges (to replay how the pieces grew).
+def cut_word(word, rank, upto=float("inf")):
+    s = letters(word)
+    while True:
+        found = [(rank[s[i] + " " + s[i + 1]], i) for i in range(len(s) - 1) if rank.get(s[i] + " " + s[i + 1], upto) < upto]
+        if not found:
+            return s
+        _, at = min(found)
+        s = s[:at] + [glue(s[at], s[at + 1])] + s[at + 2:]
+# The vocabulary: "<end>" (the end of a story), the marks, every single letter, then one token per merge.
+# A token's number is its place in this list; the network only ever sees these numbers.
+END = "<end>"
+def make_tokenizer(merges):
+    marks = [END, "\n", ".", ",", "!", "?", ";", ":", "'", "“", "”", "‘", "’", "-", "—", *"0123456789"]
+    abc = "abcdefghijklmnopqrstuvwxyz'"
+    vocab = marks + list(abc[:26]) + ["##" + c for c in abc] + [glue(a, b) for a, b in merges]
+    ids = {t: i for i, t in enumerate(vocab)}
+    rank = {a + " " + b: i for i, (a, b) in enumerate(merges)}
+    cache = {}
+    def encode(text):
+        out = []
+        for p in pieces(text):
+            if not "a" <= p[0] <= "z":
+                out.append(ids[p]); continue
+            if p not in cache:
+                cache[p] = [ids[t] for t in cut_word(p, rank)]
+            out += cache[p]
+        return out
+    # Back to text: glue "##" pieces on and put a space between tokens, except before closing marks,
+    # after opening ones, and between digits.
+    no_space_before, no_space_after = set(".,!?;:'”’-\n"), set("“‘-\n")
+    def decode(token_ids):
+        text, prev = "", "\n"
+        for i in token_ids:
+            t = vocab[i]
+            if t == END:
+                text, prev = text + "\n\n", "\n"; continue
+            if t.startswith("##"): text += t[2:]
+            else: text += ("" if t in no_space_before or prev in no_space_after or (t.isdigit() and prev.isdigit()) else " ") + t
+            prev = t
+        return text
+    return {"vocab": vocab, "id": ids, "merges": merges, "rank": rank, "encode": encode, "decode": decode, "size": len(vocab)}
+</script>
+<script type="text/plain" id="nwm-py">
+# A next-token network, written out by hand. It reads the last k tokens and gives every token in the
+# vocabulary a probability of coming next. Its first layer is the embedding table E: one row of d numbers
+# per token, so reading a token means looking up its row. The table starts as small random numbers.
+import math
+def make_model(V, k, d, h, rand, scale=0.1):
+    def gauss(): return math.sqrt(-2 * math.log(1 - rand())) * math.cos(2 * math.pi * rand())
+    def fill(n, s): return [s * gauss() for _ in range(n)]
+    return {
+        "V": V, "k": k, "d": d, "h": h,
+        "E": fill(V * d, scale),                                    # the embedding table, V rows of d
+        "W1": fill(h * k * d, 1 / math.sqrt(k * d)), "b1": [0.0] * h,  # the hidden layer, h neurons
+        "W2": fill(V * h, 1 / math.sqrt(h)), "b2": [0.0] * V,         # one score per token
+    }
+
+# The forward pass. The k rows are laid side by side into one list of k·d numbers (x), a hidden layer of
+# h tanh neurons reads it (a), and every token gets a score; softmax turns the scores into probabilities.
+def forward(m, context):
+    V, k, d, h, E, W1, b1, W2, b2 = (m[key] for key in ("V", "k", "d", "h", "E", "W1", "b1", "W2", "b2"))
+    x = [E[t * d + i] for t in context for i in range(d)]
+    a = [math.tanh(b1[u] + sum(W1[u * k * d + i] * x[i] for i in range(k * d))) for u in range(h)]
+    s = [b2[t] + sum(W2[t * h + u] * a[u] for u in range(h)) for t in range(V)]
+    top = max(s)
+    e = [math.exp(v - top) for v in s]
+    total = sum(e)
+    return x, a, [v / total for v in e]
+
+# The backward pass for one example, by the chain rule, adding into the gradients g. The loss is
+# −log p(next): small when the right token got a high probability. Only the k rows of the table
+# that were read get a gradient, so a token's row learns only from examples in which the token is read.
+def backward(m, context, nxt, x, a, p, g):
+    V, k, d, h, W1, W2 = (m[key] for key in ("V", "k", "d", "h", "W1", "W2"))
+    ga, gx = [0.0] * h, [0.0] * (k * d)
+    for t in range(V):
+        gs = p[t] - 1 if t == nxt else p[t]  # softmax with cross-entropy: p − y
+        g["b2"][t] += gs
+        for u in range(h):
+            g["W2"][t * h + u] += gs * a[u]
+            ga[u] += W2[t * h + u] * gs
+    for u in range(h):
+        gz = ga[u] * (1 - a[u] * a[u])  # tanh′ = 1 − tanh²
+        g["b1"][u] += gz
+        for i in range(k * d):
+            g["W1"][u * k * d + i] += gz * x[i]
+            gx[i] += W1[u * k * d + i] * gz
+    for j, t in enumerate(context):
+        for i in range(d):
+            g["E"][t * d + i] += gx[j * d + i]
+
+# One step of training on a small batch: add up the gradients and step downhill, with Adam.
+# Plain gradient descent moves every weight by the same multiple of its slope. That fits a table badly:
+# the row of "the" gets a gradient in almost every batch, the row of "danger" (55 times in 4.3 million tokens) once in about 150.
+# Adam gives each weight its own step size. It keeps a running average of the weight's recent slopes (am)
+# and of their squares (as_), and steps by am / √as_, so every weight moves at a similar pace.
+KEYS = ("E", "W1", "b1", "W2", "b2")
+def zeros(m): return {key: [0.0] * len(m[key]) for key in KEYS}
+def make_adam(m): return {"step": 0, "m": zeros(m), "s": zeros(m)}
+def train_step(m, batch, lr, adam):
+    g, loss = zeros(m), 0.0
+    for context, nxt in batch:
+        x, a, p = forward(m, context)
+        loss -= math.log(p[nxt])
+        backward(m, context, nxt, x, a, p, g)
+    adam["step"] += 1
+    t = adam["step"]
+    c1, c2 = 1 - 0.9 ** t, 1 - 0.999 ** t  # the averages start at 0: early on, scale them up
+    for key in KEYS:
+        w, gw, am, as_ = m[key], g[key], adam["m"][key], adam["s"][key]
+        for i in range(len(w)):
+            slope = gw[i] / len(batch)
+            am[i] = 0.9 * am[i] + 0.1 * slope
+            as_[i] = 0.999 * as_[i] + 0.001 * slope * slope
+            w[i] -= (lr * am[i]) / c1 / (math.sqrt(as_[i] / c2) + 1e-8)
+    return loss / len(batch)
+</script>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const pct = (v) => Math.round(v * 100) + "%";
+  const pct1 = (v) => (v * 100).toFixed(1) + "%";
+  const num = (n) => n.toLocaleString("en-US");
+  const esc = ITN.esc;
+  const reduceMotion = ITN.reduceMotion;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+  const DISPLAY = '"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif';
+
+  // ---------- theme ----------
+  const C = {};
+  function hexRGB(s) {
+    s = s.trim();
+    if (s[0] === "#") { if (s.length === 4) s = "#" + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]; const n = parseInt(s.slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+    const m = s.match(/[\d.]+/g); return m ? m.slice(0, 3).map(Number) : [128, 128, 128];
+  }
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement);
+    for (const k of ["sheet", "well", "ink", "ink-2", "ink-3", "rule", "pos", "neg", "g1", "g2", "g3", "g4", "g5", "g6"]) C[k] = hexRGB(cs.getPropertyValue("--" + k));
+    C.div = new Uint8ClampedArray(256 * 3);
+    for (let k = 0; k < 256; k++) {
+      const t = (k / 255) * 2 - 1, tg = t >= 0 ? C.pos : C.neg, a = Math.pow(Math.abs(t), 0.8);
+      for (let c = 0; c < 3; c++) C.div[k * 3 + c] = C.sheet[c] + (tg[c] - C.sheet[c]) * a;
+    }
+  }
+  const rgba = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  const divColor = (v) => { const k = Math.round((Math.max(-1, Math.min(1, v)) + 1) * 127.5) * 3; return `rgb(${C.div[k]},${C.div[k + 1]},${C.div[k + 2]})`; };
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  function sizeCanvas(cv) {
+    const cw = cv.clientWidth, ch = cv.clientHeight, w = Math.max(1, Math.round(cw * dpr)), h = Math.max(1, Math.round(ch * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, cw, ch);
+    return [cw, ch, ctx];
+  }
+
+  // ---------- the stories and the trained network ----------
+  const bytes = (b64) => { const s = atob(b64), a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a; };
+  async function gunzip(b64) {
+    const stream = new Blob([bytes(b64)]).stream().pipeThrough(new DecompressionStream("gzip"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  const u16 = (buf) => { const a = new Uint16Array(buf.length / 2); for (let i = 0; i < a.length; i++) a[i] = buf[2 * i] | (buf[2 * i + 1] << 8); return a; };
+  const f64 = (b64) => { const b = bytes(b64), dv = new DataView(b.buffer), a = new Float64Array(b.length / 4); for (let i = 0; i < a.length; i++) a[i] = dv.getFloat32(4 * i, true); return a; };
+  const HAVE_FILES = typeof ITN_STORIES !== "undefined" && typeof ITN_WEIGHTS !== "undefined";
+  let FAILED = "";
+  const TK = HAVE_FILES ? makeTokenizer(ITN_STORIES.merges.split("|").map((p) => p.split(" "))) : null;
+  const SHAPE = HAVE_FILES ? ITN_WEIGHTS.shape : { V: 2000, k: 8, d: 32, h: 128 };
+  const K = SHAPE.k, Dm = SHAPE.d;
+  function unpackNet(b64) {
+    const all = f64(b64), m = { ...SHAPE }; let o = 0;
+    for (const [key, n] of [["E", SHAPE.V * SHAPE.d], ["W1", SHAPE.h * SHAPE.k * SHAPE.d], ["b1", SHAPE.h], ["W2", SHAPE.V * SHAPE.h], ["b2", SHAPE.V]]) { m[key] = all.subarray(o, o + n); o += n; }
+    return m;
+  }
+  const NET = HAVE_FILES ? unpackNet(ITN_WEIGHTS.net) : null;
+  const MAPW = HAVE_FILES ? ITN_WEIGHTS.mapWords.split(" ") : [];
+  const MAP_IDS = HAVE_FILES ? MAPW.map((w) => TK.id.get(w)) : [];
+  const GROUPS = [["animals", 0, 7], ["colors", 7, 14], ["people", 14, 21], ["feelings", 21, 28], ["places", 28, 35], ["actions", 35, 42]];
+  const groupOf = (i) => GROUPS.findIndex(([, a, b]) => i >= a && i < b);
+  const STORED = HAVE_FILES ? ITN_WEIGHTS.moments.map(([step, examples, rows]) => ({ step, examples, rows: f64(rows) })) : [];
+  const DATA = { ready: false, train: null, test: null, stories: [], whole: null, mostCommon: 0 };
+  async function loadData() {
+    const [tr, te] = await Promise.all([gunzip(ITN_STORIES.train), gunzip(ITN_STORIES.test)]);
+    DATA.train = u16(tr); DATA.test = u16(te);
+    // the test stories: [first token, the <end> token]
+    for (let s = 0, i = 0; i < DATA.test.length; i++) if (DATA.test[i] === 0) { DATA.stories.push([s, i]); s = i + 1; }
+    // which tokens are mostly whole words (a letter-led token not followed by a "##" piece), and the most common token
+    const seen = new Uint32Array(TK.size), whole = new Uint32Array(TK.size), cont = TK.vocab.map((t) => t.startsWith("##"));
+    for (let i = 0; i < DATA.train.length; i++) { const t = DATA.train[i]; seen[t]++; if (!cont[DATA.train[i + 1]]) whole[t]++; }
+    DATA.whole = TK.vocab.map((t, i) => /^[a-z]/.test(t) && seen[i] > 0 && whole[i] * 2 >= seen[i]);
+    DATA.count = seen;
+    DATA.mostCommon = seen.indexOf(Math.max(...seen));
+    DATA.ready = true;
+  }
+
+  // ---------- contexts and guesses ----------
+  // the k tokens before position t of a stream, nearest last, with 0 (<end>) before the story's start
+  function contextAt(stream, t) {
+    const c = new Array(K).fill(0);
+    for (let j = 1; j <= K; j++) { const i = t - j; if (i < 0 || stream[i] === 0) break; c[K - j] = stream[i]; }
+    return c;
+  }
+  // the network's context for a piece of typed text, read as the start of a story
+  const contextOfIds = (ids) => { const c = new Array(K).fill(0); for (let j = 1; j <= Math.min(K, ids.length); j++) c[K - j] = ids[ids.length - j]; return c; };
+  const probsOf = (net, ctx) => forward(net, ctx).p;
+  function topOf(p, n, keep = () => true) {
+    const best = [];
+    for (let t = 0; t < p.length; t++) {
+      if (!keep(t)) continue;
+      if (best.length < n || p[t] > best[best.length - 1][1]) { best.push([t, p[t]]); best.sort((a, b) => b[1] - a[1]); if (best.length > n) best.pop(); }
+    }
+    return best;
+  }
+  const argmax = (p) => { let b = 0; for (let i = 1; i < p.length; i++) if (p[i] > p[b]) b = i; return b; };
+  // how a token is shown: line breaks as ↵, the end of a story as ⏎end
+  const show = (t) => { const s = TK.vocab[t]; return s === "\n" ? "↵" : s === END ? "<end>" : s; };
+  const sure = (p) => (p >= 0.995 ? "over 99%" : p < 0.005 ? "under 1%" : pct(p));
+
+  // ---------- bars ----------
+  // rows: [label, value, flags]; value in 0…1; flags "top" or "hit"
+  function bars(host, rows, fmt = (v) => (v >= 0.995 ? ">99%" : v < 0.005 ? "<1%" : pct(v)), scale = 1) {
+    host.innerHTML = rows.map(([lab, v, fl]) => `<span class="${fl || ""}">${esc(lab)}</span><span class="bar ${fl || ""}"><i style="width:${(100 * Math.max(0, Math.min(1, v / scale))).toFixed(1)}%"></i></span><span class="${fl || ""}">${fmt(v)}</span>`).join("");
+  }
+  const probBars = (host, p, n = 10, hit = -1) => { const top = topOf(p, n); bars(host, top.map(([t, v], i) => [show(t), v, t === hit ? "hit" : i === 0 ? "top" : ""])); return top; };
+
+  // ---------- token chips ----------
+  // ids → chips; the pieces of a word sit together. cls(i) adds classes per token; ids shows the numbers.
+  function chips(host, ids, { cls = () => "", nums = false, tip = "" } = {}) {
+    let h = "", open = false;
+    ids.forEach((t, i) => {
+      const s = TK.vocab[t], piece = s.startsWith("##");
+      if (!piece && open) { h += "</span>"; open = false; }
+      if (!open) { h += `<span class="w">`; open = true; }
+      const label = s === "\n" ? "↵" : s === END ? "<end>" : s;
+      h += `<span class="tk ${cls(i)}"${tip ? ` data-tip="${tip}" data-sel="${i}" data-fast` : ""}>${esc(label)}${nums ? `<small>${t}</small>` : ""}</span>`;
+      if (s === "\n" || s === END) { h += `</span><span class="br"></span>`; open = false; }
+    });
+    if (open) h += "</span>";
+    host.innerHTML = h;
+  }
+
+  // ---------- rows of the table as strips ----------
+  // one scale for every row of the finished table: 99% of its numbers are smaller than this (the rest show at full color)
+  let ROWSCALE = 1;
+  if (NET) { const s = Float64Array.from(NET.E, Math.abs).sort(); ROWSCALE = s[Math.floor(0.99 * s.length)]; }
+  function drawStrip(cv, row, scale = ROWSCALE) {
+    const [W, H, ctx] = sizeCanvas(cv), n = row.length, w = W / n;
+    for (let i = 0; i < n; i++) { ctx.fillStyle = divColor(row[i] / scale); ctx.fillRect(i * w, 0, Math.ceil(w), H); }
+    ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+  }
+  const rowOf = (net, t) => net.E.subarray(t * Dm, (t + 1) * Dm);
+  // a list of strips with labels; items: [label, row, note]
+  function strips(host, items, scale) {
+    if (host.childElementCount !== items.length * 2) host.innerHTML = items.map(() => `<span class="lab2"></span><canvas></canvas>`).join("");
+    items.forEach(([lab, row, note], i) => {
+      host.children[2 * i].innerHTML = esc(lab) + (note ? `<small>${esc(note)}</small>` : "");
+      drawStrip(host.children[2 * i + 1], row, scale);
+    });
+  }
+
+  // ---------- similarity ----------
+  const unitRows = (E) => { const U = new Float64Array(E.length); for (let t = 0; t < E.length / Dm; t++) { let n = 0; for (let i = 0; i < Dm; i++) n += E[t * Dm + i] ** 2; n = Math.sqrt(n) || 1; for (let i = 0; i < Dm; i++) U[t * Dm + i] = E[t * Dm + i] / n; } return U; };
+  let UNIT = null;
+  const unit = () => UNIT || (UNIT = unitRows(NET.E));
+  // the n tokens whose rows are closest in angle to vec, among whole words, leaving out skip
+  function nearest(U, vec, n, skip = new Set()) {
+    let len = 0; for (const v of vec) len += v * v; len = Math.sqrt(len) || 1;
+    const best = [];
+    for (let t = 0; t < SHAPE.V; t++) {
+      if (skip.has(t) || !DATA.whole[t]) continue;
+      let s = 0; for (let i = 0; i < Dm; i++) s += U[t * Dm + i] * vec[i]; s /= len;
+      if (best.length < n || s > best[best.length - 1][1]) { best.push([t, s]); best.sort((a, b) => b[1] - a[1]); if (best.length > n) best.pop(); }
+    }
+    return best;
+  }
+  const simBars = (host, list, hit = -1) => bars(host, list.map(([t, s], i) => [show(t), s, t === hit ? "hit" : i === 0 ? "top" : ""]), (v) => v.toFixed(2));
+  // a typed word → its token, if it is one
+  const tokenOf = (w) => { const p = pieces(w.trim()); if (p.length !== 1 || !/^[a-z]/.test(p[0])) return undefined; return TK.id.get(p[0]); };
+
+  // ---------- the map: principal components, turned to match the finished map ----------
+  // rows: the 42 words' rows (42 × 32). Each is made unit length; the map is their top two directions of spread.
+  function pca2(rows) {
+    const n = MAPW.length, X = new Float64Array(n * Dm), mean = new Float64Array(Dm);
+    for (let w = 0; w < n; w++) { let l = 0; for (let i = 0; i < Dm; i++) l += rows[w * Dm + i] ** 2; l = Math.sqrt(l) || 1; for (let i = 0; i < Dm; i++) { X[w * Dm + i] = rows[w * Dm + i] / l; mean[i] += X[w * Dm + i] / n; } }
+    for (let w = 0; w < n; w++) for (let i = 0; i < Dm; i++) X[w * Dm + i] -= mean[i];
+    const Cv = new Float64Array(Dm * Dm);
+    for (let w = 0; w < n; w++) for (let i = 0; i < Dm; i++) for (let j = 0; j < Dm; j++) Cv[i * Dm + j] += X[w * Dm + i] * X[w * Dm + j];
+    const dirs = [];
+    for (let c = 0; c < 2; c++) {
+      let v = Float64Array.from({ length: Dm }, (_, i) => Math.cos(i * 1.7 + c));
+      for (let it = 0; it < 200; it++) {
+        const u = new Float64Array(Dm);
+        for (let i = 0; i < Dm; i++) for (let j = 0; j < Dm; j++) u[i] += Cv[i * Dm + j] * v[j];
+        for (const d of dirs) { let p = 0; for (let i = 0; i < Dm; i++) p += u[i] * d[i]; for (let i = 0; i < Dm; i++) u[i] -= p * d[i]; }
+        let l = 0; for (const x of u) l += x * x; l = Math.sqrt(l) || 1; v = u.map((x) => x / l);
+      }
+      dirs.push(v);
+    }
+    const P = new Float64Array(n * 2); let rms = 0;
+    for (let w = 0; w < n; w++) for (let c = 0; c < 2; c++) { let s = 0; for (let i = 0; i < Dm; i++) s += X[w * Dm + i] * dirs[c][i]; P[w * 2 + c] = s; rms += s * s; }
+    rms = Math.sqrt(rms / n) || 1; for (let i = 0; i < P.length; i++) P[i] /= rms;
+    // how much of the spread the two directions keep
+    let total = 0, kept = 0; for (let i = 0; i < Dm; i++) total += Cv[i * Dm + i];
+    for (const d of dirs) { let q = 0; for (let i = 0; i < Dm; i++) for (let j = 0; j < Dm; j++) q += d[i] * Cv[i * Dm + j] * d[j]; kept += q; }
+    return { P, kept: total ? kept / total : 0 };
+  }
+  // turn (and maybe mirror) map A to lie as close as possible to map B
+  function align(A, B) {
+    let best = null;
+    for (const flip of [1, -1]) {
+      let s = 0, c = 0;
+      for (let w = 0; w < A.length / 2; w++) { const ax = A[2 * w], ay = flip * A[2 * w + 1], bx = B[2 * w], by = B[2 * w + 1]; c += ax * bx + ay * by; s += ax * by - ay * bx; }
+      const th = Math.atan2(s, c), score = Math.hypot(s, c);
+      if (!best || score > best.score) best = { th, flip, score };
+    }
+    const out = new Float64Array(A.length), co = Math.cos(best.th), si = Math.sin(best.th);
+    for (let w = 0; w < A.length / 2; w++) { const x = A[2 * w], y = best.flip * A[2 * w + 1]; out[2 * w] = co * x - si * y; out[2 * w + 1] = si * x + co * y; }
+    return out;
+  }
+  const FINAL_MAP = STORED.length ? pca2(STORED[STORED.length - 1].rows) : null;
+  const mapOf = (rows) => { const r = pca2(rows); return { P: FINAL_MAP ? align(r.P, FINAL_MAP.P) : r.P, kept: r.kept }; };
+  const rowsOfNet = (net) => { const r = new Float64Array(MAPW.length * Dm); MAP_IDS.forEach((t, w) => r.set(net.E.subarray(t * Dm, (t + 1) * Dm), w * Dm)); return r; };
+  // draw a map; P: 42 × 2 positions; on: which groups are lit; returns the screen positions for hovering
+  function drawMap(cv, P, on = GROUPS.map(() => true), small = false) {
+    const [W, H, ctx] = sizeCanvas(cv), pad = small ? 30 : 46;
+    let lim = 0; for (let i = 0; i < P.length; i++) lim = Math.max(lim, Math.abs(P[i]) * 1.06);
+    lim = Math.max(1.2, Math.min(lim, 3.2));
+    const sc = Math.min((W - 2 * pad) / (2 * lim), (H - 2 * pad) / (2 * lim)), cx = W / 2, cy = H / 2;
+    const pts = MAPW.map((w, i) => [cx + Math.max(-lim, Math.min(lim, P[2 * i])) * sc, cy - Math.max(-lim, Math.min(lim, P[2 * i + 1])) * sc]);
+    ctx.font = `${small ? 11 : 12.5}px ${MONO}`; ctx.textBaseline = "middle";
+    const R = small ? 3.5 : 4.5, lit = (i) => on[groupOf(i)];
+    // dots first, the unlit ones underneath
+    const byLit = MAPW.map((_, i) => i).sort((a, b) => Number(lit(a)) - Number(lit(b)));
+    for (const i of byLit) {
+      const [x, y] = pts[i];
+      ctx.globalAlpha = lit(i) ? 1 : 0.18;
+      ctx.beginPath(); ctx.arc(x, y, R, 0, 2 * Math.PI); ctx.fillStyle = rgba(C["g" + (groupOf(i) + 1)]); ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = rgba(C.sheet); ctx.stroke();
+    }
+    // then each label where it covers the fewest other labels and dots: lit words first, crowded ones first
+    const overlap = (a, q) => Math.max(0, Math.min(a[0] + a[2], q[0] + q[2]) - Math.max(a[0], q[0])) * Math.max(0, Math.min(a[1] + a[3], q[1] + q[3]) - Math.max(a[1], q[1]));
+    const dots = pts.map(([x, y]) => [x - R - 1, y - R - 1, 2 * R + 2, 2 * R + 2]);
+    const crowd = pts.map(([x, y]) => pts.filter(([u, v]) => Math.hypot(u - x, v - y) < 40).length);
+    const order = MAPW.map((_, i) => i).sort((a, b) => Number(lit(b)) - Number(lit(a)) || crowd[b] - crowd[a]);
+    const boxes = [], h = small ? 12 : 14, DIRS = [[1, 0, "left"], [-1, 0, "right"], [0, -1, "center"], [0, 1, "center"], [0.7, -0.8, "left"], [-0.7, -0.8, "right"], [0.7, 0.8, "left"], [-0.7, 0.8, "right"]];
+    for (const i of order) {
+      const [x, y] = pts[i], w = ctx.measureText(MAPW[i]).width;
+      let pick = null, least = Infinity;
+      for (const far of [1, 2.1]) for (const [dx, dy, al] of DIRS) {
+        const lx = x + dx * (R + 3) * far, ly = y + dy * (h * 0.8) * far, bx = al === "left" ? lx : al === "right" ? lx - w : lx - w / 2, b = [bx, ly - h / 2, w, h];
+        let over = far > 1 ? 30 : 0;
+        for (const q of boxes) over += overlap(b, q);
+        dots.forEach((q, j) => { if (j !== i) over += 2 * overlap(b, q); });
+        if (bx < 2 || bx + w > W - 2 || ly - h / 2 < 2 || ly + h / 2 > H - 2) over += 1e4;
+        if (over < least) { least = over; pick = { lx, ly, al, b, far }; }
+      }
+      boxes.push(pick.b);
+      ctx.globalAlpha = lit(i) ? 1 : 0.35;
+      if (pick.far > 1) { ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(Math.max(pick.b[0], Math.min(x, pick.b[0] + pick.b[2])), Math.max(pick.b[1], Math.min(y, pick.b[1] + pick.b[3]))); ctx.stroke(); }
+      ctx.textAlign = pick.al; ctx.fillStyle = rgba(lit(i) ? C.ink : C["ink-3"]); ctx.fillText(MAPW[i], pick.lx, pick.ly);
+    }
+    ctx.globalAlpha = 1;
+    return pts;
+  }
+  const lerpP = (A, B, u) => { const o = new Float64Array(A.length); for (let i = 0; i < A.length; i++) o[i] = A[i] + (B[i] - A[i]) * u; return o; };
+
+  // ---------- training, in a second thread, with the page's own code ----------
+  // Batches of 64 positions picked at random from the training stories, Adam with learning rate 0.001, as for the
+  // finished network: with seed 1 this is the very start of the finished network's own training run. A training step
+  // takes tens of milliseconds, so it runs in a worker (a second thread) and the page stays smooth; the worker sends
+  // back the rows of the 42 map words, and, if asked, a copy of all the weights.
+  function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  // the worker's code: the network script, then this. handle() takes the messages; report() calls postMessage.
+  const TRAINER_CODE = () => `${$("nwm").textContent}
+const K = ${K};
+${mulberry32.toString()}
+${contextAt.toString()}
+let run = null;
+function oneStep(R) {
+  const batch = [];
+  for (let b = 0; b < 64; b++) { const t = Math.floor(R.r() * R.m.train.length); batch.push({ context: contextAt(R.m.train, t), next: R.m.train[t] }); }
+  const l = trainStep(R.net, batch, 0.001, R.adam, R.g);
+  R.loss = R.loss === null ? l : 0.98 * R.loss + 0.02 * l; R.step++;
+}
+function rowsOf(R) { const d = R.net.d, out = new Float64Array(R.m.ids.length * d); R.m.ids.forEach((t, w) => out.set(R.net.E.subarray(t * d, (t + 1) * d), w * d)); return out; }
+function report(R, full) {
+  const msg = { step: R.step, loss: R.loss, rows: rowsOf(R), snap: R.m.snaps.includes(R.step) };
+  if (full && R.m.weights) msg.weights = Object.fromEntries(KEYS.map((key) => [key, Float64Array.from(R.net[key])]));
+  postMessage(msg); R.sent = performance.now();
+}
+function loop() {
+  const R = run; if (!R || !R.on) return;
+  const t0 = performance.now();
+  while (R.on && R.step < R.m.until && performance.now() - t0 < 40) { oneStep(R); if (R.m.snaps.includes(R.step)) report(R, false); }
+  if (R.step >= R.m.until) { R.on = false; report(R, true); return; }
+  if (performance.now() - R.sent > R.m.every) report(R, true);
+  setTimeout(loop, 0);
+}
+function handle(m) {
+  if (m.type === "start") { const r = mulberry32(m.seed), net = makeModel(m.shape, r); run = { m, r, net, adam: makeAdam(net), g: zeros(net), step: 0, loss: null, on: true, sent: 0 }; report(run, true); setTimeout(loop, 0); }
+  else if (m.type === "run" && run) { const was = run.on; run.on = m.on && run.step < run.m.until; if (run.on && !was) setTimeout(loop, 0); if (!run.on) report(run, true); }
+}`;
+  // start a training run; onMsg gets { step, loss, rows, snap, weights? }. Returns { send, stop }.
+  // Where a worker cannot be made, the same code runs on this thread instead.
+  function startTraining(opts, onMsg) {
+    const start = { type: "start", train: DATA.train, shape: SHAPE, ids: MAP_IDS, snaps: [], until: Infinity, every: 200, weights: false, ...opts };
+    let here = null, w = null, heard = false, last = start;
+    // the same code on this thread, for browsers or pages that do not allow a worker
+    const onThisThread = () => {
+      let stopped = false;
+      const handle = new Function("postMessage", TRAINER_CODE() + "\nreturn handle;")((m) => { if (!stopped) onMsg(m); });
+      handle(start); if (last !== start) handle(last);
+      here = { send: (m) => handle(m), stop: () => { stopped = true; handle({ type: "run", on: false }); } };
+    };
+    try {
+      const url = URL.createObjectURL(new Blob([TRAINER_CODE() + "\nonmessage = (e) => handle(e.data);"], { type: "text/javascript" }));
+      w = new Worker(url);
+      w.onmessage = (e) => { heard = true; onMsg(e.data); };
+      w.onerror = () => { if (!heard) { w.terminate(); w = null; onThisThread(); } }; // a worker that never started
+      w.postMessage(start);
+    } catch (e) { w = null; onThisThread(); }
+    return {
+      send: (m) => { last = m; if (here) here.send(m); else if (w) w.postMessage(m); },
+      stop: () => { if (here) here.stop(); if (w) w.terminate(); },
+    };
+  }
+
+  // ---------- the test tokens: every token of the first 100 test stories ----------
+  const EVAL = { pos: null, seenLen: null, best: null, net: null, unigram: 0 };
+  function evalPositions() {
+    const pos = [], last = DATA.stories[Math.min(99, DATA.stories.length - 1)][1];
+    for (let t = 0; t <= last; t++) pos.push(t);
+    return Int32Array.from(pos);
+  }
+  // ---------- counting: what followed each test token's last n tokens in the training stories, n = 1…8 ----------
+  // Contexts of up to 4 tokens are numbered exactly (11 bits a token); longer ones as (nearest 4, the rest).
+  const enc = (c, from, n) => { let k = 0; for (let j = 0; j < n; j++) k = k * 2048 + c[from + j]; return k; };
+  function* countJob() {
+    const pos = EVAL.pos, n = pos.length, keys = []; // keys[level][e] = [inner, outer]
+    const tables = Array.from({ length: K + 1 }, () => new Map()), slotOf = Array.from({ length: K + 1 }, () => new Int32Array(n));
+    const slots = [];
+    for (let e = 0; e < n; e++) {
+      const c = contextAt(DATA.test, pos[e]).reverse(); // c[0] = the nearest token
+      for (let L = 1; L <= K; L++) {
+        const a = enc(c, 0, Math.min(L, 4)), b = L > 4 ? enc(c, 4, L - 4) : 0;
+        let inner = tables[L].get(a); if (!inner) tables[L].set(a, (inner = new Map()));
+        let s = inner.get(b); if (s === undefined) { s = slots.length; slots.push(new Map()); inner.set(b, s); }
+        slotOf[L][e] = s;
+      }
+    }
+    yield;
+    // one pass over the training tokens, with the same rolling context
+    const tr = DATA.train, c = new Array(K).fill(0);
+    for (let t = 0; t < tr.length; t++) {
+      for (let L = 1; L <= K; L++) {
+        const inner = tables[L].get(enc(c, 0, Math.min(L, 4)));
+        if (!inner) break;
+        const s = inner.get(L > 4 ? enc(c, 4, L - 4) : 0);
+        if (s === undefined) break;
+        const m = slots[s]; m.set(tr[t], (m.get(tr[t]) || 0) + 1);
+      }
+      if (tr[t] === 0) c.fill(0); else { for (let j = K - 1; j > 0; j--) c[j] = c[j - 1]; c[0] = tr[t]; }
+      if ((t & 32767) === 0) yield;
+    }
+    // the most common next token for each context, and the longest context that was seen
+    const bestOf = slots.map((m) => { let b = -1, bn = 0; for (const [x, v] of m) if (v > bn || (v === bn && x < b)) { bn = v; b = x; } return b; });
+    EVAL.seenLen = new Uint8Array(n); EVAL.best = Array.from({ length: K + 1 }, () => new Int32Array(n).fill(-1));
+    for (let e = 0; e < n; e++) for (let L = 1; L <= K; L++) { const b = bestOf[slotOf[L][e]]; if (b < 0) break; EVAL.best[L][e] = b; EVAL.seenLen[e] = L; }
+    EVAL.unigram = DATA.mostCommon;
+  }
+  // counting with up to L tokens, falling back to fewer
+  const countGuess = (e, L) => { const n = Math.min(L, EVAL.seenLen[e]); return n ? EVAL.best[n][e] : EVAL.unigram; };
+  const countAcc = (L) => { let r = 0; for (let e = 0; e < EVAL.pos.length; e++) if (countGuess(e, L) === DATA.test[EVAL.pos[e]]) r++; return r / EVAL.pos.length; };
+  function* netJob(net, into, every = 1) {
+    let right = 0, total = 0, loss = 0;
+    const ok = new Uint8Array(EVAL.pos.length);
+    for (let e = 0; e < EVAL.pos.length; e += every) {
+      const t = EVAL.pos[e], p = probsOf(net, contextAt(DATA.test, t));
+      if (argmax(p) === DATA.test[t]) { right++; ok[e] = 1; }
+      loss -= Math.log(p[DATA.test[t]]); total++;
+      if (total % 24 === 0) yield;
+    }
+    into({ acc: right / total, loss: loss / total, n: total, ok });
+  }
+
+  // ---------- background work, a few milliseconds per frame ----------
+  const JOBS = [];
+  const addJob = (gen, then) => JOBS.push({ gen, then });
+  function runJobs(budget) {
+    const t0 = performance.now();
+    while (JOBS.length && performance.now() - t0 < budget) { const j = JOBS[0]; if (j.gen.next().done) { JOBS.shift(); if (j.then) j.then(); } }
+  }
+
+  // ---------- the ladder ----------
+  function drawLadder() {
+    const have = !!EVAL.seenLen, n = EVAL.pos ? EVAL.pos.length : 0;
+    const rows = [
+      ["Always guess the most common token", have ? `“${show(EVAL.unigram)}”` : "", have ? countAcc(0) : null],
+      ["Count what followed the last token", "", have ? countAcc(1) : null],
+      ["Count what followed the last 4 tokens", "falling back to fewer when unseen", have ? countAcc(4) : null],
+      ["Count what followed the last 8 tokens", "falling back to fewer when unseen", have ? countAcc(8) : null],
+      ["The network, reading the last 8 tokens", "354,896 parameters", EVAL.net ? EVAL.net.acc : null],
+    ];
+    $("ladder").innerHTML = rows.map(([a, b, v], i) => `<div class="lr${i === 4 ? " best" : ""}"><span>${a}${b ? `<small>${b}</small>` : ""}</span><span class="bar"><i style="width:${v == null ? 0 : (100 * v).toFixed(1)}%"></i></span><b>${v == null ? "…" : pct(v)}</b></div>`).join("");
+    if (n) $("ladder-cap").textContent = `Share of the ${num(n)} tokens of 100 test stories whose first guess is right, measured in your browser. The test stories are not among the training stories.`;
+    // the split: tokens whose last 4 tokens appear together in the training stories, and the rest
+    if (!have || !EVAL.net) { $("ladder-split").innerHTML = ""; $("ladder-after").textContent = FAILED || (have ? "Measuring the network…" : "Counting 4.3 million training tokens…"); return; }
+    const sets = [[], []]; for (let e = 0; e < n; e++) sets[EVAL.seenLen[e] >= 4 ? 0 : 1].push(e);
+    const acc = (list, f) => list.reduce((a, e) => a + f(e), 0) / Math.max(1, list.length);
+    const S = sets.map((list) => ({ share: list.length / n, count: acc(list, (e) => Number(countGuess(e, 4) === DATA.test[EVAL.pos[e]])), net: acc(list, (e) => EVAL.net.ok[e]) }));
+    const lab = ["Seen", "New"], what = ["the last 4 tokens appear together in the training stories", "the last 4 tokens never appear together"];
+    $("ladder-split").innerHTML = S.map((s, i) => [`<div class="lr"><span>${lab[i]}: counting<small>${pct(s.share)} of the tokens: ${what[i]}</small></span><span class="bar"><i style="width:${(100 * s.count).toFixed(1)}%"></i></span><b>${pct(s.count)}</b></div>`, `<div class="lr best"><span>${lab[i]}: the network</span><span class="bar"><i style="width:${(100 * s.net).toFixed(1)}%"></i></span><b>${pct(s.net)}</b></div>`].join("")).join("");
+    // the sentences follow the numbers measured here, whichever way they come out
+    const cmp = (a, b) => (Math.abs(a - b) < 0.01 ? "about as well as" : a > b ? "better than" : "worse than");
+    const all4 = countAcc(4), newWin = S[1].net - S[1].count >= 0.01, seenWin = S[0].count - S[0].net >= 0.01;
+    $("ladder-after").innerHTML = `Where it can simply remember, counting does ${cmp(S[0].count, S[0].net)} the network: on the ${pct(S[0].share)} of tokens whose last 4 tokens appear somewhere in the training stories, ${pct(S[0].count)} against ${pct(S[0].net)}${seenWin ? ", because it has every one of those stretches stored, with what followed it" : ""}. On the other ${pct(S[1].share)}, after 4-token stretches the training stories never contain, the network does ${cmp(S[1].net, S[1].count)} counting, ${pct(S[1].net)} against ${pct(S[1].count)}${newWin ? ": counting falls back to fewer tokens and forgets the rest, while the network still reads all 8 through their lists of numbers" : ""}. Overall, at this small size, the network does ${cmp(EVAL.net.acc, all4)} counting. What large language models add to leave counting far behind is reading much further back, which chapter 7 is about, and far more text and size than anything in this series. What they keep is the lists of numbers, and what those learn is the subject of this chapter.`;
+  }
+
+  // ---------- the problem: a story, marked where its recent tokens are new ----------
+  const ST = { k: 0, n: 4 };
+  function drawStory() {
+    document.querySelectorAll("#st-n button").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.v) === ST.n)));
+    if (!DATA.ready) { $("st-read").textContent = FAILED || "Loading 21,000 stories…"; return; }
+    const [a, b] = DATA.stories[ST.k], ids = Array.from(DATA.test.subarray(a, b + 1));
+    if (!EVAL.seenLen) { chips($("st-toks"), ids); $("st-read").textContent = "Counting 4.3 million training tokens…"; return; }
+    const isNew = (i) => EVAL.seenLen[a + i] < ST.n; // the evaluation positions are the test tokens themselves
+    chips($("st-toks"), ids, { cls: (i) => (isNew(i) ? "new" : ""), tip: "st-tok" });
+    let mine = 0; ids.forEach((_, i) => { if (isNew(i)) mine++; });
+    let all = 0; for (let e = 0; e < EVAL.pos.length; e++) if (EVAL.seenLen[e] < ST.n) all++;
+    const lb = ST.n === 1 ? "the token before it never appears" : `the ${ST.n} tokens before it never appear together, in that order,`;
+    $("st-read").innerHTML = `Story ${ST.k + 1} of 100: ${mine ? `<b>${mine}</b> of its ${ids.length} tokens ${mine === 1 ? "is" : "are"} orange: for ${mine === 1 ? "it" : "each"}, ${lb} in the training stories` : `none of its ${ids.length} tokens is orange`}. Over all 100 test stories: <b>${pct(all / EVAL.pos.length)}</b> of the tokens.`;
+  }
+  $("st-n").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; ST.n = Number(b.dataset.v); drawStory(); });
+  $("st-prev").addEventListener("click", () => { ST.k = (ST.k + 99) % 100; drawStory(); });
+  $("st-next").addEventListener("click", () => { ST.k = (ST.k + 1) % 100; drawStory(); });
+
+  // ---------- the question: counting and the network on a phrase ----------
+  // counting for any phrase: scan the training tokens for each of its last 1 to 8 tokens
+  function countPhrase(ids) {
+    const c = contextOfIds(ids).reverse(), tr = DATA.train, roll = new Array(K).fill(0);
+    const counts = Array.from({ length: K + 1 }, () => new Map()), times = new Array(K + 1).fill(0);
+    for (let t = 0; t < tr.length; t++) {
+      for (let L = 1; L <= K; L++) { if (roll[L - 1] !== c[L - 1]) break; times[L]++; const m = counts[L]; m.set(tr[t], (m.get(tr[t]) || 0) + 1); }
+      if (tr[t] === 0) roll.fill(0); else { for (let j = K - 1; j > 0; j--) roll[j] = roll[j - 1]; roll[0] = tr[t]; }
+    }
+    const best = counts.map((m) => { let b = -1, bn = 0; for (const [x, v] of m) if (v > bn || (v === bn && x < b)) { bn = v; b = x; } return [b, bn]; });
+    return { times, best, c };
+  }
+  const QT = { text: "", cache: new Map() };
+  function drawQuestion() {
+    if (!DATA.ready) { $("qt-read").textContent = FAILED || "Loading 21,000 stories…"; return; }
+    const ids = TK.encode(QT.text);
+    let q = QT.cache.get(QT.text); if (!q) { q = countPhrase(ids); QT.cache.set(QT.text, q); }
+    const n = Math.min(K, ids.length);
+    let html = "", used = 0;
+    for (let L = n; L >= 1; L--) {
+      const seen = q.times[L];
+      if (seen && !used) used = L;
+      html += `<span class="k">last ${L}</span><span class="${seen ? "" : "no"}">${seen ? `seen ${num(seen)}×, then most often <b>${esc(show(q.best[L][0]))}</b>${used === L ? " ← its answer" : ""}` : "never seen"}</span>`;
+    }
+    $("qt-count").innerHTML = html || `<span class="k">—</span><span class="no">type a phrase</span>`;
+    const p = probsOf(NET, contextOfIds(ids)), top = probBars($("qt-net"), p, 8);
+    $("qt-net-g").innerHTML = `The network <small>· top guess “${esc(show(top[0][0]))}”, ${sure(top[0][1])}</small>`;
+    const all8 = n === K && !q.times[K];
+    const reads = n === 1 ? "reads it through its row" : n === 2 ? "reads both through their rows" : `reads all ${n} through their rows`;
+    $("qt-read").innerHTML = !n ? "Type a phrase to compare." : used ? `Counting answers from the last <b>${used}</b> token${used > 1 ? "s" : ""} alone${used < n ? `, the longest stretch it has seen; the ${n - used === 1 ? "token" : `${n - used} tokens`} before ${used > 1 ? "them" : "it"} play${n - used === 1 ? "s" : ""} no part` : ""}. The network ${reads}.${all8 ? " These 8 tokens never appear together anywhere in the training stories." : ""}` : `Not even the last token appears in this position in the training stories, so counting has nothing to go on. The network still ${reads}.`;
+    document.querySelectorAll("#qt-pre button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === QT.text)));
+  }
+  const QT_PRE = ["the giant and the little fox", "the old wizard gave the puppy a shiny", "the purple elephant and the tiny mouse were", "after the storm, the frog and the duck", "lily and her mom went to the"];
+  $("qt-pre").innerHTML = QT_PRE.map((s) => `<button type="button" data-v="${esc(s)}" data-tip="qt-pre">${esc(s)}</button>`).join("");
+  $("qt-pre").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; QT.text = b.dataset.v; $("qt-in").value = QT.text; drawQuestion(); });
+  let qtTimer = 0;
+  $("qt-in").addEventListener("input", (e) => { QT.text = e.target.value; clearTimeout(qtTimer); qtTimer = setTimeout(drawQuestion, 120); });
+
+  // ---------- Tool 1: byte-pair encoding, replayed ----------
+  const T1 = { n: 1922, text: "A clever squirrel discovered a mysterious treasure map under the old oak tree." };
+  // the text's tokens using only the first n merges: every piece made along the way is in the vocabulary
+  const cutWith = (text, n) => pieces(text).flatMap((p) => (/^[a-z]/.test(p) ? cutWord(p, TK.rank, n) : [p]).map((x) => TK.id.get(x)));
+  function drawTool1() {
+    if (!HAVE_FILES) return;
+    $("t1-merges-v").textContent = num(T1.n);
+    const ids = cutWith(T1.text, T1.n);
+    chips($("t1-toks"), ids);
+    const recent = TK.merges.slice(Math.max(0, T1.n - 8), T1.n).map(([a, b], i) => `${esc(a)} + ${esc(b)} → <b>${esc(glue(a, b))}</b>`).reverse();
+    $("t1-list").innerHTML = T1.n ? `Latest merges: ${recent.join(" · ")}` : "No merges yet: every word is spelled out letter by letter.";
+    const words = pieces(T1.text).filter((p) => /^[a-z]/.test(p)).length, marks = ids.filter((t) => !/^[a-z#]/.test(TK.vocab[t])).length;
+    $("t1-read").innerHTML = `<b>${ids.length}</b> tokens for ${words} word${words === 1 ? "" : "s"}${marks ? ` and ${marks} mark${marks === 1 ? "" : "s"}` : ""}, from a vocabulary of ${num(78 + T1.n)} tokens.`;
+  }
+  $("t1-merges").addEventListener("input", (e) => { T1.n = Number(e.target.value); drawTool1(); });
+  $("t1-in").addEventListener("input", (e) => { T1.text = e.target.value; drawTool1(); });
+
+  // ---------- Tool 2: rows ----------
+  const T2_START = ["cat", "dog", "car", "the", "big", "small"];
+  const T2 = { words: T2_START.slice() };
+  function drawTool2() {
+    if (!NET) return;
+    const items = T2.words.map((w) => { const t = TK.id.get(w); return [w, rowOf(NET, t), `#${t}`]; });
+    strips($("t2-strips"), items);
+    const sim = (a, b) => { const U = unit(); let s = 0; for (let i = 0; i < Dm; i++) s += U[a * Dm + i] * U[b * Dm + i]; return s; };
+    const id = (w) => TK.id.get(w);
+    $("t2-read").innerHTML = `Rows can be compared: the cosine similarity of “cat” and “dog” is <b>${sim(id("cat"), id("dog")).toFixed(2)}</b>, of “cat” and “car” ${sim(id("cat"), id("car")).toFixed(2)}, and of “big” and “small” ${sim(id("big"), id("small")).toFixed(2)} (1 means the same direction; Secret 2 explains).`;
+  }
+  function addT2() {
+    const w = $("t2-in").value.trim().toLowerCase(), t = tokenOf(w);
+    if (t === undefined) { $("t2-read").textContent = w ? `“${w}” is not a single token here: it is cut into ${TK.encode(w).map(show).join(" + ")}.` : ""; return; }
+    T2.words = T2.words.filter((x) => x !== TK.vocab[t]).concat(TK.vocab[t]).slice(-10); $("t2-in").value = ""; drawTool2();
+  }
+  $("t2-add").addEventListener("click", addT2);
+  $("t2-in").addEventListener("keydown", (e) => { if (e.key === "Enter") addT2(); });
+  $("t2-reset").addEventListener("click", () => { T2.words = T2_START.slice(); drawTool2(); });
+
+  // ---------- Tool 3: a phrase through the network ----------
+  const T3 = { text: "once upon a time, there was a little" };
+  function drawTool3() {
+    if (!NET) return;
+    const ids = TK.encode(T3.text), ctx = contextOfIds(ids), f = forward(NET, ctx);
+    strips($("t3-rows"), ctx.map((t, j) => [show(t), rowOf(NET, t), j < K - ids.length ? "(start)" : ""]));
+    const [W, H, g] = sizeCanvas($("t3-hid")), cols = 16, rows = 8, cw = W / cols, ch = H / rows;
+    for (let u = 0; u < SHAPE.h; u++) { g.fillStyle = divColor(f.a[u]); g.fillRect((u % cols) * cw + 1, Math.floor(u / cols) * ch + 1, cw - 2, ch - 2); }
+    const top = probBars($("t3-out"), f.p, 10);
+    $("t3-read").innerHTML = `${ids.length < K ? `The phrase has ${ids.length} token${ids.length === 1 ? "" : "s"}; ${K - ids.length === 1 ? "the 1 missing in front is" : `the ${K - ids.length} missing in front are`} “&lt;end&gt;”, the token that marks a story's edge. ` : ""}Top guess: <b>“${esc(show(top[0][0]))}”</b>, ${sure(top[0][1])}. The 10 guesses shown take ${pct(top.reduce((a, x) => a + x[1], 0))} of the probability; the other 1,990 tokens share the rest.`;
+  }
+  $("t3-in").addEventListener("input", (e) => { T3.text = e.target.value; drawTool3(); });
+
+  // ---------- Secret 1: the map over training ----------
+  // the first three moments come from a fresh network training in this browser; the rest were saved by the reference run
+  const LIVE_AT = [0, 250, 1000];
+  const LN = { live: null, snaps: new Map(), sel: -1, on: GROUPS.map(() => true), pts: null, rows: null, play: null, maps: new Map(), dirty: false };
+  function startLive() {
+    startTraining({ seed: 1, until: LIVE_AT[LIVE_AT.length - 1], snaps: LIVE_AT, every: 150 }, (msg) => {
+      LN.live = { step: msg.step, rows: msg.rows };
+      if (msg.snap) LN.snaps.set(msg.step, msg.rows);
+      LN.dirty = true;
+    });
+  }
+  const MOMENTS = () => {
+    const live = LIVE_AT.map((s) => ({ live: true, step: s, examples: s * 64 }));
+    return live.concat(STORED.filter((m) => m.step > LIVE_AT[LIVE_AT.length - 1]).map((m) => ({ live: false, step: m.step, examples: m.examples, rows: m.rows })));
+  };
+  const short = (n) => (n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + "M" : n >= 1e3 ? Math.round(n / 1e3) + "k" : String(n));
+  // the 42 words' rows at moment i (for live moments not reached yet: as they are now)
+  const momentRows = (i) => { const m = MOMENTS()[i]; return m.live ? LN.snaps.get(m.step) || (LN.live && LN.live.rows) : m.rows; };
+  function momentMap(i) {
+    const m = MOMENTS()[i];
+    if (!m.live) { if (!LN.maps.has(i)) LN.maps.set(i, mapOf(m.rows)); return LN.maps.get(i); }
+    const snap = LN.snaps.get(m.step);
+    if (snap) { if (!LN.maps.has(i)) LN.maps.set(i, mapOf(snap)); return LN.maps.get(i); }
+    if (!LN.live) return null;
+    return mapOf(LN.live.rows); // not reached yet: where the words are right now
+  }
+  function drawLearn() {
+    const ms = MOMENTS();
+    if (LN.sel < 0) LN.sel = ms.length - 1;
+    const host = $("ln-when");
+    if (host.childElementCount !== ms.length + 1) host.innerHTML = `<button type="button" data-v="play" data-tip="ln-play">▶ Play</button>` + ms.map((m, i) => `<button type="button" data-v="${i}" data-tip="ln-when">${i === ms.length - 1 ? "finished" : short(m.examples)}</button>`).join("");
+    host.querySelectorAll("button[data-v]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === String(LN.sel) && !LN.play)));
+    if (!NET) return;
+    let P, kept = null, label;
+    if (LN.play) {
+      const u = LN.play.u * (ms.length - 1), i = Math.min(ms.length - 2, Math.floor(u)), a = momentMap(i), b = momentMap(i + 1);
+      if (!a || !b) { P = FINAL_MAP.P; } else P = lerpP(a.P, b.P, u - i);
+      label = `between the moments after ${num(ms[i].examples)} and ${num(ms[i + 1].examples)} examples (the map slides from one to the next)`;
+      LN.rows = momentRows(Math.round(u));
+    } else {
+      const mm = momentMap(LN.sel); P = mm ? mm.P : null; kept = mm ? mm.kept : null; LN.rows = momentRows(LN.sel);
+    }
+    if (!P) { const [W, H, ctx] = sizeCanvas($("ln-map")); ctx.fillStyle = rgba(C["ink-3"]); ctx.font = `13px ${DISPLAY}`; ctx.textAlign = "center"; ctx.fillText("waiting for the stories to load…", W / 2, H / 2); $("ln-read").textContent = FAILED || "Loading 21,000 stories…"; return; }
+    LN.pts = drawMap($("ln-map"), P, LN.on);
+    const m = ms[LN.sel], T = LN.live;
+    if (LN.play) { $("ln-read").innerHTML = `Training: ${label}.`; return; }
+    const where = m.live ? (LN.snaps.has(m.step) ? "a fresh network, trained in your browser" : T ? `a fresh network, training in your browser now: ${num(T.step * 64)} of ${num(m.examples)} examples so far` : "a fresh network, waiting to train in your browser") : m.step === ITN_WEIGHTS.steps ? "the finished network" : "the run that trained the finished network";
+    const sp = groupSpread(P);
+    $("ln-read").innerHTML = `After <b>${num(m.examples)}</b> examples, from ${where}. The map keeps ${kept != null ? pct(kept) : "…"} of the rows' spread. ${sp}`;
+  }
+  // how tight the groups are: the average distance to a word's own group, against the average distance to the others
+  function groupSpread(P) {
+    let inG = 0, nIn = 0, outG = 0, nOut = 0;
+    for (let i = 0; i < MAPW.length; i++) for (let j = i + 1; j < MAPW.length; j++) { const d = Math.hypot(P[2 * i] - P[2 * j], P[2 * i + 1] - P[2 * j + 1]); if (groupOf(i) === groupOf(j)) { inG += d; nIn++; } else { outG += d; nOut++; } }
+    const r = (inG / nIn) / (outG / nOut);
+    return `Words of a group sit on average <b>${r.toFixed(2)}</b> times as far apart as words of different groups${r > 0.9 ? ": no grouping yet" : r > 0.7 ? ": the groups are starting to form" : ""}.`;
+  }
+  $("ln-when").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-v]"); if (!b) return;
+    if (b.dataset.v === "play") { LN.play = { t0: performance.now() }; LN.play.u = 0; } else { LN.play = null; LN.sel = Number(b.dataset.v); }
+    drawLearn();
+  });
+  $("ln-legend").innerHTML = GROUPS.map(([g], i) => `<button type="button" data-g="${i}" aria-pressed="true" data-tip="ln-group"><i class="dot g${i + 1}"></i>${g}</button>`).join("");
+  $("ln-legend").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-g]"); if (!b) return;
+    const g = Number(b.dataset.g), only = LN.on.every((v, i) => v === (i === g));
+    LN.on = GROUPS.map((_, i) => only || i === g); // click a group to show it alone; click it again to show all
+    $("ln-legend").querySelectorAll("button").forEach((x, i) => x.setAttribute("aria-pressed", String(LN.on[i])));
+    drawLearn(); PG.dirty = true;
+  });
+  const MAPHOVER = { cv: null, pt: null };
+  for (const id of ["ln-map", "pl-map"]) for (const ev of ["pointermove", "pointerdown"]) $(id).addEventListener(ev, (e) => { const r = e.currentTarget.getBoundingClientRect(); MAPHOVER.cv = id; MAPHOVER.pt = [e.clientX - r.left, e.clientY - r.top]; ITN.tips.refresh(); });
+  function hoveredWord(id) {
+    const pts = id === "pl-map" ? PG.pts : LN.pts; if (!pts || MAPHOVER.cv !== id || !MAPHOVER.pt) return -1;
+    let best = -1, bd = 18; pts.forEach(([x, y], i) => { const d = Math.hypot(x - MAPHOVER.pt[0], y - MAPHOVER.pt[1]); if (d < bd) { bd = d; best = i; } });
+    return best;
+  }
+
+  // ---------- Secret 2: neighbors ----------
+  const NB_PRE = ["big", "up", "cat", "mom", "ran", "red", "park", "lily", "said", "happy"];
+  const NB = { w: "big" };
+  function drawNear() {
+    document.querySelectorAll("#nb-pre button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === NB.w)));
+    if (!DATA.ready) { $("nb-read").textContent = FAILED || "Loading 21,000 stories…"; return; }
+    const t = tokenOf(NB.w);
+    if (t === undefined) { $("nb-list").innerHTML = ""; $("nb-read").textContent = NB.w.trim() ? `“${NB.w.trim()}” is not a single token here (${TK.encode(NB.w).map(show).join(" + ")}), so it has no row of its own.` : ""; return; }
+    const U = unit(), list = nearest(U, U.subarray(t * Dm, (t + 1) * Dm), 10, new Set([t]));
+    simBars($("nb-list"), list);
+    $("nb-read").innerHTML = `The 10 whole words whose rows point most nearly the same way as the row of “${esc(TK.vocab[t])}”, which appears ${num(DATA.count[t])} times in the training stories.`;
+  }
+  $("nb-pre").innerHTML = NB_PRE.map((w) => `<button type="button" data-v="${w}" data-tip="nb-pre">${w}</button>`).join("");
+  $("nb-pre").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; NB.w = b.dataset.v; $("nb-in").value = NB.w; drawNear(); });
+  $("nb-in").addEventListener("input", (e) => { NB.w = e.target.value.toLowerCase(); drawNear(); });
+
+  // ---------- Secret 3: arithmetic ----------
+  // b − a + c ≈ want
+  const AR_PRE = [["he", "she", "boy", "girl"], ["dad", "mom", "brother", "sister"], ["his", "her", "he", "she"], ["boy", "girl", "dad", "mom"], ["run", "ran", "walk", "walked"], ["play", "played", "jump", "jumped"], ["go", "went", "see", "saw"], ["is", "was", "are", "were"], ["find", "found", "see", "saw"], ["dog", "dogs", "bird", "birds"], ["toy", "toys", "tree", "trees"]];
+  const AR = { a: "he", b: "she", c: "boy" };
+  function solve(a, b, c, U = unit()) {
+    const v = new Float64Array(Dm); for (let i = 0; i < Dm; i++) v[i] = U[b * Dm + i] - U[a * Dm + i] + U[c * Dm + i];
+    return { ex: nearest(U, v, 6, new Set([a, b, c])), all: nearest(U, v, 6) };
+  }
+  let AR_SCORE = null;
+  function arScore() {
+    if (AR_SCORE) return AR_SCORE;
+    let n = 0, ex = 0, all = 0;
+    for (const [a, b, c, w] of AR_PRE) { const ids = [a, b, c, w].map(tokenOf); if (ids.some((x) => x === undefined)) continue; n++; const r = solve(ids[0], ids[1], ids[2]); if (r.ex[0][0] === ids[3]) ex++; if (r.all[0][0] === ids[3]) all++; }
+    return (AR_SCORE = { n, ex, all });
+  }
+  function drawArith() {
+    const pre = AR_PRE.find(([a, b, c]) => a === AR.a && b === AR.b && c === AR.c);
+    document.querySelectorAll("#ar-pre button").forEach((x, i) => x.setAttribute("aria-pressed", String(AR_PRE[i] === pre)));
+    if (!DATA.ready) { $("ar-read").textContent = FAILED || "Loading 21,000 stories…"; return; }
+    const ids = [AR.a, AR.b, AR.c].map(tokenOf), bad = [AR.a, AR.b, AR.c].filter((w, i) => ids[i] === undefined);
+    if (bad.length) { $("ar-ex").innerHTML = $("ar-all").innerHTML = ""; $("ar-read").textContent = `Not a single token here: ${bad.map((w) => `“${w}”`).join(", ")}.`; return; }
+    const r = solve(ids[0], ids[1], ids[2]), want = pre ? tokenOf(pre[3]) : -1;
+    simBars($("ar-ex"), r.ex, want); simBars($("ar-all"), r.all, want);
+    const s = arScore(), inputs = new Set(ids);
+    const topIsInput = inputs.has(r.all[0][0]);
+    $("ar-read").innerHTML = `${esc(AR.b)} − ${esc(AR.a)} + ${esc(AR.c)} lands nearest to <b>“${esc(show(r.ex[0][0]))}”</b> when the three words are left out${topIsInput ? `, and nearest to “${esc(show(r.all[0][0]))}” itself when they are not` : ""}. Over the ${s.n} examples above, the right answer comes first in <b>${s.ex}</b> when the three words are left out, and in ${s.all} when they are not.`;
+  }
+  $("ar-pre").innerHTML = AR_PRE.map(([a, b, c, w], i) => `<button type="button" data-i="${i}" data-tip="ar-pre">${b} − ${a} + ${c}</button>`).join("");
+  $("ar-pre").addEventListener("click", (e) => { const x = e.target.closest("button[data-i]"); if (!x) return; const [a, b, c] = AR_PRE[Number(x.dataset.i)]; Object.assign(AR, { a, b, c }); $("ar-a").value = a; $("ar-b").value = b; $("ar-c").value = c; drawArith(); });
+  for (const k of ["a", "b", "c"]) $("ar-" + k).addEventListener("input", (e) => { AR[k] = e.target.value.trim().toLowerCase(); drawArith(); });
+
+  // ---------- Secret 4: one word, one row ----------
+  // each word: two meanings, each recognized by the token just before it (and, for one, the token after),
+  // and a few single-token words that stand for each meaning
+  const PO = [
+    { w: "saw", a: ["seeing", ["he", "she", "they", "i", "we"], null, ["see", "noticed", "found", "heard"]], b: ["the tool", ["a", "the", "his", "her", "sharp"], null, ["stick", "rock", "box", "cup"]] },
+    { w: "can", a: ["is able to", ["i", "you", "we", "they", "he", "she"], null, ["could", "will", "should", "must"]], b: ["a tin", ["a", "the"], "of", ["jar", "bottle", "cup", "bowl"]] },
+    { w: "fly", a: ["to move through the air", ["to", "can", "could"], null, ["flying", "flew", "jump"]], b: ["the insect", ["a", "the", "little"], null, ["bug", "bee", "ant", "butterfly"]] },
+    { w: "left", a: ["went away", ["he", "she", "they", "we", "i"], null, ["went", "leave", "came", "gone"]], b: ["the side", ["the", "his", "her", "my", "your"], null, ["right", "side"]] },
+    { w: "rose", a: ["the flower", ["a", "red", "pink", "beautiful", "pretty"], null, ["flower", "flowers", "daisy", "garden"]], b: ["went up", ["sun", "it", "moon", "he", "she"], null, ["climbed", "grew"]] },
+  ];
+  const PO_ST = { i: 0, found: new Map() };
+  // the examples of a word, in the training stories: positions of each meaning
+  function findUses(p) {
+    if (PO_ST.found.has(p.w)) return PO_ST.found.get(p.w);
+    const t = TK.id.get(p.w), tr = DATA.train, res = { a: [], b: [] };
+    const sets = ["a", "b"].map((k) => ({ before: new Set(p[k][1].map((x) => TK.id.get(x))), after: p[k][2] ? TK.id.get(p[k][2]) : null }));
+    for (let i = 1; i < tr.length - 1; i++) {
+      if (tr[i] !== t || (tr[i + 1] !== undefined && TK.vocab[tr[i + 1]].startsWith("##"))) continue;
+      ["a", "b"].forEach((k, j) => { const s = sets[j]; if (s.before.has(tr[i - 1]) && (s.after === null || tr[i + 1] === s.after)) res[k].push(i); });
+    }
+    PO_ST.found.set(p.w, res);
+    return res;
+  }
+  // the sentence around position i, with the word marked
+  function sentenceAt(i) {
+    const tr = DATA.train; let a = i, b = i;
+    while (a > 0 && tr[a - 1] !== 0 && ![".", "!", "?", "\n"].includes(TK.vocab[tr[a - 1]]) && i - a < 24) a--;
+    while (b < tr.length - 1 && tr[b] !== 0 && ![".", "!", "?", "\n"].includes(TK.vocab[tr[b]]) && b - i < 24) b++;
+    const before = TK.decode(Array.from(tr.subarray(a, i))).replace(/^[\s\u201d\u2019]+/, ""), word = TK.vocab[tr[i]], after = TK.decode(Array.from(tr.subarray(i + 1, b + 1)));
+    return `${esc(before)}${before ? " " : ""}<mark>${esc(word)}</mark>${/^[.,!?;:'’”]/.test(after) ? "" : " "}${esc(after)}`;
+  }
+  function drawPoly() {
+    document.querySelectorAll("#po-pre button").forEach((x, i) => x.setAttribute("aria-pressed", String(i === PO_ST.i)));
+    if (!DATA.ready) { $("po-read").textContent = FAILED || "Loading 21,000 stories…"; return; }
+    const p = PO[PO_ST.i], uses = findUses(p), t = TK.id.get(p.w);
+    for (const k of ["a", "b"]) {
+      const list = uses[k], i = list.length ? list[Math.floor(list.length / 3)] : -1;
+      $(`po-${k}-g`).innerHTML = `“${esc(p.w)}”: ${esc(p[k][0])} <small>· ${num(list.length)} clear cases</small>`;
+      if (i < 0) { $(`po-${k}-ex`).innerHTML = `<p class="ex">No example in the training stories.</p>`; $(`po-${k}`).innerHTML = ""; continue; }
+      $(`po-${k}-ex`).innerHTML = `<p class="ex">${sentenceAt(i)}</p><p class="cap2">What the network expects right after it:</p>`;
+      probBars($(`po-${k}`), probsOf(NET, contextAt(DATA.train, i + 1)), 5, DATA.train[i + 1]);
+    }
+    // how close the row is, on average, to a few words of each meaning (only those that are single tokens)
+    const U = unit(), cos = (x) => { let s = 0; for (let i = 0; i < Dm; i++) s += U[t * Dm + i] * U[x * Dm + i]; return s; };
+    const near = ["a", "b"].map((k) => { const ws = p[k][3].filter((w) => TK.id.has(w)), ids = ws.map((w) => TK.id.get(w)); return { ws, c: ids.reduce((s, x) => s + cos(x), 0) / Math.max(1, ids.length) }; });
+    const nb = nearest(U, U.subarray(t * Dm, (t + 1) * Dm), 6, new Set([t])).map(([x]) => `“${esc(show(x))}”`);
+    const [hi, lo] = near[0].c >= near[1].c ? [0, 1] : [1, 0], keys = ["a", "b"], words = (n) => near[n].ws.map((w) => `“${w}”`).join(", ");
+    const clear = near[hi].c - near[lo].c >= 0.1;
+    $("po-read").innerHTML = `Both sentences read the same row of “${esc(p.w)}”. Its nearest words are ${nb.join(", ")}. On average its row is ${clear ? "closer to" : "about as close to"} words used like “${esc(p[keys[hi]][0])}” (${words(hi)}: ${near[hi].c.toFixed(2)}) ${clear ? "than to" : "as to"} words used like “${esc(p[keys[lo]][0])}” (${words(lo)}: ${near[lo].c.toFixed(2)}). In the training stories, the clear cases of each meaning appear ${num(uses.a.length)} and ${num(uses.b.length)} times.`;
+  }
+  $("po-pre").innerHTML = PO.map((p, i) => `<button type="button" data-i="${i}" data-tip="po-pre">${p.w}</button>`).join("");
+  $("po-pre").addEventListener("click", (e) => { const x = e.target.closest("button[data-i]"); if (!x) return; PO_ST.i = Number(x.dataset.i); drawPoly(); });
+
+  // ---------- the algorithm in words, math or code ----------
+  const mi = (s) => `<i>${s}</i>`, sub = (s) => `<sub>${s}</sub>`;
+  const ALGO = [
+    { title: "Tidying, and splitting into words", words: "The text is lowercased and tidied: only letters, digits, a few punctuation marks and line breaks are kept, quotation marks are turned to face the way they open or close, and a spaced hyphen becomes a dash. Then it is split into words and marks; the spaces are dropped, because the rules for putting them back are simple.",
+      math: ["“Lily's dog—a puppy!” → “lily's dog — a puppy!”", "→ “ · lily's · dog · — · a · puppy · ! · ”"] },
+    { title: "Learning the pieces: byte-pair encoding", words: "Every word starts as its letters, the later ones marked with ## to say they are glued to the piece before. Count every pair of neighboring pieces across the training text, weighting each word by how often it appears; glue the most frequent pair into a new piece, everywhere; repeat, here 1,922 times.",
+      math: [`round ${mi("r")}: (${mi("a")}, ${mi("b")}) = the most frequent neighboring pair; every ${mi("a")} ${mi("b")} becomes ${mi("ab")}`, "the first merges: ##h + ##e → ##he,&ensp; t + ##he → the,&ensp; ##n + ##d → ##nd, …"] },
+    { title: "Cutting a word, and numbering the tokens", words: "To cut a word, start from its letters and keep applying the earliest-learned merge that fits, until none does. The vocabulary is the end-of-story token, the marks, the single letters and the 1,922 pieces, 2,000 in all; a token's number is its place in that list, and that number is all the network gets.",
+      math: [`“towers” → t o w e r s → … → tow + ##ers → numbers ${HAVE_FILES ? TK.encode("towers").join(", ") : "…"}`] },
+    { title: "The table and the weights", words: "The embedding table E has a row of 32 numbers for each of the 2,000 tokens. The hidden layer has 128 neurons, each with a weight for every one of the 8 × 32 = 256 numbers it reads, and a bias; the output layer has a weight from every hidden neuron to every token, and a bias per token. The table and the weights start random, the table small and the layers scaled to their number of inputs; the biases start at 0.",
+      math: [`${mi("E")}: 2,000 × 32,&emsp;${mi("W")}${sub("1")}: 128 × 256, ${mi("b")}${sub("1")}: 128,&emsp;${mi("W")}${sub("2")}: 2,000 × 128, ${mi("b")}${sub("2")}: 2,000`, "64,000 + 32,896 + 258,000 = 354,896 numbers to learn"] },
+    { title: "The forward pass", words: "Look up the rows of the last 8 tokens and lay them side by side. Each hidden neuron adds up its weights times those 256 numbers, plus its bias, and squashes the sum with tanh. Each token's score adds up its weights times the 128 hidden values, plus its bias. Softmax turns the 2,000 scores into probabilities that add up to 1; subtracting the largest score first keeps the exponentials from overflowing.",
+      math: [`${mi("x")} = [ ${mi("E")}[${mi("t")}${sub("1")}], ${mi("E")}[${mi("t")}${sub("2")}], …, ${mi("E")}[${mi("t")}${sub("8")}] ]`, `${mi("a")} = tanh(${mi("W")}${sub("1")}${mi("x")} + ${mi("b")}${sub("1")})`, `${mi("s")} = ${mi("W")}${sub("2")}${mi("a")} + ${mi("b")}${sub("2")},&emsp;${mi("p")}${sub(mi("t"))} = e<sup>${mi("s")}${sub(mi("t"))}</sup> / Σ${sub(mi("u"))} e<sup>${mi("s")}${sub(mi("u"))}</sup>`] },
+    { title: "The backward pass", words: "The loss is minus the log of the probability given to the token that came next. Its gradient with respect to each score is simply the probability, minus 1 for the right token. From there the chain rule runs back as in chapters 3 and 4: to the output weights, to the hidden values, through tanh, to the hidden weights, and to the 256 numbers that were read, which are added to the gradients of the 8 rows they came from.",
+      math: [`loss = −log ${mi("p")}${sub("next")},&emsp;∂loss/∂${mi("s")}${sub(mi("t"))} = ${mi("p")}${sub(mi("t"))} − [${mi("t")} = next]`, `∂loss/∂${mi("a")} = ${mi("W")}${sub("2")}<sup>T</sup> ∂loss/∂${mi("s")},&emsp;∂loss/∂${mi("z")} = ∂loss/∂${mi("a")} · (1 − ${mi("a")}²)`, `∂loss/∂${mi("x")} = ${mi("W")}${sub("1")}<sup>T</sup> ∂loss/∂${mi("z")},&emsp;its 8 pieces of 32 go to the rows ${mi("E")}[${mi("t")}${sub("1")}], …, ${mi("E")}[${mi("t")}${sub("8")}]`] },
+    { title: "A training step, with Adam", words: "Add up the gradients over a batch of 64 examples and average them. Adam keeps, for every weight, a running average of its gradient (m) and of its square (s). It steps by m divided by the square root of s, times the learning rate, so a weight whose gradients are usually tiny still takes useful steps. The averages start at zero, so early on they are scaled up to make up for it.",
+      math: [`${mi("m")} ← 0.9 ${mi("m")} + 0.1 ${mi("g")},&emsp;${mi("s")} ← 0.999 ${mi("s")} + 0.001 ${mi("g")}²`, `${mi("w")} ← ${mi("w")} − η · (${mi("m")} / (1 − 0.9<sup>${mi("t")}</sup>)) / (√(${mi("s")} / (1 − 0.999<sup>${mi("t")}</sup>)) + 10<sup>−8</sup>),&emsp;η = 0.001, slowing to 0 at the end of training`] },
+  ];
+  let SRC = "";
+  function renderAlgo() {
+    if (!SRC) return;
+    const js = SRC.split(/\n\s*\n/), py = ($("tok-py").textContent.trim() + "\n\n" + $("nwm-py").textContent.trim()).split(/\n\s*\n/), ok = js.length === ALGO.length && py.length === ALGO.length;
+    if (!ok) console.warn(`renderAlgo: expected ${ALGO.length} sections, got ${js.length} (JS) and ${py.length} (Python)`);
+    $("algo").innerHTML = ALGO.map((a, i) => `<div class="ablock"><div class="atitle"><span class="n">${i + 1}</span>${a.title}</div>${ITN.view.reps({ words: a.words, math: a.math, js: ok ? js[i] : js.join("\n\n"), py: ok ? py[i] : py.join("\n\n") })}</div>`).join("");
+  }
+  Promise.all([ITN.source("tok"), ITN.source("nwm")]).then(([a, b]) => { SRC = a + "\n\n" + b; renderAlgo(); });
+  ITN.view.onChange(renderAlgo);
+
+  // ---------- the film ----------
+  const FILM_TEXT = "lily and her mom went to the";
+  const film = (() => {
+    const SC = [{ k: "chars", d: 6500 }, { k: "tokens", d: 7000 }, { k: "rows", d: 7500 }, { k: "guess", d: 8500 }, { k: "learning", d: 9500 }, { k: "neighbors", d: 8000 }, { k: "short", d: 6500 }];
+    const TOTAL = SC.reduce((a, x) => a + x.d, 0), startOf = (i) => SC.slice(0, i).reduce((a, x) => a + x.d, 0);
+    const at = (t) => { let i = 0; while (i < SC.length - 1 && t >= SC[i].d) { t -= SC[i].d; i++; } return { i, u: Math.min(1, t / SC[i].d) }; };
+    let t = 0, playing = false, last = 0, started = false, autoPaused = false, capKey = "", drawn = "", loop = 0, visible = false, A = null;
+    const chipsEl = [...$("f-chips").querySelectorAll("button")];
+    const setLabel = () => { $("f-play").textContent = playing ? "Pause" : t >= TOTAL ? "Replay" : t > 0 ? "Resume" : "Play"; };
+    function assets() {
+      if (A) return A;
+      const ids = TK.encode(FILM_TEXT), p = probsOf(NET, contextOfIds(ids)), top = topOf(p, 8);
+      const maps = STORED.map((m) => mapOf(m.rows).P);
+      const U = unit(), nbOf = (w) => { const x = TK.id.get(w); return nearest(U, U.subarray(x * Dm, (x + 1) * Dm), 8, new Set([x])); };
+      A = { ids, tidy: tidy(FILM_TEXT), p, top, maps, cat: nbOf("cat"), big: nbOf("big") };
+      return A;
+    }
+    // a panel's content: html, or a canvas to draw on
+    function panel(id, html) { const el = $(id); if (el.dataset.html !== html) { el.dataset.html = html; el.innerHTML = html; } return el; }
+    function canvasIn(id) { const el = $(id); if (el.dataset.html !== "canvas") { el.dataset.html = "canvas"; el.innerHTML = `<canvas></canvas>`; } return el.firstChild; }
+    function caption(k) {
+      const a = assets(), g = a.top[0];
+      switch (k) {
+        case "chars": return `<b>Characters.</b> The computer gets “${esc(FILM_TEXT)}” as ${a.tidy.length} characters, each stored as a number, its code. The codes say which letter it is and nothing about what the words mean: “cat” and “dog” share no codes at all.`;
+        case "tokens": return `<b>Tokens.</b> The text is cut into ${a.ids.length} tokens from a vocabulary of 2,000, and each token is replaced by its number, its place in that list. Common words like these are a single token each.`;
+        case "rows": return "<b>Rows.</b> Each token's number picks its row in the embedding table: 32 numbers, drawn here as cells, blue for positive and orange for negative. These rows are what the network reads.";
+        case "guess": return `<b>A guess.</b> The network reads the last 8 rows side by side, passes them through 128 tanh neurons, and gives every token a probability of coming next. Its top guess is “${esc(show(g[0]))}”, at ${pct(g[1])}.`;
+        case "learning": return "<b>Learning.</b> The rows started as random numbers. Trained only to guess the next token, words followed by similar tokens drifted together: here 42 words in six groups, from the start of training to the end, saved at a few moments and drawn sliding between them.";
+        case "neighbors": return `<b>Neighbors.</b> The rows nearest to the row of “cat” belong to “${esc(show(a.cat[0][0]))}”, “${esc(show(a.cat[1][0]))}” and “${esc(show(a.cat[2][0]))}”, words that fit the same places. The nearest to “big” are “${esc(show(a.big[0][0]))}” and “${esc(show(a.big[1][0]))}”: words used alike, which is not always the same as meaning alike.`;
+        case "short": return "<b>In short.</b> Text becomes tokens, tokens become rows of numbers, and a network trained to guess the next token learns rows that put words used alike close together.";
+      }
+      return "";
+    }
+    function render(force) {
+      const { i, u } = at(t), k = SC[i].k;
+      chipsEl.forEach((c, n) => c.classList.toggle("on", n === i));
+      $("f-fill").style.width = (100 * t) / TOTAL + "%";
+      if (!NET || !DATA.ready) { $("f-ticker").textContent = FAILED || "loading 21,000 stories…"; return; }
+      const a = assets();
+      const sub2 = k === "chars" ? Math.min(a.tidy.length, Math.floor((u / 0.85) * a.tidy.length)) : k === "tokens" || k === "rows" ? Math.min(a.ids.length, Math.floor((u / 0.8) * a.ids.length) + 1) : k === "guess" ? Math.floor(Math.min(1, u / 0.7) * 30) : k === "learning" ? Math.floor(Math.min(1, u / 0.85) * 120) : 0;
+      const key2 = `${k}|${sub2}`;
+      if (!force && key2 === drawn) return;
+      drawn = key2;
+      let lt = "", rt = "", ticker = "";
+      if (k === "chars") {
+        const s = a.tidy.slice(0, sub2);
+        panel("f-left", `<div class="fhtml big-text">${esc(s)}<span style="opacity:.4">|</span></div>`);
+        panel("f-right", `<div class="fhtml codes">${Array.from(s, (ch, n) => (n === s.length - 1 ? `<b>${ch.charCodeAt(0)}</b>` : ch.charCodeAt(0))).join(" ")}</div>`);
+        lt = "The text"; rt = "As character codes"; ticker = sub2 ? `character ${sub2} of ${a.tidy.length}: “${a.tidy[sub2 - 1] === " " ? "space" : a.tidy[sub2 - 1]}” = ${a.tidy.charCodeAt(sub2 - 1)}` : "";
+      } else if (k === "tokens") {
+        const el = panel("f-left", `<div class="fhtml"><div class="toks big"></div></div>`);
+        chips(el.querySelector(".toks"), a.ids.slice(0, sub2), { nums: true });
+        panel("f-right", `<div class="fhtml codes" style="font-size:14px;line-height:1.9">${a.ids.slice(0, sub2).map((x, n) => `${n === sub2 - 1 ? "<b>" : ""}${esc(show(x))} → ${x}${n === sub2 - 1 ? "</b>" : ""}`).join("<br>")}</div>`);
+        const x = a.ids[sub2 - 1]; lt = "Tokens"; rt = "Their numbers"; ticker = `token ${sub2} of ${a.ids.length}: “${show(x)}” is number ${x} of 2,000`;
+      } else if (k === "rows") {
+        const el = panel("f-left", `<div class="fhtml"><div class="toks big"></div></div>`);
+        chips(el.querySelector(".toks"), a.ids, { cls: (n) => (n === sub2 - 1 ? "cur" : n < sub2 ? "" : "dim") });
+        const r = panel("f-right", `<div class="fhtml"><div class="strips"></div></div>`).querySelector(".strips");
+        strips(r, a.ids.slice(0, sub2).map((x) => [show(x), rowOf(NET, x)]));
+        lt = "Tokens"; rt = "Their rows of 32 numbers"; ticker = `row ${a.ids[sub2 - 1]} of the table: “${show(a.ids[sub2 - 1])}”`;
+      } else if (k === "guess") {
+        const ctx = contextOfIds(a.ids), r = panel("f-left", `<div class="fhtml"><div class="strips"></div></div>`).querySelector(".strips");
+        strips(r, ctx.map((x) => [show(x), rowOf(NET, x)]));
+        const host = panel("f-right", `<div class="fhtml"><div class="bars"></div></div>`).querySelector(".bars"), f = sub2 / 30;
+        bars(host, a.top.map(([x, v], n) => [show(x), v * f, n === 0 ? "top" : ""]), (v) => pct(v / Math.max(f, 1e-9)));
+        lt = "The last 8 tokens' rows"; rt = "Its guesses for the next token"; ticker = `“${FILM_TEXT} …” → ${a.top.slice(0, 3).map(([x, v]) => `${show(x)} ${pct(v)}`).join(" · ")}`;
+      } else if (k === "learning") {
+        const ms = STORED, uu = (sub2 / 120) * (ms.length - 1), j = Math.min(ms.length - 2, Math.floor(uu)), P = lerpP(a.maps[j], a.maps[j + 1], uu - j);
+        const cv = canvasIn("f-left"); drawMap(cv, P, undefined, true);
+        const ex = Math.round(ms[j].examples + (ms[j + 1].examples - ms[j].examples) * (uu - j));
+        drawCurve(canvasIn("f-right"), ex);
+        lt = "42 words' rows, flattened"; rt = "Right first guesses on other stories, during training"; ticker = `from the moment after ${num(ms[j].examples)} examples to the one after ${num(ms[j + 1].examples)}`;
+      } else if (k === "neighbors") {
+        const l = panel("f-left", `<div class="fhtml"><div class="bars"></div></div>`).querySelector(".bars"); simBars(l, a.cat);
+        const r = panel("f-right", `<div class="fhtml"><div class="bars"></div></div>`).querySelector(".bars"); simBars(r, a.big);
+        lt = "Nearest to “cat”"; rt = "Nearest to “big”"; ticker = "closeness: the cosine of the angle between two rows";
+      } else {
+        const el = panel("f-left", `<div class="fhtml"><div class="toks big"></div></div>`);
+        chips(el.querySelector(".toks"), a.ids.concat(a.top[0][0]), { cls: (n) => (n === a.ids.length ? "cur" : "") });
+        drawMap(canvasIn("f-right"), a.maps[a.maps.length - 1], undefined, true);
+        lt = "Text → tokens → a guess"; rt = "Rows that learned how words are used"; ticker = "characters → tokens → rows → the network → the next token";
+      }
+      $("f-lt").textContent = lt; $("f-rt").textContent = rt; $("f-ticker").textContent = ticker;
+      if (k !== capKey) { capKey = k; $("f-cap").innerHTML = caption(k); }
+    }
+    function tick(id, now) {
+      if (!playing || id !== loop) return;
+      if (DATA.ready) t = Math.min(TOTAL, t + Math.min(64, now - last));
+      last = now;
+      if (t >= TOTAL) { playing = false; setLabel(); }
+      render();
+      if (playing) requestAnimationFrame((n) => tick(id, n));
+    }
+    function play2() { if (t >= TOTAL) t = 0; playing = true; started = true; autoPaused = false; last = performance.now(); setLabel(); const id = ++loop; requestAnimationFrame((n) => tick(id, n)); }
+    $("f-play").addEventListener("click", () => { if (playing) { playing = false; setLabel(); render(); } else play2(); });
+    chipsEl.forEach((c, n) => c.addEventListener("click", () => { t = startOf(n); capKey = ""; drawn = ""; if (!playing) play2(); else render(); }));
+    new IntersectionObserver((en) => {
+      visible = en[0].isIntersecting;
+      if (visible && !started && !reduceMotion && DATA.ready) play2();
+      else if (visible && autoPaused) play2();
+      else if (!visible && playing) { playing = false; autoPaused = true; setLabel(); }
+    }, { threshold: 0.5 }).observe($("film"));
+    return { render, setLabel, ready: () => { if (visible && !started && !reduceMotion) play2(); else render(true); }, reset: () => { drawn = ""; } };
+  })();
+  // the reference run's test accuracy against examples seen, with a marker
+  function drawCurve(cv, ex) {
+    const [W, H, ctx] = sizeCanvas(cv), log = ITN_WEIGHTS.log, padL = 38, padB = 26, padT = 14, padR = 12;
+    const maxX = Math.log10(log[log.length - 1][0] * 64), minX = Math.log10(64000), X = (e) => padL + ((Math.log10(Math.max(64000, e)) - minX) / (maxX - minX)) * (W - padL - padR);
+    const Y = (a) => H - padB - (a / 50) * (H - padB - padT);
+    ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = 1; ctx.fillStyle = rgba(C["ink-3"]); ctx.font = `11px ${MONO}`; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (const a of [0, 10, 20, 30, 40, 50]) { ctx.beginPath(); ctx.moveTo(padL, Y(a)); ctx.lineTo(W - padR, Y(a)); ctx.stroke(); ctx.fillText(a + "%", padL - 6, Y(a)); }
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (const e of [1e5, 1e6, 1e7]) if (Math.log10(e) <= maxX) ctx.fillText(short(e), X(e), H - padB + 6);
+    ctx.strokeStyle = rgba(C.ink); ctx.lineWidth = 2; ctx.beginPath();
+    log.forEach(([s, , acc], i) => { const x = X(s * 64), y = Y(acc); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.stroke();
+    if (ex < log[0][0] * 64) return; // before the first measurement
+    let acc = log[0][2]; for (const [s, , a] of log) if (s * 64 <= ex) acc = a;
+    ctx.beginPath(); ctx.arc(X(ex), Y(acc), 5, 0, 2 * Math.PI); ctx.fillStyle = rgba(C.pos); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = rgba(C.sheet); ctx.stroke();
+    ctx.fillStyle = rgba(C.ink); ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.font = `600 12px ${MONO}`; ctx.fillText(`${acc.toFixed(0)}%`, Math.min(W - 40, X(ex) + 8), Y(acc) - 4);
+  }
+
+  // ---------- the playground ----------
+  const PG = { which: "ref", seed: 2, run: null, running: false, net: null, step: 0, loss: null, preview: null, dirty: true, pts: null, eval: null, evalAt: 0, evalJob: null, lastEval: 0 };
+  const TEMPS = [0, 0.5, 0.8, 1, 1.3];
+  // your own network: the worker's latest copy of it, or before any training its random starting weights
+  const ownNet = () => PG.net || (PG.preview && PG.preview.seed === PG.seed ? PG.preview : (PG.preview = { seed: PG.seed, ...makeModel(SHAPE, mulberry32(PG.seed)) }));
+  const pgNet = () => (PG.which === "own" ? ownNet() : NET);
+  function onOwn(msg) {
+    PG.step = msg.step; PG.loss = msg.loss;
+    if (msg.weights) {
+      PG.net = { ...SHAPE, ...msg.weights };
+      // every 500 steps, measure the copy (it does not change while it is measured)
+      if (PG.step - PG.lastEval >= 500 && !PG.evalJob) { PG.lastEval = PG.step; const at = PG.step; PG.evalJob = netJob(PG.net, (r) => { PG.eval = r; PG.evalAt = at; PG.dirty = true; }, 10); }
+    }
+    PG.dirty = true;
+  }
+  let pgTextTimer = 0;
+  function drawPlayground() {
+    if (!NET || !DATA.ready) { $("pl-status").textContent = FAILED || "Loading 21,000 stories…"; return; }
+    const net = pgNet(), text = $("pl-text").value, ids = TK.encode(text);
+    chips($("pl-toks"), ids, { nums: true, cls: (i) => (i >= ids.length - K ? "" : "dim") });
+    $("pl-count").textContent = `${ids.length} tokens; the network reads the last ${Math.min(K, ids.length)}${ids.length < K ? `, with “<end>” in front, as at the start of a story` : " (the ones not dimmed)"}.`;
+    probBars($("pl-next"), probsOf(net, contextOfIds(ids)), 10);
+    const nbw = $("pl-nb-in").value, t = tokenOf(nbw);
+    if (t === undefined) $("pl-nb").innerHTML = nbw.trim() ? `<span></span><span class="hint">not a single token</span><span></span>` : "";
+    else { const U = net === NET ? unit() : unitRows(net.E); simBars($("pl-nb"), nearest(U, U.subarray(t * Dm, (t + 1) * Dm), 8, new Set([t]))); }
+    PG.pts = drawMap($("pl-map"), mapOf(rowsOfNet(net)).P, LN.on, true);
+    $("pl-status").textContent = PG.which === "ref" ? `the finished network: ${num(ITN_WEIGHTS.steps)} steps, ${num(ITN_WEIGHTS.steps * 64)} examples` : !PG.step ? `your network, seed ${PG.seed}: not trained yet, so its guesses come from random starting weights` : `your network: step ${num(PG.step)} · ${num(PG.step * 64)} examples · loss ${PG.loss.toFixed(2)}` + (PG.eval ? ` · right first guess on ${num(PG.eval.n)} test tokens: ${pct(PG.eval.acc)} (at step ${num(PG.evalAt)})` : "");
+    $("pl-train").textContent = PG.running ? "Pause" : PG.step ? "Resume" : "Train";
+    document.querySelectorAll("#pl-net button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === PG.which)));
+    $("pl-temp-v").textContent = TEMPS[Number($("pl-temp").value)];
+    ITN.tips.refresh();
+  }
+  // pick the next token: always the top one at boldness 0, otherwise at random with the probabilities raised to 1/boldness
+  function sample(p, temp) {
+    if (temp === 0) return argmax(p);
+    let total = 0; const q = new Float64Array(p.length); for (let i = 0; i < p.length; i++) { q[i] = Math.pow(p[i], 1 / temp); total += q[i]; }
+    let r = Math.random() * total; for (let i = 0; i < q.length; i++) { r -= q[i]; if (r <= 0) return i; }
+    return argmax(p);
+  }
+  $("pl-text").addEventListener("input", () => { clearTimeout(pgTextTimer); pgTextTimer = setTimeout(() => { PG.dirty = true; }, 80); });
+  $("pl-nb-in").addEventListener("input", () => { PG.dirty = true; });
+  $("pl-temp").addEventListener("input", () => { PG.dirty = true; });
+  $("pl-take").addEventListener("click", () => {
+    if (!NET || !DATA.ready) return;
+    const ids = TK.encode($("pl-text").value); ids.push(argmax(probsOf(pgNet(), contextOfIds(ids))));
+    $("pl-text").value = TK.decode(ids).replace(/\n\n$/, ""); PG.dirty = true;
+  });
+  $("pl-write").addEventListener("click", () => {
+    if (!NET || !DATA.ready) return;
+    const start = TK.encode($("pl-text").value), ids = start.slice(), temp = TEMPS[Number($("pl-temp").value)], net = pgNet();
+    for (let n = 0; n < 60; n++) { const t = sample(probsOf(net, contextOfIds(ids)), temp); ids.push(t); if (t === 0) break; }
+    const a = TK.decode(start), b = TK.decode(ids).slice(a.length);
+    $("pl-written").innerHTML = `${esc(a)}<span class="gen">${esc(b)}</span>`;
+  });
+  $("pl-net").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; PG.which = b.dataset.v; PG.dirty = true; });
+  $("pl-train").addEventListener("click", () => {
+    if (!DATA.ready) return;
+    PG.running = !PG.running;
+    if (!PG.run) PG.run = startTraining({ seed: PG.seed, weights: true, every: 400 }, onOwn); else PG.run.send({ type: "run", on: PG.running });
+    if (PG.running) PG.which = "own";
+    PG.dirty = true;
+  });
+  $("pl-reset").addEventListener("click", () => {
+    if (PG.run) PG.run.stop();
+    Object.assign(PG, { run: null, running: false, seed: PG.seed + 1, net: null, step: 0, loss: null, eval: null, evalJob: null, lastEval: 0, dirty: true });
+  });
+
+  // ---------- one loop for everything that moves ----------
+  function frame(now) { try { step(now); } finally { requestAnimationFrame(frame); } }
+  function step(now) {
+    runJobs(JOBS.length ? 10 : 0);
+    if (LN.play) { LN.play.u = Math.min(1, (now - LN.play.t0) / 9000); drawLearn(); if (LN.play.u >= 1) { LN.play = null; LN.sel = MOMENTS().length - 1; drawLearn(); } }
+    else if (LN.dirty) { LN.dirty = false; if (MOMENTS()[LN.sel].live) drawLearn(); }
+    if (PG.evalJob) { const t0 = performance.now(); while (performance.now() - t0 < 3) if (PG.evalJob.next().done) { PG.evalJob = null; break; } }
+    if (PG.dirty) { PG.dirty = false; drawPlayground(); }
+  }
+
+  // ---------- check the backward pass the slow way ----------
+  function gradientCheck() {
+    const r = mulberry32(5), net = makeModel({ V: SHAPE.V, k: K, d: Dm, h: SHAPE.h }, r);
+    // start from the finished network's weights, so the gradients are those of a real network
+    for (const key of KEYS) net[key].set(NET[key]);
+    const ctx = contextAt(DATA.test, 40), next = (DATA.test[40] + 7) % SHAPE.V; // a wrong next token, for large gradients
+    const g = zeros(net); backward(net, ctx, next, forward(net, ctx), g);
+    const loss = () => -Math.log(forward(net, ctx).p[next]);
+    let worst = 0, n = 0;
+    for (const key of KEYS) for (let tries = 0, got = 0; tries < 4000 && got < 8; tries++) {
+      const i = Math.floor(r() * net[key].length); if (Math.abs(g[key][i]) < 1e-3) continue;
+      const v = net[key][i], h = 1e-5; net[key][i] = v + h; const a = loss(); net[key][i] = v - h; const b = loss(); net[key][i] = v;
+      const nm = (a - b) / (2 * h); worst = Math.max(worst, Math.abs(nm - g[key][i]) / (Math.abs(nm) + Math.abs(g[key][i]))); got++; n++;
+    }
+    $("gc-check").textContent = worst < 1e-5 ? `across ${n} weights, rows of the table included, the backward pass and the slow way agree, with a largest relative difference of ${worst.toExponential(0)}.` : `the largest relative difference was ${worst.toExponential(1)}, larger than expected.`;
+  }
+
+  // ---------- descriptions on hover, keyboard focus, or after a tap ----------
+  const FILM_TIPS = ["The text as character codes.", "The text cut into tokens, and their numbers.", "Each token's row of the table.", "The network's guesses for the next token.", "The rows of 42 words, over training.", "Words whose rows are closest.", "The chapter in one sentence."];
+  for (let i = 0; i < 7; i++) ITN.tips.add({ [`film-${i}`]: () => `${FILM_TIPS[i]} <span class="hint">Click to jump here</span>` });
+  ITN.tips.add({
+    "lens-math": () => "<b>Math</b>: the same steps written as formulas.",
+    "st-n": () => "How many tokens before each token to look for in the training stories.",
+    "st-prev": () => "The previous test story.", "st-next": () => "The next test story.",
+    "st-tok": (el) => {
+      if (!EVAL.seenLen) return "";
+      const [a] = DATA.stories[ST.k], i = Number(el.dataset.sel), e = a + i, L = EVAL.seenLen[e];
+      // within the first 8 tokens of a story, the context is the story's start: a story in the training set must start the same way
+      if (L >= Math.min(K, i)) return i === 0 ? "The first token of the story: counting looks at how the training stories start." : i < K ? `The ${i === 1 ? "token" : `${i} tokens`} before this one also start${i === 1 ? "s" : ""} a story in the training set.` : "All 8 tokens before this one appear together in the training stories.";
+      return L === 0 ? "Even the token before this one never appears in the training stories." : `The last ${L} token${L > 1 ? "s" : ""} before this one appear together in the training stories; the last ${L + 1} never do.`;
+    },
+    "qt-pre": () => "Use this phrase.", "qt-in": () => "Type the start of a sentence; both methods guess the next token.",
+    "t1-in": () => "Type any text to cut into tokens.",
+    "t1-merges": () => `Replay the merges in the order they were learned: ${num(T1.n)} of 1,922 so far.`,
+    "t2-in": () => "Type a word, then press Enter.", "t2-add": () => "Add the row of the word typed on the left.", "t2-reset": () => "Go back to the first six rows.",
+    "t3-in": () => "Type the start of a sentence; the network reads its last 8 tokens.",
+    "ln-play": () => "Play training from the start to the finished network.",
+    "ln-when": () => "Show the map after this many examples of training.",
+    "ln-group": () => "Show this group alone; click again to show all.",
+    "ln-map": () => {
+      const id = MAPHOVER.cv, i = hoveredWord(id); if (i < 0) return "Point at a word to see its nearest words.";
+      if (id === "ln-map") {
+        const R = LN.rows; if (!R) return "";
+        const U = unitRows(R), near = MAPW.map((w, j) => { let s = 0; for (let q = 0; q < Dm; q++) s += U[i * Dm + q] * U[j * Dm + q]; return [j, s]; }).filter(([j]) => j !== i).sort((a, b) => b[1] - a[1]).slice(0, 4);
+        return `<b>${esc(MAPW[i])}</b> (${GROUPS[groupOf(i)][0]}). Nearest of the 42 words at this moment: ${near.map(([j, s]) => `${esc(MAPW[j])} ${s.toFixed(2)}`).join(", ")}.`;
+      }
+      const net = pgNet(), U = net === NET ? unit() : unitRows(net.E), t = MAP_IDS[i];
+      return `<b>${esc(MAPW[i])}</b> (${GROUPS[groupOf(i)][0]}). Nearest words: ${nearest(U, U.subarray(t * Dm, (t + 1) * Dm), 4, new Set([t])).map(([x, s]) => `${esc(show(x))} ${s.toFixed(2)}`).join(", ")}.`;
+    },
+    "nb-pre": () => "Show this word's nearest words.", "nb-in": () => "Type a word.",
+    "ar-pre": () => "Use this example.", "ar-b": () => "The word to start from.", "ar-a": () => "The word to subtract.", "ar-c": () => "The word to add.",
+    "po-pre": () => "A word with two meanings.",
+    "pl-text": () => "Type the start of a story. Capitals and spaces are tidied away before the network reads it.",
+    "pl-take": () => "Add the network's top guess to your text (your text is shown tidied, as the network reads it).",
+    "pl-write": () => "Let the network write up to 60 tokens, one at a time, each picked at random, with chances set by its probability and the boldness.",
+    "pl-temp": () => "Boldness 0 always takes the top guess; higher values give unlikely tokens more of a chance.",
+    "pl-nb-in": () => "Type a word to see its nearest words in the chosen network.",
+    "net-ref": () => "The network trained in advance, used everywhere on this page.", "net-own": () => "The network you train here.",
+    "pl-train": () => (PG.running ? "Pause training." : "Train a network from scratch on the 20,000 training stories, in batches of 64, as the finished one was."),
+    "pl-reset": () => `Start over from new random weights (seed ${PG.seed} → ${PG.seed + 1}).`,
+  });
+
+  // ---------- resize, theme, boot ----------
+  function redrawAll() { film.reset(); film.render(true); drawLadder(); drawStory(); drawQuestion(); drawTool1(); drawTool2(); drawTool3(); drawLearn(); drawNear(); drawArith(); drawPoly(); PG.dirty = true; }
+  let rq = 0, lastW = 0; new ResizeObserver(() => { const w = document.body.clientWidth; if (w === lastW) return; lastW = w; cancelAnimationFrame(rq); rq = requestAnimationFrame(redrawAll); }).observe(document.body);
+  const retheme = () => { readTheme(); redrawAll(); };
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  ITN.pill();
+  readTheme();
+  $("t1-in").value = T1.text; $("t3-in").value = T3.text; $("nb-in").value = NB.w; $("ar-a").value = AR.a; $("ar-b").value = AR.b; $("ar-c").value = AR.c;
+  QT.text = QT_PRE[0]; $("qt-in").value = QT.text;
+  $("pl-text").value = "Once upon a time, there was a little girl named Lily. She loved to";
+  film.setLabel(); drawLadder(); drawTool1(); drawTool2(); drawTool3(); drawLearn(); ITN.view.sync();
+  requestAnimationFrame(frame);
+  const fail = (msg) => { FAILED = msg; for (const id of ["st-read", "qt-read", "t1-read", "t2-read", "t3-read", "ln-read", "nb-read", "ar-read", "po-read", "pl-status", "ladder-after"]) $(id).textContent = msg; $("f-ticker").textContent = msg; };
+  if (!HAVE_FILES) fail("The stories or the trained weights did not load (stories.js, weights.js).");
+  else if (typeof DecompressionStream === "undefined") fail("This browser cannot unpack the stories. A recent Chrome, Edge, Firefox or Safari can.");
+  else loadData().then(() => {
+    EVAL.pos = evalPositions();
+    drawStory(); drawQuestion(); drawNear(); drawArith(); drawPoly(); drawLearn(); film.ready(); PG.dirty = true;
+    gradientCheck();
+    addJob(countJob(), () => { drawLadder(); drawStory(); });
+    addJob(netJob(NET, (r) => { EVAL.net = r; }), () => drawLadder());
+    startLive();
+  }, (err) => fail("The stories could not be unpacked: " + err.message)).catch((err) => fail("Something went wrong while preparing the figures: " + err.message));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
+})();
+</script>
+</body>
+</html>

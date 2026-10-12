@@ -38,6 +38,12 @@ A branch of chapter 5. Sound becomes a picture (a spectrogram), so chapter 5's c
 
 The recordings are 9,000 clips of spoken digits from the [Speech Commands dataset](https://www.tensorflow.org/datasets/catalog/speech_commands) by Pete Warden (Google), under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); `listening/sounds.js` holds a subset, stored as spectrograms and 51 audio clips (16-bit and 8-bit μ-law). `listening/weights.js` holds the two networks trained in advance with the chapter's own code.
 
+## Chapter 6: Words as vectors, tokens and embeddings
+
+How a network reads text. The chapter opens with the problem, guessing the next word, and why it is hard: most stretches of text are new, and counting what followed a phrase only works for phrases already seen. Text is cut into tokens by byte-pair encoding (the 1,922 merges replay on a slider), each token gets a row of 32 numbers in an embedding table, and a small next-token network reads the last 8 tokens' rows. Four secrets follow: the rows of 42 words arrange themselves into groups over training, whose first steps replay in your browser; close means "used alike", which puts some opposites side by side; directions between rows can carry meaning, and analogy puzzles come out right more often when the puzzle's own words are left out of the answers; and every word has a single row, whatever it means in its sentence, which is what attention (chapter 7) fixes. The playground cuts your text into tokens, shows what comes next, lets the network write on, and trains your own network from scratch.
+
+The stories are 21,000 from the [TinyStories dataset](https://huggingface.co/datasets/roneneldan/TinyStories) by Ronen Eldan and Yuanzhi Li (Microsoft Research), under the [Community Data License Agreement – Sharing 1.0](https://cdla.dev/sharing-1-0/); `words/stories.js` holds them lowercased, tidied and cut into tokens, and is shared under that agreement. `words/weights.js` holds the network trained in advance with the chapter's own code.
+
 ## Run it locally
 
 The chapters share files in `assets/`, and some pages read their own code from there to display it, which browsers block for pages opened straight from disk. Serve the folder instead:
@@ -49,10 +55,11 @@ python3 -m http.server 8000
 
 ## Project layout
 
-- `index.html`, `loss-and-gradients/`, `backprop/`, `going-deeper/`, `seeing/`, `listening/`: one folder per chapter, each a self-contained page.
+- `index.html`, `loss-and-gradients/`, `backprop/`, `going-deeper/`, `seeing/`, `listening/`, `words/`: one folder per chapter, each a self-contained page.
 - `assets/site.css`: the shared design tokens and components.
 - `assets/autograd.js`: the shared autograd. Chapters 1 to 3 run on it, and chapter 4 checks its hand-written backward pass against it. Chapter 3 shows it in five parts, split at blank lines, next to a Python translation with the same five parts, so keep exactly five blank-line-separated sections in both.
 - `assets/common.js`: shared helpers: number formatting, hover descriptions, the Words · Math · Code switch.
+- `tools/`: the scripts that built each chapter's data and trained weights, and checked the numbers the pages state (see `tools/README.md`).
 
 ## Roadmap
 
@@ -62,7 +69,7 @@ python3 -m http.server 8000
 4. [Going deeper: why layers help](https://taoyiran.github.io/inside-the-network/going-deeper/)
 5. [Seeing: convolutional networks](https://taoyiran.github.io/inside-the-network/seeing/)
    - 5′. [Listening: spectrograms and sound](https://taoyiran.github.io/inside-the-network/listening/)
-6. Words as vectors: tokens and embeddings
+6. [Words as vectors: tokens and embeddings](https://taoyiran.github.io/inside-the-network/words/)
 7. Attention
 8. A tiny GPT, trained in your browser
 
@@ -71,4 +78,5 @@ python3 -m http.server 8000
 - Code: [MIT](LICENSE)
 - Text and figures: [CC BY 4.0](LICENSE-CONTENT.md)
 - Speech Commands recordings and spectrograms in `listening/sounds.js`, and the weights trained on them in `listening/weights.js`: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), from the [Speech Commands dataset](https://www.tensorflow.org/datasets/catalog/speech_commands) by Pete Warden (Google)
+- TinyStories in `words/stories.js` (lowercased, tidied and cut into tokens): [CDLA-Sharing-1.0](https://cdla.dev/sharing-1-0/), from the [TinyStories dataset](https://huggingface.co/datasets/roneneldan/TinyStories) by Ronen Eldan and Yuanzhi Li (Microsoft Research). The network trained on them, in `words/weights.js`, is a result of computation on the data, on which that agreement places no conditions (section 3.5); it is shared under MIT like the code.
 - MNIST digits in `seeing/digits.js`, the weights in `seeing/weights.js` and images made from the digits: [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/), from the [MNIST database](http://yann.lecun.com/exdb/mnist/) by Yann LeCun and Corinna Cortes
