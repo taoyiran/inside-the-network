@@ -8,7 +8,7 @@ Everything runs with Node (24 or later) and, for a few scripts, Python 3 with no
 
 ## `words/`: chapter 6, Words as vectors
 
-These scripts read the tokenizer and the network straight from `words/index.html` (`<script id="tok">` and `<script id="nwm">`), so they always run the page's own code.
+These scripts read the tokenizer and the network straight from `words/index.html` (`<script id="tok">` and `<script id="nwm">`), so they always run the page's own code. The whole training process, with every formula, setting and result, is written up in [`docs/chapter-6-training.md`](../docs/chapter-6-training.md).
 
 1. `sh fetch.sh`: downloads the TinyStories V2 (GPT-4) validation file and the first 150 MB of its training file into `work/dl/`.
 2. `node prep.js`: learns the 1,922 merges from training stories 2 to 20,001 and cuts the stories into tokens: `work/merges.json`, `work/train.bin`, `work/test.bin` (the first 2,000 complete validation stories; the page uses the first 1,000, and stories 1,001 to 2,000 are only for choosing among trained networks).

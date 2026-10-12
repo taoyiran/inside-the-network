@@ -42,7 +42,7 @@ The recordings are 9,000 clips of spoken digits from the [Speech Commands datase
 
 How a network reads text. The chapter opens with the problem, guessing the next word, and why it is hard: most stretches of text are new, and counting what followed a phrase only works for phrases already seen. Text is cut into tokens by byte-pair encoding (the 1,922 merges replay on a slider), each token gets a row of 32 numbers in an embedding table, and a small next-token network reads the last 8 tokens' rows. Four secrets follow: the rows of 42 words arrange themselves into groups over training, whose first steps replay in your browser; close means "used alike", which puts some opposites side by side; directions between rows can carry meaning, and analogy puzzles come out right more often when the puzzle's own words are left out of the answers; and every word has a single row, whatever it means in its sentence, which is what attention (chapter 7) fixes. The playground cuts your text into tokens, shows what comes next, lets the network write on, and trains your own network from scratch.
 
-The stories are 21,000 from the [TinyStories dataset](https://huggingface.co/datasets/roneneldan/TinyStories) by Ronen Eldan and Yuanzhi Li (Microsoft Research), under the [Community Data License Agreement – Sharing 1.0](https://cdla.dev/sharing-1-0/); `words/stories.js` holds them lowercased, tidied and cut into tokens, and is shared under that agreement. `words/weights.js` holds the network trained in advance with the chapter's own code.
+The stories are 21,000 from the [TinyStories dataset](https://huggingface.co/datasets/roneneldan/TinyStories) by Ronen Eldan and Yuanzhi Li (Microsoft Research), under the [Community Data License Agreement – Sharing 1.0](https://cdla.dev/sharing-1-0/); `words/stories.js` holds them lowercased, tidied and cut into tokens, and is shared under that agreement. `words/weights.js` holds the network trained in advance with the chapter's own code. How it was trained, step by step, is in [`docs/chapter-6-training.md`](docs/chapter-6-training.md).
 
 ## Run it locally
 
@@ -60,6 +60,7 @@ python3 -m http.server 8000
 - `assets/autograd.js`: the shared autograd. Chapters 1 to 3 run on it, and chapter 4 checks its hand-written backward pass against it. Chapter 3 shows it in five parts, split at blank lines, next to a Python translation with the same five parts, so keep exactly five blank-line-separated sections in both.
 - `assets/common.js`: shared helpers: number formatting, hover descriptions, the Words · Math · Code switch.
 - `tools/`: the scripts that built each chapter's data and trained weights, and checked the numbers the pages state (see `tools/README.md`).
+- `docs/`: detailed write-ups, such as [how chapter 6's network is trained](docs/chapter-6-training.md).
 
 ## Roadmap
 
