@@ -116,6 +116,17 @@ textarea.in { width: 100%; box-sizing: border-box; resize: vertical; min-height:
 .hc .rd { font: 11.5px/1.35 var(--font-mono); color: var(--ink-2); margin-top: 5px; overflow-wrap: anywhere; min-height: 2.7em; }
 .hc .rd b { color: var(--ink); font-weight: 600; }
 .curves { display: block; width: 100%; aspect-ratio: 16 / 7; }
+/* the step-by-step animations: canvases whose height the script sets */
+.anim-cv { display: block; width: 100%; height: 420px; }
+.film .hint { margin: 6px 0 0; }
+/* sizes of real transformers */
+table.sizes { width: 100%; border-collapse: collapse; margin: 14px 0 6px; font: 13.5px/1.4 var(--font-display); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+table.sizes th, table.sizes td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+table.sizes th:first-child, table.sizes td:first-child { text-align: left; }
+table.sizes th { font: 600 11px/1.3 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+table.sizes td:first-child { color: var(--ink); }
+table.sizes tr.here td { background: color-mix(in srgb, var(--pos) 8%, var(--sheet)); }
+.table-wrap { overflow-x: auto; }
 /* name swaps */
 .swap { display: grid; grid-template-columns: max-content minmax(0, 1fr) minmax(0, 1fr); gap: 4px 14px; font: 13px/1.35 var(--font-mono); color: var(--ink-2); margin-top: 12px; align-items: baseline; }
 .swap .h { font: 600 10.5px/1.2 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
@@ -185,8 +196,27 @@ textarea.in { width: 100%; box-sizing: border-box; resize: vertical; min-height:
 
     <p id="ladder-after">Measuring…</p>
 
+    <h2>How attention works, step by step</h2>
+    <p>Before the real network, a toy small enough to see every step. Its numbers are made up, and kept small: queries and keys have 2 numbers instead of 8, so they can be drawn as arrows, and values 3 instead of 16. The arithmetic is the real thing, computed from the arrows as you watch, except for two additions the real network makes to each score, which Tool 2 covers.</p>
+
+    <figure class="film" id="aw" aria-label="Animation: in a toy example, the last token of a sentence compares its query with every key, turns the scores into weights and takes a weighted average of the values">
+      <canvas class="anim-cv" id="aw-cv" aria-label="Keys and the query as arrows, scores and weights as bars above the tokens, and values flowing to the token that reads"></canvas>
+      <div class="film-progress"><i id="aw-fill"></i></div>
+      <div class="film-bar">
+        <button type="button" class="btn primary" id="aw-play">Play</button>
+        <div class="chips" id="aw-chips" role="group" aria-label="Jump to a step">
+          <button type="button" data-i="0" data-tip="aw-0">The question</button><button type="button" data-i="1" data-tip="aw-1">Keys</button><button type="button" data-i="2" data-tip="aw-2">The query</button><button type="button" data-i="3" data-tip="aw-3">Compare</button><button type="button" data-i="4" data-tip="aw-4">Softmax</button><button type="button" data-i="5" data-tip="aw-5">Values</button><button type="button" data-i="6" data-tip="aw-6">The guess</button><button type="button" data-i="7" data-tip="aw-7">Every token</button>
+        </div>
+        <button type="button" class="btn small" id="aw-reset" data-tip="aw-reset">Reset the query</button>
+      </div>
+      <p class="film-cap" id="aw-cap" aria-live="polite"></p>
+      <p class="hint">Drag the blue arrow to ask a different question: the scores, weights and values follow.</p>
+    </figure>
+
+    <p>That is all attention is: <b>compare</b> (a query against the key of every token up to itself, by dot product), <b>weigh</b> (softmax), and <b>blend</b> (a weighted average of the values). The real network does exactly this, with lists of 8 and 16 numbers and 8 heads at once, and with two additions to each score: the dot product is divided by √8, so that scores do not grow with the length of the lists, and a learned score for the distance back is added (Tool 2). In the toy, the queries, keys and values were picked by hand. In the real network they are made from each token's row by small tables of weights, and those tables are learned by gradient descent, like every other weight.</p>
+
     <h2>What this is</h2>
-    <p>This film follows one position of a story as it looks back: one head's query meets every earlier key, the scores become weights, and the weights pick what to bring back.</p>
+    <p>Now the real network. This film follows one position of a story as it looks back: one head's query meets every earlier key, the scores become weights, and the weights pick what to bring back.</p>
 
     <figure class="film" id="film" aria-label="Animation: one position of a story looking back with attention, and the guess it makes">
       <div class="film-stage">
@@ -262,9 +292,63 @@ textarea.in { width: 100%; box-sizing: border-box; resize: vertical; min-height:
       <p class="readout" id="t3-read"></p>
     </figure>
 
-    <p>So the numbers the hidden layer reads for a token now depend on the story before it: the same token in two stories brings its own row, but the heads bring back different results. The token's own row is still the same in every story, but what the hidden layer reads alongside it now comes from anywhere in the window, chosen by content, rather than from 8 fixed slots. That is the start of the fix chapter 6 promised for “one word, one row”. In a single layer, these rebuilt numbers serve only to guess the next token; chapter 8 stacks layers, so that later ones can read them.</p>
+    <p>So the numbers the hidden layer reads for a token now depend on the story before it: the same token in two stories brings its own row, but the heads bring back different results. The token's own row is still the same in every story, but what the hidden layer reads alongside it now comes from anywhere in the window, chosen by content, rather than from 8 fixed slots. That is the start of the fix chapter 6 promised for “one word, one row”. In a single layer, these rebuilt numbers serve only to guess the next token; chapter 8, coming next, will stack layers, so that later ones can read them.</p>
 
     <p>In all, 352,848 numbers to learn, about as many as chapter 6's 354,896: the attention network spends no more weights, but reads up to 256 tokens back instead of 8. Training is chapter 6's too: the same loss, −log of the probability given to the token that came next, and the same Adam. What changes is what a step reads. No position ever reads a later token, so one forward pass over a whole story makes a guess at every position at once, and the gradients of all of them are added up. Each training step reads 8 whole stories, about 2,000 positions, instead of chapter 6's 64 positions picked at random.</p>
+
+    <h2>Attention and the transformer</h2>
+    <p>Attention is one part of a larger design, the <b>transformer</b>, which is what “T” stands for in GPT. This page's network is not yet a transformer: it is one layer of attention with chapter 6's layers around it. This animation goes from chapter 6's network to this one, then to a transformer block, a stack of blocks, and a GPT.</p>
+
+    <figure class="film" id="tf" aria-label="Animation: from chapter 6's network to this page's attention network, a transformer block, a stack of blocks and a GPT">
+      <canvas class="anim-cv" id="tf-cv" aria-label="Boxes for the parts of each network, with arrows for the rows of numbers passing between them"></canvas>
+      <div class="film-progress"><i id="tf-fill"></i></div>
+      <div class="film-bar">
+        <button type="button" class="btn primary" id="tf-play">Play</button>
+        <div class="chips" id="tf-chips" role="group" aria-label="Jump to a scene">
+          <button type="button" data-i="0" data-tip="tf-0">Chapter 6</button><button type="button" data-i="1" data-tip="tf-1">This page</button><button type="button" data-i="2" data-tip="tf-2">Rows in, rows out</button><button type="button" data-i="3" data-tip="tf-3">A block</button><button type="button" data-i="4" data-tip="tf-4">Stacking</button><button type="button" data-i="5" data-tip="tf-5">A GPT</button><button type="button" data-i="6" data-tip="tf-6">The map</button>
+        </div>
+      </div>
+      <p class="film-cap" id="tf-cap" aria-live="polite"></p>
+    </figure>
+
+    <p>The first transformer, in 2017, was built for translation. It had two stacks: an <b>encoder</b> of 6 blocks that read the sentence to translate, every token seeing every other, and a <b>decoder</b> of 6 blocks that wrote the translation one token at a time. In each decoder block, one attention read only the tokens already written, as here, and a second attention read the encoder's rows. GPT models keep only the decoder kind, without the encoder or the decoder's reading of it: a stack of blocks with causal attention that guesses the next token. How big they get:</p>
+
+    <div class="table-wrap">
+      <table class="sizes">
+        <thead><tr><th></th><th>Blocks</th><th>Heads per block</th><th>Numbers per row</th><th>Tokens read</th><th>Weights</th></tr></thead>
+        <tbody>
+          <tr class="here"><td>This page</td><td>1 attention layer</td><td>8</td><td>32</td><td>256</td><td>352,848</td></tr>
+          <tr><td>The first transformer (2017)</td><td>6 + 6</td><td>8</td><td>512</td><td>a sentence</td><td>about 65 million</td></tr>
+          <tr><td>GPT-2, smallest (2019)</td><td>12</td><td>12</td><td>768</td><td>1,024</td><td>about 124 million</td></tr>
+          <tr><td>GPT-3 (2020)</td><td>96</td><td>96</td><td>12,288</td><td>2,048</td><td>about 175 billion</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cap2">The first transformer's sizes are those of its base model. Later models changed many details, such as how positions are marked, but keep this shape: embeddings, a stack of attention-and-MLP blocks with residual connections and layer norms, and an output layer.</p>
+
+    <h3>The words, and how they fit</h3>
+    <dl class="read">
+      <dt>Attention</dt>
+      <dd>A way for each position to read other positions by content: compare its query with their keys, turn the scores into weights with softmax, and take the weighted average of their values.</dd>
+      <dt>Self-attention</dt>
+      <dd>Attention whose queries, keys and values all come from the same text, as on this page. When the keys and values come from another text, as when a translation reads the sentence it translates, it is called cross-attention.</dd>
+      <dt>Causal attention</dt>
+      <dd>Attention in which a position reads only itself and earlier positions, never a later one (also called masked attention). It is what lets one pass over a story train every position at once at guessing the next token, without any position seeing its own answer.</dd>
+      <dt>Head</dt>
+      <dd>One attention lookup, with its own small tables for queries, keys and values. <b>Multi-head attention</b> runs several heads side by side and joins their results; this page has 8 heads, each bringing back 16 numbers. In a transformer, one more table then mixes the joined results back to the width of a row, so they can be added to it; this page has no such table and lays them beside the row instead.</dd>
+      <dt>MLP</dt>
+      <dd>A small network of the kind in chapters 1 to 4 (a multilayer perceptron, also called a feed-forward layer), applied to each position on its own. Attention moves information between positions; the MLP works on what each position holds.</dd>
+      <dt>Residual connection</dt>
+      <dd>Adding a part's input back to its output, so a token's row passes through a block and only gains what the block adds. This page lays the token's own row beside the heads' results instead.</dd>
+      <dt>Layer norm</dt>
+      <dd>Rescaling each row to an average of 0 and a spread of 1, then applying a learned scale and shift. It keeps the numbers in a steady range as blocks are stacked.</dd>
+      <dt>Transformer block</dt>
+      <dd>Multi-head attention and an MLP, each with a layer norm and a residual connection. Rows in, rows out, so blocks can be stacked.</dd>
+      <dt>Transformer</dt>
+      <dd>A network built from a stack of transformer blocks, on top of token rows and a way of marking positions.</dd>
+      <dt>GPT</dt>
+      <dd>A generative pre-trained transformer: a stack of blocks with causal attention, trained to guess the next token on a large amount of text. Chapter 8, coming next, will build a tiny one.</dd>
+    </dl>
 
     <h2>Secret 1: the heads found jobs</h2>
     <p>Nobody told the heads what to look for. All 8 started alike, with small random tables and every distance score at 0, so at first each one spread its weight almost evenly over the story. Here is where each head's weight goes in the 100 test stories, by distance back, and which tokens it reads most, at several moments of training.</p>
@@ -1543,12 +1627,458 @@ function handle(m) {
   }
   function ivAfter(A) {
     const uses = A.seen.later - A.seen.first >= 0.1;
-    return `${uses ? `So the network does use the story, on the whole: a piece that already appeared in it, and that can follow the piece before it (the training stories have that pair), becomes more likely, from ${pct1(A.seen.first)} at the first mention to ${pct1(A.seen.later)} at later ones. ` : ""}What it ${uses ? "cannot" : "does not"} do is what a reader does: find the earlier “z” and read what came right after it. ${A.unseen.later < 0.05 ? `A pair the training stories never contain, such as “z” then “##ark”, is almost never guessed, however often the story has just shown it. ` : ""}The reason is in how a key is made. In a single layer, every token's key comes from its own row alone, so no key can say “the token before me was z”, and no query can ask for it. A second layer makes this possible: a head in the first layer writes into each position which token came just before it, and a head in the second layer can then find the position whose previous token was “z” and bring back the token there. Researchers who studied small transformers called that second head an <b>induction head</b> (it works with a <b>previous-token head</b> below it), and found evidence that much of their ability to continue patterns seen earlier in a text comes from such heads. Chapter 8 stacks the layers.`;
+    return `${uses ? `So the network does use the story, on the whole: a piece that already appeared in it, and that can follow the piece before it (the training stories have that pair), becomes more likely, from ${pct1(A.seen.first)} at the first mention to ${pct1(A.seen.later)} at later ones. ` : ""}What it ${uses ? "cannot" : "does not"} do is what a reader does: find the earlier “z” and read what came right after it. ${A.unseen.later < 0.05 ? `A pair the training stories never contain, such as “z” then “##ark”, is almost never guessed, however often the story has just shown it. ` : ""}The reason is in how a key is made. In a single layer, every token's key comes from its own row alone, so no key can say “the token before me was z”, and no query can ask for it. A second layer makes this possible: a head in the first layer writes into each position which token came just before it, and a head in the second layer can then find the position whose previous token was “z” and bring back the token there. Researchers who studied small transformers called that second head an <b>induction head</b> (it works with a <b>previous-token head</b> below it), and found evidence that much of their ability to continue patterns seen earlier in a text comes from such heads. Chapter 8, coming next, will stack the layers.`;
   }
   $("iv-pre").innerHTML = INVENT.map((w) => `<button type="button" data-v="${w}" data-tip="iv-pre">${w}</button>`).join("");
   $("iv-pre").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; IV.name = b.dataset.v; drawInvent(); });
   $("iv-prev").addEventListener("click", () => { const n = nameStories().length; IV.k = (IV.k + n - 1) % n; drawInvent(); });
   $("iv-next").addEventListener("click", () => { IV.k = (IV.k + 1) % nameStories().length; drawInvent(); });
+
+  // ---------- a player for the step-by-step animations: scenes, Play, chips, progress, a caption ----------
+  // It starts when scrolled into view (unless the reader prefers less motion) and pauses when scrolled away.
+  function makePlayer({ id, scenes, draw, caption, onPlay = () => {}, needsData = false }) {
+    const TOTAL = scenes.reduce((a, x) => a + x.d, 0), startOf = (i) => scenes.slice(0, i).reduce((a, x) => a + x.d, 0);
+    const at = (t) => { let i = 0; while (i < scenes.length - 1 && t >= scenes[i].d) { t -= scenes[i].d; i++; } return { i, u: Math.min(1, t / scenes[i].d), ms: t }; };
+    let t = 0, playing = false, last = 0, started = false, autoPaused = false, capKey = "", loop = 0, visible = false, override = null;
+    const chipsEl = [...$(`${id}-chips`).querySelectorAll("button")];
+    const setLabel = () => { $(`${id}-play`).textContent = playing ? "Pause" : t >= TOTAL ? "Replay" : t > 0 ? "Resume" : "Play"; };
+    function render(now = performance.now()) {
+      const { i, u, ms } = at(t), fresh = t === 0 && !playing; // before Play: the first scene as it ends, not a blank frame
+      chipsEl.forEach((c, n) => c.classList.toggle("on", n === i));
+      $(`${id}-fill`).style.width = (100 * t) / TOTAL + "%";
+      draw(i, fresh ? 1 : u, fresh ? scenes[i].d : ms, now);
+      const key = override != null ? "user:" + override : scenes[i].k;
+      if (key !== capKey) { capKey = key; $(`${id}-cap`).innerHTML = override != null ? override : caption(scenes[i].k); }
+    }
+    function tick(n, now) {
+      if (!playing || n !== loop) return;
+      t = Math.min(TOTAL, t + Math.min(64, now - last)); last = now;
+      if (t >= TOTAL) { playing = false; setLabel(); }
+      render(now);
+      if (playing) requestAnimationFrame((x) => tick(n, x));
+    }
+    function play() { if (t >= TOTAL) t = 0; override = null; onPlay(); playing = true; started = true; autoPaused = false; last = performance.now(); setLabel(); const n = ++loop; requestAnimationFrame((x) => tick(n, x)); }
+    function pause() { playing = false; setLabel(); }
+    $(`${id}-play`).addEventListener("click", () => { if (playing) { pause(); render(); } else play(); });
+    chipsEl.forEach((c, n) => c.addEventListener("click", () => { t = startOf(n); override = null; capKey = ""; onPlay(); if (!playing) play(); else render(); }));
+    new IntersectionObserver((en) => {
+      visible = en[0].isIntersecting;
+      if (visible && !started && !reduceMotion && (DATA.ready || !needsData)) play();
+      else if (visible && autoPaused) play();
+      else if (!visible && playing) { playing = false; autoPaused = true; setLabel(); }
+    }, { threshold: 0.4 }).observe($(id));
+    return {
+      render, setLabel, pause,
+      ready: () => { if (visible && !started && !reduceMotion) play(); else render(); },
+      // show a scene, paused, with a caption of its own (for the reader's own query)
+      hold: (i, html) => { playing = false; started = true; autoPaused = false; t = startOf(i) + scenes[i].d - 1; override = html; setLabel(); render(); },
+      get scene() { return at(t).i; },
+    };
+  }
+  const roundRect = (ctx, x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+  const ease = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
+  const seg = (u, a, b) => ease((u - a) / (b - a)); // 0 before a, 1 after b, smooth between
+  function arrow(ctx, x0, y0, x1, y1, color, width) {
+    const a = Math.atan2(y1 - y0, x1 - x0), L = Math.hypot(x1 - x0, y1 - y0), hd = Math.min(10 + width, L * 0.4);
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = width; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1 - Math.cos(a) * hd * 0.6, y1 - Math.sin(a) * hd * 0.6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - hd * Math.cos(a - 0.4), y1 - hd * Math.sin(a - 0.4)); ctx.lineTo(x1 - hd * Math.cos(a + 0.4), y1 - hd * Math.sin(a + 0.4)); ctx.closePath(); ctx.fill();
+  }
+
+  // ---------- How attention works: a toy, step by step ----------
+  // Made-up numbers, picked by hand: queries and keys of 2 numbers, so they can be drawn as arrows, values of 3. Every
+  // number on the canvas is computed from these: the dot products, softmax and the weighted average are real arithmetic.
+  const TOY = {
+    words: ["lily", "has", "a", "dog", ".", "the", "dog", "loves"],
+    keys: [[0.3, 2.0], [-1.2, 0.3], [-1.0, -0.9], [1.7, 0.2], [0.3, -1.4], [-1.5, -0.2], [1.7, 0.2], [0.7, 0.6]],
+    vals: [[0.9, -0.8, 0.7], [-0.2, 0.4, 0.1], [0.1, -0.1, -0.3], [-0.7, 0.6, -0.5], [0.0, 0.2, 0.2], [0.2, 0.0, -0.2], [-0.7, 0.6, -0.5], [0.3, 0.5, -0.6]],
+    // each token's own query, for the last step (every token reads at once); the last one is the query of "loves"
+    queries: [[0.5, 0.5], [0.6, 1.5], [-0.4, 0.6], [0.4, 1.4], [1.5, 0.3], [-0.5, -0.4], [0.4, 1.4], [0.4, 1.8]],
+    q: [0.4, 1.8], // the query of "loves", which the reader can drag
+  };
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
+  // the reading token i's scores and weights over tokens 0…i, with query q
+  function toyAttend(i, q) {
+    const s = TOY.keys.slice(0, i + 1).map((k) => dot(q, k)), top = Math.max(...s), e = s.map((x) => Math.exp(x - top)), tot = e.reduce((a, x) => a + x, 0);
+    const w = e.map((x) => x / tot), out = [0, 1, 2].map((c) => w.reduce((a, x, j) => a + x * TOY.vals[j][c], 0));
+    return { s, w, out, ex: s.map((x) => Math.exp(x)) };
+  }
+  const f2 = (v) => ITN.fmt(v, 2);
+  function awLayout(W) {
+    const wide = W >= 560, H = wide ? Math.round(W * 0.72) : Math.round(W * 1.6), pad = 8, n = TOY.words.length, bw = (W - 2 * pad) / n, th = 40;
+    const rowY = H - th - 6;
+    const r = wide ? Math.min(W * 0.19, H * 0.27) : W * 0.28, cx = wide ? pad + r + 22 : W / 2, cy = r + 20;
+    const box = wide ? { x: cx + r + 36, y: 14, w: W - (cx + r + 36) - pad, h: rowY - 120 } : { x: pad, y: cy + r + 32, w: W - 2 * pad, h: rowY - 104 - (cy + r + 32) };
+    return { W, H, wide, pad, n, bw, th, rowY, r, cx, cy, box, unit: (r * 0.86) / 2.4, zero: rowY - 30, xs: Array.from({ length: n }, (_, i) => pad + bw * (i + 0.5)) };
+  }
+  const AW = { L: null, drag: false, user: false, cap: "" };
+  const awScenes = [{ k: "question", d: 6500 }, { k: "keys", d: 8500 }, { k: "query", d: 6500 }, { k: "compare", d: 13000 }, { k: "softmax", d: 9500 }, { k: "values", d: 11000 }, { k: "guess", d: 8000 }, { k: "every", d: 12000 }];
+  function awCaption(k) {
+    const A = toyAttend(7, TOY.q), top = A.w.indexOf(Math.max(...A.w));
+    switch (k) {
+      case "question": return "<b>The question.</b> The network must guess the word after “the dog loves”. A good guess is “lily”, said at the very start. In a real story the name can be dozens or hundreds of tokens back; attention lets the last token, “loves”, look back over all of them and choose what to read.";
+      case "keys": return "<b>Keys.</b> Every token offers a <b>key</b>: a short list of numbers, made from its row by a small table of weights. Here a key has 2 numbers, so it can be drawn as an arrow. Both “dog”s get the same key: a key comes from the token's row alone. (In GPT-2 the two would differ a little, because a row for its position is added to each token's row first; this page's network marks positions differently, so here both get the same key.)";
+      case "query": return "<b>The query.</b> The token that reads, “loves”, asks with a <b>query</b>, made from its row by another small table. Here it points the same way as the key of “lily”: in this toy, it is looking for a person.";
+      case "compare": return "<b>Compare.</b> The query is compared with every key by the <b>dot product</b>: multiply the two lists number by number and add up. It measures how far the key reaches along the query, times the query's length: large when they point the same way, 0 at right angles, negative when they point apart.";
+      case "softmax": return `<b>Softmax.</b> The scores become <b>weights</b> that add up to 1: take e to the power of each score, then divide by the total. A score higher by 1 means a weight 2.7 times larger, so the best match, “${TOY.words[top]}”, takes ${pct(A.w[top])} of the weight.`;
+      case "values": return `<b>Values.</b> Every token also has a <b>value</b>: what it hands over when it is read, here 3 numbers drawn as colored cells. The reader takes the weighted average of all the values. With ${pct(A.w[0])} of the weight on “lily”, what arrives is mostly Lily's value.`;
+      case "guess": return "<b>The guess.</b> The rest of the network reads the token's own row together with what attention brought, and scores every word in the vocabulary. With Lily's value just brought in, “lily” is an easy guess. (In this toy only the attention is computed; in the real network the rest is chapter 6's hidden and output layers.)";
+      case "every": return "<b>Every token at once.</b> Every token does the same, with its own query (made up here too, and the same for the same word), at the same moment: each reads itself and the tokens before it, never a later one. The grid is the <b>attention pattern</b>: a row for each token that reads, a column for each token read, darker for more weight. The real network does this with 8 heads, each with its own tables, so each can look for something different.";
+    }
+    return "";
+  }
+  function awDraw(i, u, ms, now) {
+    const cv = $("aw-cv"), L = awLayout(cv.clientWidth);
+    if (cv.style.height !== L.H + "px") cv.style.height = L.H + "px";
+    const [, , ctx] = sizeCanvas(cv);
+    AW.L = L; cv.dataset.compass = JSON.stringify({ cx: L.cx, cy: L.cy, unit: L.unit });
+    const k = AW.user ? "user" : awScenes[i].k, R = 7, A = toyAttend(R, TOY.q);
+    const show = (name) => awScenes.findIndex((s) => s.k === name) <= i || AW.user;
+    ctx.textBaseline = "middle";
+    // the compass: keys and the query as arrows from the center
+    const { cx, cy, r, unit } = L, P = (v) => [cx + v[0] * unit, cy - v[1] * unit];
+    ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2 * Math.PI); ctx.stroke();
+    ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy); ctx.moveTo(cx, cy - r); ctx.lineTo(cx, cy + r); ctx.stroke(); ctx.setLineDash([]);
+    ctx.font = `600 10.5px ${DISPLAY}`; ctx.fillStyle = rgba(C["ink-3"]); ctx.textAlign = "left"; ctx.fillText(k === "every" ? "QUERIES AND KEYS" : "KEYS AND THE QUERY", cx - r, cy - r - 10);
+    const keysShown = k === "question" ? 0 : k === "keys" ? Math.floor(seg(u, 0.05, 0.85) * 8 + 0.0001) : 8;
+    const cur = k === "compare" ? Math.min(R, Math.floor(seg(u, 0.03, 0.88) * (R + 1))) : -1;
+    const labeled = new Set(), order = [...Array(keysShown).keys()].sort((a, b) => Number(a === cur) - Number(b === cur)); // the highlighted key last, on top
+    for (const j of order) {
+      const [x, y] = P(TOY.keys[j]), hl = j === cur || (cur >= 0 && TOY.keys[j].join() === TOY.keys[cur].join());
+      const later = k === "every" && j > Math.min(R, Math.floor(u * (R + 1)));
+      arrow(ctx, cx, cy, x, y, hl ? rgba(C.neg) : rgba(C["ink-3"], (cur >= 0 && !hl) || later ? 0.3 : 0.8), hl ? 2.5 : 1.5);
+      const key = TOY.keys[j].join(); if (labeled.has(key)) continue; labeled.add(key);
+      const twice = TOY.keys.slice(0, keysShown).filter((kk) => kk.join() === key).length;
+      ctx.font = `${hl ? 600 : 400} 11.5px ${MONO}`; ctx.fillStyle = rgba(hl ? C.ink : C["ink-2"]);
+      const ang = Math.atan2(cy - y, x - cx), lx = x + Math.cos(ang) * 12, ly = y - Math.sin(ang) * 12;
+      ctx.textAlign = Math.cos(ang) > 0.3 ? "left" : Math.cos(ang) < -0.3 ? "right" : "center";
+      ctx.fillText(TOY.words[j] + (twice > 1 ? ` ×${twice}` : ""), lx, ly);
+    }
+    if (k !== "question" && k !== "keys" && k !== "every") {
+      const grow = k === "query" ? seg(u, 0.1, 0.5) : 1, q = [TOY.q[0] * grow, TOY.q[1] * grow], [qx, qy] = P(q);
+      if (cur >= 0) {
+        // how far the key reaches along the query: drop a dashed line from the key's tip onto the query's line
+        const kk = TOY.keys[cur], qq = dot(TOY.q, TOY.q), t = dot(kk, TOY.q) / qq, [px, py] = P([TOY.q[0] * t, TOY.q[1] * t]), [kx, ky] = P(kk);
+        ctx.setLineDash([4, 4]); ctx.strokeStyle = rgba(C.neg); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(px, py); ctx.stroke(); ctx.setLineDash([]);
+        ctx.strokeStyle = rgba(C.neg, 0.55); ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, py); ctx.stroke();
+      }
+      if (grow > 0.02) arrow(ctx, cx, cy, qx, qy, rgba(C.pos), 3.5);
+      if (grow > 0.5) { ctx.font = `600 12px ${MONO}`; ctx.fillStyle = rgba(C.pos); ctx.textAlign = "left"; ctx.fillText("query", qx + 8, qy - 4); }
+      if (AW.user || k === "values" || k === "softmax" || k === "guess") { ctx.font = `12px ${DISPLAY}`; ctx.fillStyle = rgba(C["ink-3"]); ctx.textAlign = "center"; ctx.fillText("drag the blue arrow", cx, cy + r + 12); }
+    }
+    if (k === "every") {
+      const qi = TOY.queries[Math.min(R, Math.floor(u * (R + 1)))]; const [qx, qy] = P(qi);
+      arrow(ctx, cx, cy, qx, qy, rgba(C.pos), 3.5);
+    }
+    // the token row; the reading token outlined
+    const reader = k === "every" ? Math.min(R, Math.floor(u * (R + 1))) : R;
+    for (let j = 0; j < L.n; j++) {
+      const x0 = L.xs[j] - L.bw / 2 + 2, appear = k === "question" ? seg(u, j * 0.06, j * 0.06 + 0.15) : 1;
+      ctx.globalAlpha = appear * (k === "every" && j > reader ? 0.35 : 1);
+      roundRect(ctx, x0, L.rowY, L.bw - 4, L.th, 6); ctx.fillStyle = rgba(C.well); ctx.fill();
+      ctx.lineWidth = j === reader ? 2 : 1; ctx.strokeStyle = rgba(j === reader ? C.ink : C.rule); ctx.stroke();
+      ctx.font = `${j === reader ? 600 : 400} ${L.wide ? 13.5 : 11.5}px ${MONO}`; ctx.fillStyle = rgba(C.ink); ctx.textAlign = "center";
+      ctx.fillText(TOY.words[j], L.xs[j], L.rowY + (show("values") ? 13 : L.th / 2));
+      if (show("values")) { const cw = Math.min(10, (L.bw - 12) / 3); TOY.vals[j].forEach((v, c) => { ctx.fillStyle = divColor(v); ctx.fillRect(L.xs[j] - 1.5 * cw + c * cw, L.rowY + 24, cw - 1, 9); }); }
+      ctx.globalAlpha = 1;
+    }
+    // the next word, after the row
+    if (k === "question") { ctx.font = `600 13px ${MONO}`; ctx.fillStyle = rgba(C.ink); ctx.textAlign = "right"; ctx.fillText("next: ?", L.W - L.pad, L.rowY - 14); }
+    // bars above the tokens: scores (compare), then weights (softmax on)
+    const Rk = k === "every" ? toyAttend(reader, TOY.queries[reader]) : A;
+    if (k === "compare" || k === "softmax" || k === "values" || k === "guess" || k === "user" || k === "every") {
+      const morph = k === "compare" ? 0 : k === "softmax" ? seg(u, 0.45, 0.85) : 1;
+      for (let j = 0; j <= reader; j++) {
+        if (k === "compare" && j > cur) continue;
+        const sH = Rk.s[j] * 11, wH = Rk.w[j] * 62, h = sH + (wH - sH) * morph, base = L.zero + (L.rowY - 6 - L.zero) * morph;
+        ctx.fillStyle = rgba(morph < 0.5 ? (Rk.s[j] >= 0 ? C.ink : C.neg) : C.pos, k === "values" || k === "guess" ? 0.55 : 0.9);
+        const bwid = Math.min(26, L.bw * 0.45);
+        ctx.fillRect(L.xs[j] - bwid / 2, h >= 0 ? base - h : base, bwid, Math.abs(h));
+        ctx.font = `11px ${MONO}`; ctx.fillStyle = rgba(C["ink-2"]); ctx.textAlign = "center";
+        ctx.fillText(morph < 0.5 ? f2(Rk.s[j]) : pct(Rk.w[j]), L.xs[j], (h >= 0 ? base - h : base) - 8);
+      }
+      if (k === "compare" || (k === "softmax" && morph < 0.5)) { ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(L.pad, L.zero); ctx.lineTo(L.W - L.pad, L.zero); ctx.stroke(); }
+    }
+    // values flowing to the reader, along arcs as thick as the weights
+    if (k === "values" || k === "guess" || k === "user" || k === "every") {
+      const grow = k === "values" ? seg(u, 0.0, 0.3) : 1, top = L.box.y + L.box.h + 6;
+      for (let j = 0; j <= reader; j++) {
+        if (j === reader) continue;
+        const x0 = L.xs[j], x1 = L.xs[reader], y0 = L.rowY - 2, dx = Math.abs(x1 - x0), hgt = Math.min(L.rowY - top - 4, 28 + 0.32 * dx), cxp = (x0 + x1) / 2, cyp = y0 - hgt * 1.3;
+        const w = Rk.w[j]; ctx.strokeStyle = rgba(C.pos, 0.25 + 0.6 * Math.min(1, w * 2)); ctx.lineWidth = Math.max(0.6, 14 * w) * grow;
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(cxp, cyp, x1, y0); ctx.stroke();
+        if (!reduceMotion && w > 0.02 && grow > 0.9) for (let d = 0; d < 3; d++) {
+          const p = ((now / 1600 + d / 3 + j * 0.13) % 1), bx = (1 - p) ** 2 * x0 + 2 * (1 - p) * p * cxp + p * p * x1, by = (1 - p) ** 2 * y0 + 2 * (1 - p) * p * cyp + p * p * y0;
+          ctx.fillStyle = rgba(C.pos); ctx.beginPath(); ctx.arc(bx, by, 1.5 + 4 * Math.sqrt(w), 0, 2 * Math.PI); ctx.fill();
+        }
+      }
+    }
+    // the box on the right (or below): the arithmetic of the current step
+    awBox(ctx, L, k, u, cur, Rk, reader);
+  }
+  function awBox(ctx, L, k, u, cur, A, reader) {
+    const { x, y, w, h } = L.box; let yy = y + 10;
+    const line = (s, opt = {}) => { ctx.font = `${opt.b ? 600 : 400} ${opt.size || 12.5}px ${opt.font || MONO}`; ctx.fillStyle = rgba(opt.c || C.ink); ctx.textAlign = "left"; ctx.fillText(s, x, yy); yy += opt.gap || 20; };
+    const strip = (v, sx, sy, cw = 14) => v.forEach((n, c) => { ctx.fillStyle = divColor(n); ctx.fillRect(sx + c * cw, sy - 6, cw - 1, 12); });
+    const title = (s) => line(s.toUpperCase(), { font: DISPLAY, size: 10.5, c: C["ink-3"], b: true, gap: 22 });
+    if (k === "question") { title("The task"); line("lily has a dog . the dog loves ?"); yy += 6; line("Who comes next? The answer", { font: DISPLAY }); line("was said at the very start.", { font: DISPLAY }); }
+    else if (k === "keys") { title("Keys: 2 numbers each"); const n = Math.min(8, Math.floor(seg(u, 0.05, 0.85) * 8 + 0.0001)); for (let j = 0; j < n; j++) line(`key(${TOY.words[j]})`.padEnd(11) + `= (${f2(TOY.keys[j][0])}, ${f2(TOY.keys[j][1])})`, { size: 12, gap: 17 }); }
+    else if (k === "query") { title("The query of “loves”"); line(`query = (${f2(TOY.q[0])}, ${f2(TOY.q[1])})`, { b: true, c: C.pos }); yy += 4; line("It points the way of", { font: DISPLAY }); line("the key of “lily”.", { font: DISPLAY }); }
+    else if (k === "compare" && cur >= 0) {
+      title("Dot product of query and key"); const kk = TOY.keys[cur];
+      line(`query · key(${TOY.words[cur]})`, { b: true });
+      line(`= ${f2(TOY.q[0])} × ${f2(kk[0])} + ${f2(TOY.q[1])} × ${f2(kk[1])}`);
+      line(`= ${f2(dot(TOY.q, kk))}`, { b: true, c: dot(TOY.q, kk) >= 0 ? C.ink : C.neg, gap: 26 });
+      // the angle between the two arrows, and what it does to the score
+      const deg = Math.round((Math.acos(Math.max(-1, Math.min(1, dot(TOY.q, kk) / Math.hypot(...TOY.q) / Math.hypot(...kk)))) * 180) / Math.PI);
+      line(`the arrows are ${deg}° apart:`, { font: DISPLAY, c: C["ink-2"], gap: 17 });
+      line(deg < 25 ? "nearly the same way, so the score is large" : deg < 75 ? "partly the same way, so it is positive" : deg <= 105 ? "nearly at right angles, so it is near 0" : "pointing apart, so it is negative", { font: DISPLAY, c: C["ink-2"] });
+    } else if (k === "softmax") {
+      title("Scores → weights"); const order = A.s.map((s, j) => j).sort((a, b) => A.s[b] - A.s[a]), tot = A.ex.reduce((a, x) => a + x, 0);
+      for (const j of order.slice(0, L.wide ? 4 : 3)) line(TOY.words[j].padEnd(6) + `e^${f2(A.s[j])}`.padEnd(8) + ` = ${f2(A.ex[j])}`.padEnd(9) + (u > 0.45 ? ` → ${pct(A.w[j])}` : ""), { size: 12, gap: 18 });
+      line("…", { size: 12, gap: 18 }); line(`total of all 8 = ${f2(tot)}`, { b: true, size: 12 });
+      if (u > 0.45) line(`weight = e^score ÷ ${f2(tot)}`, { size: 12, c: C.pos });
+    } else if (k === "values" || k === "user") {
+      title(k === "user" ? "Your query" : "The weighted average of the values");
+      if (k === "user") line(`query = (${f2(TOY.q[0])}, ${f2(TOY.q[1])})`, { b: true, c: C.pos, gap: 22 });
+      const order = A.w.map((_, j) => j).sort((a, b) => A.w[b] - A.w[a]).slice(0, L.wide ? 4 : 3);
+      for (const j of order) { ctx.font = `12px ${MONO}`; ctx.fillStyle = rgba(C.ink); ctx.textAlign = "left"; ctx.fillText(`${pct(A.w[j]).padStart(4)} × value(${TOY.words[j]})`, x, yy); strip(TOY.vals[j], x + Math.min(w - 46, 190), yy); yy += 19; }
+      ctx.fillStyle = rgba(C.ink); ctx.fillText("+ the rest …", x, yy); yy += 22;
+      const g = k === "values" ? seg(u, 0.35, 0.7) : 1; ctx.globalAlpha = g;
+      ctx.font = `600 12.5px ${MONO}`; ctx.fillStyle = rgba(C.ink); ctx.fillText("= result", x, yy); strip(A.out, x + Math.min(w - 46, 190), yy); ctx.globalAlpha = 1;
+    } else if (k === "guess") {
+      title("The rest of the network");
+      ctx.font = `12px ${MONO}`; ctx.fillStyle = rgba(C.ink); ctx.textAlign = "left";
+      ctx.fillText("own row of “loves”, and", x, yy); yy += 18; ctx.fillText("beside it, the result", x, yy); strip(A.out, x + Math.min(w - 46, 190), yy); yy += 24;
+      ctx.fillStyle = rgba(C.ink); const g = seg(u, 0.25, 0.55); ctx.globalAlpha = g; ctx.fillText("→ hidden layer → scores", x, yy); yy += 22; ctx.globalAlpha = seg(u, 0.55, 0.8);
+      ctx.font = `600 14px ${MONO}`; ctx.fillText("→ next word: “lily”", x, yy); ctx.globalAlpha = 1;
+    } else if (k === "every") {
+      title("The attention pattern"); const n = 8, cell = Math.min((w - 70) / n, (h - 50) / n, 22), gx = x + 52, gy = yy + 4;
+      ctx.font = `10.5px ${MONO}`; ctx.textAlign = "right";
+      for (let a = 0; a < n; a++) {
+        const W2 = toyAttend(a, TOY.queries[a]).w;
+        ctx.fillStyle = rgba(a === reader ? C.ink : C["ink-3"]); ctx.fillText(TOY.words[a], gx - 6, gy + a * cell + cell / 2);
+        for (let b = 0; b < n; b++) {
+          if (b > a) { ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = 1; ctx.strokeRect(gx + b * cell + 0.5, gy + a * cell + 0.5, cell - 1, cell - 1); continue; }
+          ctx.fillStyle = rgba(C.pos, 0.08 + 0.92 * W2[b] * (a <= reader ? 1 : 0.25)); ctx.fillRect(gx + b * cell, gy + a * cell, cell - 1, cell - 1);
+        }
+        if (a === reader) { ctx.strokeStyle = rgba(C.ink); ctx.lineWidth = 1.5; ctx.strokeRect(gx - 0.5, gy + a * cell - 0.5, (a + 1) * cell, cell); }
+      }
+      ctx.save(); ctx.translate(gx, gy + n * cell + 8); ctx.font = `10.5px ${MONO}`; ctx.fillStyle = rgba(C["ink-3"]); ctx.textAlign = "left";
+      ctx.fillText("columns: the tokens read, in the same", 0, 4); ctx.fillText("order; empty: later tokens, never read", 0, 18); ctx.restore();
+    }
+  }
+  const aw = makePlayer({ id: "aw", scenes: awScenes, draw: awDraw, caption: awCaption, onPlay: () => { AW.user = false; AW.cap = ""; TOY.q = [0.4, 1.8]; } });
+  // dragging the query: the reader's own question, computed live
+  // a drag can start in the compass, in the steps that show the query; on a touch screen, only on the arrow's tip,
+  // so that a finger elsewhere still scrolls the page
+  const QUERY_STEPS = ["query", "compare", "softmax", "values", "guess"];
+  function awHit(x, y, touch) {
+    const L = AW.L; if (!L || !(AW.user || QUERY_STEPS.includes(awScenes[aw.scene].k))) return false;
+    if (touch) return Math.hypot(x - (L.cx + TOY.q[0] * L.unit), y - (L.cy - TOY.q[1] * L.unit)) <= 30;
+    return Math.hypot(x - L.cx, y - L.cy) <= L.r + 12;
+  }
+  function awUser(e, final) {
+    const L = AW.L; if (!L) return false;
+    const r = $("aw-cv").getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    if (!AW.drag && !awHit(x, y, e.pointerType === "touch")) return false;
+    let v = [(x - L.cx) / L.unit, (L.cy - y) / L.unit]; const n = Math.hypot(v[0], v[1]), max = 2.6; if (n > max) v = [v[0] * max / n, v[1] * max / n];
+    TOY.q = v;
+    const A = toyAttend(7, TOY.q), by = new Map(); A.w.forEach((w, j) => { const e = by.get(TOY.words[j]) || { w: 0, n: 0 }; e.w += w; e.n++; by.set(TOY.words[j], e); });
+    const order = [...by].sort((a, b) => b[1].w - a[1].w), say = ([word, e]) => (e.n > 1 ? `the ${e.n} “${word}”s together ${pct(e.w)}` : `“${word}” ${pct(e.w)}`);
+    const best = A.s.indexOf(Math.max(...A.s)); // the token with the largest dot product (the two "dog"s share theirs)
+    if (!final) { AW.user = true; aw.hold(awScenes.findIndex((s) => s.k === "values"), AW.cap || "<b>Your query.</b> Let go of the arrow to read what it does."); return true; }
+    AW.cap = `<b>Your query.</b> The query (${f2(v[0])}, ${f2(v[1])}) gets its largest dot product, ${f2(A.s[best])}, with the key of “${TOY.words[best]}”. The weights go: ${say(order[0])}, then ${say(order[1])}. Point the arrow another way to read other tokens; make it longer to make the choice sharper (the scores grow with the query's length), shorter to spread the weight more evenly.`;
+    AW.user = true; aw.hold(awScenes.findIndex((s) => s.k === "values"), AW.cap);
+    return true;
+  }
+  $("aw-cv").addEventListener("pointerdown", (e) => { if (awUser(e, false)) { AW.drag = true; $("aw-cv").setPointerCapture(e.pointerId); e.preventDefault(); } });
+  // on a touch screen, a drag that starts on the arrow's tip moves the arrow, not the page
+  $("aw-cv").addEventListener("touchstart", (e) => { const r = $("aw-cv").getBoundingClientRect(), t = e.touches[0]; if (awHit(t.clientX - r.left, t.clientY - r.top, true)) e.preventDefault(); }, { passive: false });
+  $("aw-cv").addEventListener("pointermove", (e) => { if (AW.drag) awUser(e, false); });
+  $("aw-cv").addEventListener("pointerup", (e) => { if (AW.drag) { AW.drag = false; awUser(e, true); } });
+  $("aw-cv").addEventListener("pointercancel", () => { AW.drag = false; });
+  // the query back where the animation had it (only if the reader moved it)
+  $("aw-reset").addEventListener("click", () => { if (!AW.user) return; TOY.q = [0.4, 1.8]; AW.user = false; AW.cap = ""; aw.hold(awScenes.findIndex((s) => s.k === "values"), null); });
+
+  // ---------- Attention and the transformer: from chapter 6's network to a GPT, as diagrams ----------
+  // Each scene is a list of boxes (with an id, so a box that stays slides to its new place), arrows between them, and
+  // for the transformer block the residual paths that go around a part. Dots run along the arrows: rows of numbers
+  // on their way through.
+  const TF_WORDS = ["dog", ".", "the", "dog", "loves"];
+  // text wrapped to a width, measured with the font it will be drawn in
+  const MEASURE = document.createElement("canvas").getContext("2d");
+  function wrapText(s, font, maxW) { MEASURE.font = font; const lines = []; let cur = ""; for (const w of s.split(" ")) { const t = cur ? cur + " " + w : w; if (cur && MEASURE.measureText(t).width > maxW) { lines.push(cur); cur = w; } else cur = t; } if (cur) lines.push(cur); return lines; }
+  const SUBFONT = () => `11.5px ${DISPLAY}`;
+  function tfScene(k, W) {
+    const full = Math.min(W - 16, 470), x0 = (W - full) / 2, B = [], E = [], G = [], wide = W >= 560;
+    const cw = k === "block" ? full - 40 : full; // in a block, the residual paths run inside the block's outline
+    let y = 14;
+    const box = (id, label, sub, kind = "plain", h = 34, w = cw, x = x0) => { const lines = sub ? wrapText(sub, SUBFONT(), w - 18) : []; h = Math.max(h, lines.length ? 28 + 14 * lines.length : h); B.push({ id, label, sub, lines, kind, x, y, w, h }); y += h + 22; return id; };
+    // made-up cells: an embedding row depends only on the word, so the two "dog"s look alike; rows after attention or
+    // a block depend on the position, since each is mixed from different rows
+    const wordSeed = (w) => [...w].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) % 997;
+    const rowBoxes = (prefix, n = 5, kind = "row") => { const gw = cw / n; for (let i = 0; i < n; i++) B.push({ id: `${prefix}${i}`, label: kind === "tok" ? TF_WORDS[i] : "", kind, x: x0 + i * gw + 4, y, w: gw - 8, h: 26, seed: prefix === "e" ? wordSeed(TF_WORDS[i]) : 500 + i * 37 + prefix.charCodeAt(0) }); y += 26 + 22; };
+    const chain = (ids) => { for (let i = 0; i + 1 < ids.length; i++) E.push([ids[i], ids[i + 1]]); };
+    if (k === "ch6" || k === "ch7") {
+      chain([
+        box("tok", "… the dog loves", "the text, cut into tokens", "tok"),
+        box("emb", "Embedding table", "each token becomes a row of 32 numbers"),
+        k === "ch6" ? box("mix", "8 fixed slots", "the last 8 rows side by side, each slot with its own weights") : box("mix", "Attention: 8 heads", "each position reads any of the last 256 tokens, chosen by query and key", "attn", 50),
+        box("hid", "Hidden layer", k === "ch6" ? "128 tanh neurons" : "128 tanh neurons, reading the token's own row and the 8 results"),
+        box("out", "Output layer", "a score for each of the 2,000 tokens, then softmax"),
+        box("nxt", "the next token", "", "next", 34),
+      ]);
+      if (k === "ch7") E.push(["emb", "hid", "skip"]);
+    } else if (k === "rows") {
+      rowBoxes("t", 5, "tok"); rowBoxes("e");
+      G.push({ x: x0 - 6, y: y - 16, w: full + 12, h: 80, label: "attention: every position at once", band: true });
+      y += 70; rowBoxes("o");
+      for (let i = 0; i < 5; i++) { E.push([`t${i}`, `e${i}`]); for (let j = 0; j <= i; j++) E.push([`e${j}`, `o${i}`, i === 4 ? "hl" : "thin"]); }
+    } else if (k === "block") {
+      rowBoxes("e"); y += 12;
+      const top = y - 26;
+      chain([box("ln1", "Layer norm", "rescale each row", "norm", 34), box("mix", "Multi-head attention", "rows read rows: information moves between positions", "attn", 46), box("add1", "+", "", "add", 28, 28, x0 + cw / 2 - 14), box("ln2", "Layer norm", "", "norm", 34), box("mlp", "MLP", "a small network on each position alone", "mlp", 44), box("add2", "+", "", "add", 28, 28, x0 + cw / 2 - 14)]);
+      G.push({ x: x0 - 6, y: top, w: full + 12, h: y - 22 + 10 - top, label: "one transformer block" });
+      rowBoxes("o");
+      for (let i = 0; i < 5; i++) E.push([`e${i}`, "ln1", "thin"]);
+      for (let i = 0; i < 5; i++) E.push(["add2", `o${i}`, "thin"]);
+      E.push(["e4", "add1", "res"], ["add1", "add2", "res"]);
+    } else if (k === "stack" || k === "gpt") {
+      if (k === "gpt") { chain([box("tok", "Tokens", "the text so far", "tok", 36), box("emb", "Embedding table + positions", "a row of numbers for each token")]); }
+      else rowBoxes("e");
+      const ids = [];
+      for (let b = 0; b < 3; b++) {
+        if (b === 2) { B.push({ id: "dots", label: "", sub: "", kind: "dots", x: x0, y: y - 8, w: cw, h: 18 }); y += 18; }
+        ids.push(box(`blk${b}`, b === 2 ? "Block N" : `Block ${b + 1}`, "multi-head attention + MLP, with residuals and layer norms", "block", 40));
+      }
+      E.push([ids[0], ids[1]], [ids[1], ids[2], "gap"]);
+      if (k === "gpt") { E.push(["emb", "blk0"]); chain(["blk2", box("lnf", "Layer norm", "", "norm", 32), box("out", "Output layer", "a score for every token, then softmax"), box("nxt", "the next token", "", "next", 34)]); }
+      else { rowBoxes("o"); for (let i = 0; i < 5; i++) { E.push([`e${i}`, "blk0", "thin"]); E.push(["blk2", `o${i}`, "thin"]); } }
+    } else if (k === "map") {
+      // nested boxes: transformer ⊃ block ⊃ multi-head attention ⊃ head
+      const H = (lbl, x, yy, w, h, kind, note) => B.push({ id: lbl, label: lbl, sub: note || "", kind, x, y: yy, w, h, nest: true });
+      H("Transformer (a GPT)", x0, 14, cw, 358, "nest0", "");
+      H("Embedding table", x0 + 12, 40, (cw - 30) / 2, 30, "nest1", "");
+      H("Position rows", x0 + 18 + (cw - 30) / 2, 40, (cw - 30) / 2, 30, "ch8", "");
+      H("Block, repeated N times", x0 + 12, 80, cw - 24, 242, "ch8b", "");
+      H("Multi-head attention", x0 + 24, 110, cw - 48, 150, "nest2", "8 heads side by side, their results joined");
+      const hw = (cw - 48 - 36) / 3;
+      for (let h = 0; h < 3; h++) H(h < 2 ? `Head ${h + 1}` : "… Head 8", x0 + 36 + h * (hw + 6), 154, hw, 98, "head", "");
+      H("MLP", x0 + 24, 270, (cw - 54) / 2, 40, "mlp", "");
+      H("Residual + layer norm", x0 + 30 + (cw - 54) / 2, 270, (cw - 54) / 2, 40, "ch8", "");
+      H("Last layer norm", x0 + 12, 332, (cw - 30) / 2, 30, "ch8", "");
+      H("Output layer", x0 + 18 + (cw - 30) / 2, 332, (cw - 30) / 2, 30, "nest1", "");
+      y = 380;
+    }
+    return { B, E, G, H: Math.max(y + 4, 200), cw, x0, wide };
+  }
+  const tfScenes = [{ k: "ch6", d: 9000 }, { k: "ch7", d: 10000 }, { k: "rows", d: 11000 }, { k: "block", d: 15000 }, { k: "stack", d: 11000 }, { k: "gpt", d: 12000 }, { k: "map", d: 14000 }];
+  function tfCaption(k) {
+    switch (k) {
+      case "ch6": return "<b>Chapter 6.</b> The network reads the last 8 tokens through 8 fixed slots, each slot with its own weights. Anything further back is out of reach.";
+      case "ch7": return "<b>Chapter 7, this page.</b> The slots are replaced by attention: each of 8 heads compares its query with the keys of the last 256 tokens and brings back a weighted average of their values. The token's own row goes to the hidden layer alongside (dashed). The rest is chapter 6's network.";
+      case "rows": return "<b>Rows in, rows out.</b> Attention works on every position at once: each position gets a new row, mixed from the rows at and before it, never after (the blue lines: the rows “loves” reads). A row for each token goes in, a row for each token comes out, so another attention layer could read them: attention layers can be stacked.";
+      case "block": return "<b>A transformer block.</b> Real models wrap attention in three more parts. A <b>residual connection</b> (the line around the side, which every row takes) adds a part's input back to its output, so each token keeps its own row and gains what attention brought; this page lays the two side by side instead. <b>Layer norm</b> rescales each row before each part, as in GPT-2 and most models since (the 2017 transformer put it after each addition); it keeps tall stacks stable. And an <b>MLP</b>, a small network like chapter 1's, works on each position alone. Attention moves information between positions; the MLP works on what each position now holds.";
+      case "stack": return "<b>Stacking blocks.</b> Each block reads the rows the block before it wrote. That is what one layer cannot do: a head in a later block can use what a head in an earlier block found, such as the token just before. Two heads working this way, a previous-token head and an induction head, can finish an invented name (Secret 4). Chapter 8, coming next, will stack blocks.";
+      case "gpt": return "<b>A GPT.</b> A GPT is this stack: token rows plus their positions, N transformer blocks, a last layer norm, and an output layer that scores every token. Like this page's network, it guesses the next token and never reads a later one. GPT-2's smallest version has 12 blocks of 12 heads; GPT-3 has 96 blocks of 96 heads.";
+      case "map": return "<b>How the words fit.</b> A transformer is a stack of blocks. A block holds multi-head attention and an MLP, with residual connections and layer norms. Multi-head attention is several heads side by side. A head is one lookup: query against keys, softmax, weighted average of values. Blue: what this page builds. Gray: what it has in a simpler form (an embedding table and an output layer, as in chapter 6, and a hidden layer that roughly plays the MLP's part). Dashed: what this page does not have (residual connections, layer norms, the repeating of blocks, and position rows, which this page replaces with a score for each distance); chapter 8, coming next, will add the stack.";
+    }
+    return "";
+  }
+  // a row of numbers, drawn as a few colored cells (made-up values: the diagram is about where rows go)
+  function rowCells(ctx, b, alpha) {
+    const n = 6, cw = (b.w - 8) / n;
+    for (let c = 0; c < n; c++) { const v = Math.sin(b.seed * 12.9898 + c * 78.233) * 0.9; ctx.globalAlpha = alpha; ctx.fillStyle = divColor(v); ctx.fillRect(b.x + 4 + c * cw, b.y + 6, cw - 1, b.h - 12); }
+    ctx.globalAlpha = 1;
+  }
+  const TF = { prev: null, at: -1 };
+  function tfDraw(i, u, ms, now) {
+    const cv = $("tf-cv"), W = cv.clientWidth, k = tfScenes[i].k, S = tfScene(k, W);
+    const hk = `${W}|${document.fonts ? document.fonts.status : ""}`;
+    if (TF.hk !== hk) { TF.hk = hk; TF.Hmax = Math.max(...tfScenes.map((s) => tfScene(s.k, W).H)); }
+    const Hmax = TF.Hmax;
+    if (cv.style.height !== Hmax + "px") cv.style.height = Hmax + "px";
+    const [, , ctx] = sizeCanvas(cv);
+    if (TF.at !== i) { TF.prev = TF.at >= 0 ? tfScene(tfScenes[TF.at].k, W) : null; TF.at = i; }
+    // each scene centered vertically in the canvas
+    const shift = (Sc) => { const dy = (Hmax - Sc.H) / 2; Sc.B.forEach((b) => (b.y += dy)); Sc.G.forEach((g) => (g.y += dy)); return Sc; };
+    shift(S); if (TF.prev && !TF.prev.shifted) { shift(TF.prev); TF.prev.shifted = true; }
+    const mv = TF.prev ? seg(ms, 0, 900) : 1, prevOf = new Map(TF.prev ? TF.prev.B.map((b) => [b.id, b]) : []);
+    // boxes appear one after another; a box that was there before slides from its old place
+    const place = (b, idx) => {
+      const p = prevOf.get(b.id);
+      if (p && mv < 1) return { ...b, x: p.x + (b.x - p.x) * mv, y: p.y + (b.y - p.y) * mv, w: p.w + (b.w - p.w) * mv, h: p.h + (b.h - p.h) * mv, a: 1 };
+      return { ...b, a: p ? 1 : seg(ms, 300 + idx * 260, 700 + idx * 260) };
+    };
+    const P = new Map(S.B.map((b, idx) => [b.id, place(b, idx)]));
+    if (TF.prev && mv < 1) for (const b of TF.prev.B) if (!P.has(b.id)) { ctx.globalAlpha = 1 - mv; drawTfBox(ctx, { ...b, a: 1 - mv }, k); ctx.globalAlpha = 1; }
+    for (const g of S.G) {
+      const a = seg(ms, 200, 900); ctx.globalAlpha = a; roundRect(ctx, g.x, g.y, g.w, g.h, 12);
+      if (g.band) { ctx.fillStyle = rgba(C.pos, 0.1); ctx.fill(); ctx.strokeStyle = rgba(C.pos); ctx.lineWidth = 1.5; ctx.stroke(); }
+      else { ctx.setLineDash([6, 5]); ctx.strokeStyle = rgba(C["ink-3"]); ctx.lineWidth = 1.2; ctx.stroke(); ctx.setLineDash([]); }
+      ctx.font = `600 10.5px ${DISPLAY}`; ctx.fillStyle = rgba(g.band ? C.pos : C["ink-3"]); ctx.textBaseline = "top";
+      // a band's label goes in the margin to its left, where there is one; a group's label inside its top-left corner
+      if (!g.band) { ctx.textAlign = "left"; ctx.fillText(g.label.toUpperCase(), g.x + 8, g.y + 5); }
+      else if (g.x > 80) { ctx.textAlign = "right"; ctx.fillText("ATTENTION", g.x - 8, g.y + g.h / 2 - 6); }
+      else { ctx.save(); ctx.translate(g.x + 5, g.y + g.h / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText("ATTENTION", 0, 0); ctx.restore(); }
+      ctx.globalAlpha = 1;
+    }
+    // arrows, then the dots that run along them
+    for (const [a, b, kind] of S.E) {
+      const A = P.get(a), Bb = P.get(b); if (!A || !Bb) continue;
+      const al = Math.min(A.a, Bb.a); if (al <= 0.01) continue;
+      ctx.globalAlpha = al;
+      if (kind === "res" || kind === "skip") {
+        // around the side: out of A's right, down, into B's right
+        const sx = A.x + A.w, sy = A.y + A.h / 2, ex = Bb.x + Bb.w, ey = Bb.y + Bb.h / 2, side = Math.max(sx, ex, S.x0 + S.cw) + (kind === "res" ? 18 : 6);
+        ctx.strokeStyle = rgba(kind === "res" ? C.neg : C["ink-3"]); ctx.lineWidth = kind === "res" ? 2 : 1.4; if (kind === "skip") ctx.setLineDash([5, 4]);
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(side, sy); ctx.lineTo(side, ey); ctx.lineTo(ex + 6, ey); ctx.stroke(); ctx.setLineDash([]);
+        arrow(ctx, side, ey, ex + 2, ey, rgba(kind === "res" ? C.neg : C["ink-3"]), kind === "res" ? 2 : 1.4);
+        if (kind === "res") { ctx.save(); ctx.translate(side + 5, (sy + ey) / 2); ctx.rotate(Math.PI / 2); ctx.font = `600 10.5px ${DISPLAY}`; ctx.fillStyle = rgba(C.neg); ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText("residual", 0, 0); ctx.restore(); }
+      } else {
+        const x1 = A.x + A.w / 2, y1 = A.y + A.h, x2 = Bb.x + Bb.w / 2, y2 = Bb.y;
+        const thin = kind === "thin" || kind === "hl";
+        ctx.strokeStyle = kind === "hl" ? rgba(C.pos, 0.9) : rgba(thin ? C["ink-3"] : C.ink, thin ? 0.35 : 0.6); ctx.lineWidth = kind === "hl" ? 2 : thin ? 1 : 1.5;
+        if (kind === "gap") ctx.setLineDash([3, 4]);
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.setLineDash([]);
+        if (!thin && kind !== "gap") arrow(ctx, x1 + (x2 - x1) * 0.6, y1 + (y2 - y1) * 0.6, x2, y2 - 1, rgba(C.ink, 0.6), 1.5);
+        if (!reduceMotion && al > 0.9 && kind !== "gap") for (let d = 0; d < 2; d++) { const p = (now / 1400 + d / 2 + (x1 + y1) * 0.003) % 1; ctx.fillStyle = rgba(C.pos, kind === "thin" ? 0.5 : 0.9); ctx.beginPath(); ctx.arc(x1 + (x2 - x1) * p, y1 + (y2 - y1) * p, kind === "thin" ? 1.6 : 2.6, 0, 2 * Math.PI); ctx.fill(); }
+      }
+      ctx.globalAlpha = 1;
+    }
+    for (const b of S.B) { const pb = P.get(b.id); if (pb.a > 0.01) drawTfBox(ctx, pb, k); }
+  }
+  function drawTfBox(ctx, b, k) {
+    ctx.save(); ctx.globalAlpha *= b.a;
+    ctx.textBaseline = "middle"; ctx.textAlign = "center";
+    if (b.kind === "row") { roundRect(ctx, b.x, b.y, b.w, b.h, 5); ctx.fillStyle = rgba(C.well); ctx.fill(); ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = 1; ctx.stroke(); ctx.restore(); rowCells(ctx, b, b.a); return; }
+    if (b.kind === "dots") { ctx.fillStyle = rgba(C["ink-3"]); for (let d = -1; d <= 1; d++) { ctx.beginPath(); ctx.arc(b.x + b.w / 2 + 16, b.y + b.h / 2 + d * 6, 1.8, 0, 2 * Math.PI); ctx.fill(); } ctx.font = `11px ${DISPLAY}`; ctx.textAlign = "left"; ctx.fillText("more blocks", b.x + b.w / 2 + 26, b.y + b.h / 2); ctx.restore(); return; }
+    if (b.kind === "add") { ctx.beginPath(); ctx.arc(b.x + b.w / 2, b.y + b.h / 2, b.h / 2, 0, 2 * Math.PI); ctx.fillStyle = rgba(C.sheet); ctx.fill(); ctx.strokeStyle = rgba(C.neg); ctx.lineWidth = 2; ctx.stroke(); ctx.font = `600 18px ${DISPLAY}`; ctx.fillStyle = rgba(C.neg); ctx.fillText("+", b.x + b.w / 2, b.y + b.h / 2 + 1); ctx.restore(); return; }
+    const fill = { attn: rgba(C.pos, 0.14), mlp: rgba(C.ink, 0.06), norm: rgba(C.well), tok: rgba(C.well), next: rgba(C.ink), block: rgba(C.pos, 0.07), nest0: rgba(C.sheet), nest1: rgba(C.well), ch8b: rgba(C.well), nest2: rgba(C.pos, 0.1), head: rgba(C.pos, 0.18), mlp2: rgba(C.pos, 0.1), ch8: rgba(C.sheet) }[b.kind] || rgba(C.sheet);
+    const stroke = { attn: rgba(C.pos), head: rgba(C.pos), nest2: rgba(C.pos), mlp2: rgba(C.pos), next: rgba(C.ink), ch8: rgba(C["ink-3"]), ch8b: rgba(C["ink-3"]) }[b.kind] || rgba(C.rule);
+    roundRect(ctx, b.x, b.y, b.w, b.h, b.nest ? 10 : 8); ctx.fillStyle = fill; ctx.fill();
+    ctx.lineWidth = b.kind === "attn" || b.kind === "head" ? 2 : 1.2; ctx.strokeStyle = stroke; if (b.kind === "ch8" || b.kind === "ch8b") ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]);
+    if (b.nest) {
+      ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.font = `600 12.5px ${DISPLAY}`; if (ctx.measureText(b.label).width > b.w - 16) ctx.font = `600 11px ${DISPLAY}`; ctx.fillStyle = rgba(C.ink); ctx.fillText(b.label, b.x + 9, b.y + 8);
+      if (b.sub) { ctx.font = `11px ${DISPLAY}`; ctx.fillStyle = rgba(C["ink-3"]); ctx.fillText(b.sub, b.x + 9, b.y + 25); }
+      if (b.kind === "head") {
+        const lines = ["query·keys", "→ softmax", "→ weights", "→ average", "  of values"];
+        ctx.font = `10.5px ${MONO}`; const fit = Math.max(...lines.map((s) => ctx.measureText(s).width)); if (fit > b.w - 14) ctx.font = `${(10.5 * (b.w - 14)) / fit}px ${MONO}`;
+        ctx.fillStyle = rgba(C["ink-2"]); lines.forEach((s, j) => ctx.fillText(s, b.x + 7, b.y + 27 + j * 13));
+      }
+      ctx.restore(); return;
+    }
+    ctx.fillStyle = rgba(b.kind === "next" ? C.sheet : C.ink);
+    if (b.kind === "tok" && !b.sub) { ctx.font = `13px ${MONO}`; ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2); ctx.restore(); return; }
+    ctx.font = `600 13px ${DISPLAY}`;
+    const lines = b.lines || [];
+    ctx.fillText(b.label, b.x + b.w / 2, lines.length ? b.y + 15 : b.y + b.h / 2);
+    ctx.font = SUBFONT(); ctx.fillStyle = rgba(b.kind === "next" ? C.sheet : C["ink-3"]);
+    lines.forEach((s, j) => ctx.fillText(s, b.x + b.w / 2, b.y + 31 + 14 * j));
+    ctx.restore();
+  }
+  const tf = makePlayer({ id: "tf", scenes: tfScenes, draw: tfDraw, caption: tfCaption });
 
   // ---------- the algorithm in words, math or code ----------
   const mi = (s) => `<i>${s}</i>`, sub = (s) => `<sub>${s}</sub>`;
@@ -1793,6 +2323,11 @@ function handle(m) {
   // ---------- descriptions on hover, keyboard focus, or after a tap ----------
   const FILM_TIPS = ["The name, out of chapter 6's reach.", "One head's scores for every earlier token.", "The scores turned into weights.", "The weighted average of the values.", "Where each of the 8 heads looks.", "The attention network's guess.", "The chapter in one sentence."];
   for (let i = 0; i < 7; i++) ITN.tips.add({ [`film-${i}`]: () => `${FILM_TIPS[i]} <span class="hint">Click to jump here</span>` });
+  const AW_TIPS = ["What the network must guess.", "Every token's key, an arrow.", "The query of the token that reads.", "The query against each key: dot products.", "The scores turned into weights.", "The weighted average of the values.", "What the rest of the network does with it.", "Every token reading at once: the attention pattern."];
+  AW_TIPS.forEach((s, i) => ITN.tips.add({ [`aw-${i}`]: () => `${s} <span class="hint">Click to jump here</span>` }));
+  const TF_TIPS = ["Chapter 6's network: 8 fixed slots.", "This page's network: attention instead of the slots.", "Attention gives every position a new row.", "A transformer block: attention and an MLP, with residual connections and layer norms.", "Blocks stacked on blocks.", "A GPT, from tokens to the next token.", "How the words fit inside each other."];
+  TF_TIPS.forEach((s, i) => ITN.tips.add({ [`tf-${i}`]: () => `${s} <span class="hint">Click to jump here</span>` }));
+  ITN.tips.add({ "aw-reset": () => "Put the query back where the animation had it." });
   const curveTip = (id) => {
     const p = nearestPt(id === "t2-cv" ? T2.pts : PG.pts, id); if (!p) return "Point at a line to read it.";
     const [, , h, t] = p, Rv = id === "t2-cv" || PG.which === "ref" ? NET.R : PG.R || pgNet().R;
@@ -1827,7 +2362,7 @@ function handle(m) {
   });
 
   // ---------- resize, theme, boot ----------
-  function redrawAll() { film.reset(); film.render(true); drawLadder(); drawStory(); drawQuestion(); drawTool1(); drawTool2(); drawTool3(); drawHeads(); drawSwap(); drawKnock(); drawInvent(); PG.dirty = true; }
+  function redrawAll() { film.reset(); film.render(true); aw.render(); tf.render(); drawLadder(); drawStory(); drawQuestion(); drawTool1(); drawTool2(); drawTool3(); drawHeads(); drawSwap(); drawKnock(); drawInvent(); PG.dirty = true; }
   let rq = 0, lastW = 0; new ResizeObserver(() => { const w = document.body.clientWidth; if (w === lastW) return; lastW = w; cancelAnimationFrame(rq); rq = requestAnimationFrame(redrawAll); }).observe(document.body);
   const retheme = () => { readTheme(); redrawAll(); };
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
@@ -1838,14 +2373,14 @@ function handle(m) {
   $("t1-in").value = T1.text; $("t3-in").value = T3.text; $("qt-in").value = QT.name;
   $("pl-text").value = "Once upon a time, there was a little girl named Lily. She had a small dog called Max.";
   if (HAVE_FILES) $("runs-train").textContent = `${num(ITN_ATTN.steps)} steps of 8 whole stories from the training stories, ${num(ITN_ATTN.tokens)} tokens in all, about ${Math.round(ITN_ATTN.tokens / 4300373)} passes over them, with a learning rate of 0.008 that slows down to 0 over the last 30% of the steps; each step's positions were shared out among 16 processor cores, which changes only the order in which their gradients are added up.`;
-  film.setLabel(); drawLadder(); drawTool2(); drawHeads(); ITN.view.sync();
+  film.setLabel(); aw.setLabel(); tf.setLabel(); aw.render(); tf.render(); drawLadder(); drawTool2(); drawHeads(); ITN.view.sync();
   requestAnimationFrame(frame);
   const fail = (msg) => { FAILED = msg; for (const id of ["st-read", "qt-read", "t1-read", "t2-read", "t3-read", "hd-read", "sw-read", "ko-read", "iv-read", "pl-status", "ladder-after"]) $(id).textContent = msg; $("f-ticker").textContent = msg; };
   if (!HAVE_FILES) fail("The stories or the trained weights did not load (../words/stories.js, ../words/weights.js, weights.js).");
   else if (typeof DecompressionStream === "undefined") fail("This browser cannot unpack the stories. A recent Chrome, Edge, Firefox or Safari can.");
   else loadData().then(() => {
     prepareEval();
-    drawStory(); drawQuestion(); drawTool1(); drawTool2(); drawTool3(); drawSwap(); drawInvent(); film.ready(); PG.dirty = true;
+    drawStory(); drawQuestion(); drawTool1(); drawTool2(); drawTool3(); drawSwap(); drawInvent(); film.ready(); aw.ready(); tf.ready(); PG.dirty = true;
     gradientCheck();
     scoreAll(); swapAll(); inventAll(); knockAll();
     addJob(countJob(), () => drawLadder());
