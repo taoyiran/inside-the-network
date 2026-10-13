@@ -2,7 +2,7 @@
 
 The scripts that made each chapter's data and trained weights, and that checked the numbers the pages state. Pages that only train live in the browser (chapters 1 to 4) need none.
 
-Everything runs with Node (24 or later) and, for a few scripts, Python 3 with no extra packages. Downloads, intermediate files, checkpoints and logs stay out of git: chapter 6 keeps them in `words/work/`, and chapters 5 and 5′ next to their scripts (`data/`, `dl/`, `*.json`), all listed in the repo's `.gitignore`.
+Everything runs with Node (24 or later) and, for a few scripts, Python 3 with no extra packages. Downloads, intermediate files, checkpoints and logs stay out of git: chapters 6 and 7 keep them in `words/work/` and `attention/work/`, and chapters 5 and 5′ next to their scripts (`data/`, `dl/`, `*.json`), all listed in the repo's `.gitignore`.
 
 `python3 review_copy.py <out dir> [words/index.html …]` makes single-file copies of chapter pages, with the shared files and the chapter's data inlined, for a private review page.
 
@@ -23,6 +23,15 @@ Checks:
 - `node look.js [dark] [w=390]`: opens the served page in headless Chrome (`python3 -m http.server 8765` from the repo), prints every live readout and console message, and saves screenshots to `work/shots/`.
 
 How the settings were chosen (October 2026, on validation stories): Adam learned far faster than plain gradient descent (35% against 32% right first guesses after 1.3 million examples); a table shared with the output layer, as in GPT-2, learned worse; 256 or 512 hidden neurons learned no faster than 128; dropout of 0.2 slowed learning without helping by the end; reading 16 tokens instead of 8 helped by under half a point. A plain 8-token network with 128 neurons was kept.
+
+## `attention/`: chapter 7, Attention
+
+These scripts read the attention network straight from `attention/index.html` (`<script id="attn">` and its Python translation `<script id="attn-py">`), and use chapter 6's tokenizer, network and token files through `../words/lib.js`, so chapter 6's `fetch.sh` and `prep.js` must have run first. The whole process, with every formula, setting and result, is written up in [`docs/chapter-7-training.md`](../docs/chapter-7-training.md).
+
+1. `node ptrain.js lr=0.008 steps=19000 save=F8 > work/runs/F8.txt`: trains the finished network, 8 whole stories per step, saving checkpoints to `work/models/`. All the positions of a step's stories are shared out evenly among 16 worker threads (a share can start mid-story); with `workers=1` the result is bit-identical to the page's own `trainStep` (`node train.js`). About 33 minutes on an Apple M5 Pro.
+2. `node package.js F8 19000`: writes `attention/weights.js`, with the run's log and the moments of training for Secret 1.
+
+Checks: `verify.js` (the shipped weights against the checkpoint, the saved moments against fresh measurements, and the page's copy of the tokenizer against chapter 6's), `gradcheck.js` (the backward pass against central differences), `pycheck.js` (the Python translation against the JavaScript). The numbers the page states live: `compare.js` (counting, chapter 6 and attention, by where the answer last appeared), `names.js` (names far back, swapped and invented names, over the 1,000 test stories), `ablate.js` (heads switched off; `heads=R`: distance scores set to 0), `heads.js` (where each head looks), `swapnames.js` (Secret 2, per new name), `pieces.js` (Secret 4, piece by piece). `sweep.sh` reruns the settings sweep. `templates.js` scored candidate stories for the page's question; `pronouns.js` is a measurement that did not make it onto the page. `look.js` and `interact.js` open the served page in headless Chrome and print its live readouts.
 
 ## `seeing/`: chapter 5, Seeing
 
