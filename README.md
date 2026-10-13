@@ -44,6 +44,12 @@ How a network reads text. The chapter opens with the problem, guessing the next 
 
 The stories are 21,000 from the [TinyStories dataset](https://huggingface.co/datasets/roneneldan/TinyStories) by Ronen Eldan and Yuanzhi Li (Microsoft Research), under the [Community Data License Agreement – Sharing 1.0](https://cdla.dev/sharing-1-0/); `words/stories.js` holds them lowercased, tidied and cut into tokens, and is shared under that agreement. `words/weights.js` holds the network trained in advance with the chapter's own code. How it was trained, step by step, is in [`docs/chapter-6-training.md`](docs/chapter-6-training.md).
 
+## Chapter 7: Attention, looking back over the whole story
+
+How a network can use anything said earlier in a story, not just the last few tokens. The chapter opens with the problem: language keeps pointing back, and a window like chapter 6's cannot simply grow, while the right next word was often said long before (in the test stories, the hero's name comes back from further than 8 tokens on 1.6% of all tokens, and chapter 6's network almost never guesses it). Attention is built from three tools: a lookup by similarity (queries, keys and values, with each head's scores and weights shown for any token you click), a learned score for each distance back so that order still counts, and chapter 6's hidden and output layers around it. With about as many weights as chapter 6's network, it guesses 46.6% of the test tokens right against 41.8%, and the story's name 45.3% of the time against 2.6%. Four secrets follow: the 8 heads found jobs during training (the token just before, words a few tokens back, names far back), shown at saved moments of training; it copies the names it knows, measured by swapping the story's name for others; switching a head off shows what each one is for, such as the one head that carries names; and one layer cannot finish an invented name made of several pieces, which takes two layers working together (an induction head, chapter 8). The playground shades your text by where any token looks, lets the network write on, and trains your own network from scratch.
+
+The stories and the tokenizer are chapter 6's (`words/stories.js`). `attention/weights.js` holds the network trained in advance with the chapter's own code, shared under MIT like the code, with moments saved during its training. How it was trained, measured and checked is in [`docs/chapter-7-training.md`](docs/chapter-7-training.md).
+
 ## Run it locally
 
 The chapters share files in `assets/`, and some pages read their own code from there to display it, which browsers block for pages opened straight from disk. Serve the folder instead:
@@ -55,12 +61,12 @@ python3 -m http.server 8000
 
 ## Project layout
 
-- `index.html`, `loss-and-gradients/`, `backprop/`, `going-deeper/`, `seeing/`, `listening/`, `words/`: one folder per chapter, each a self-contained page.
+- `index.html`, `loss-and-gradients/`, `backprop/`, `going-deeper/`, `seeing/`, `listening/`, `words/`, `attention/`: one folder per chapter, each a self-contained page.
 - `assets/site.css`: the shared design tokens and components.
 - `assets/autograd.js`: the shared autograd. Chapters 1 to 3 run on it, and chapter 4 checks its hand-written backward pass against it. Chapter 3 shows it in five parts, split at blank lines, next to a Python translation with the same five parts, so keep exactly five blank-line-separated sections in both.
 - `assets/common.js`: shared helpers: number formatting, hover descriptions, the Words · Math · Code switch.
 - `tools/`: the scripts that built each chapter's data and trained weights, and checked the numbers the pages state (see `tools/README.md`).
-- `docs/`: detailed write-ups, such as [how chapter 6's network is trained](docs/chapter-6-training.md).
+- `docs/`: detailed write-ups of how [chapter 6's](docs/chapter-6-training.md) and [chapter 7's](docs/chapter-7-training.md) networks are trained.
 
 ## Roadmap
 
@@ -71,7 +77,7 @@ python3 -m http.server 8000
 5. [Seeing: convolutional networks](https://taoyiran.github.io/inside-the-network/seeing/)
    - 5′. [Listening: spectrograms and sound](https://taoyiran.github.io/inside-the-network/listening/)
 6. [Words as vectors: tokens and embeddings](https://taoyiran.github.io/inside-the-network/words/)
-7. Attention
+7. [Attention: looking back over the whole story](https://taoyiran.github.io/inside-the-network/attention/)
 8. A tiny GPT, trained in your browser
 
 ## License

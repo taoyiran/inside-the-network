@@ -1,0 +1,1858 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="How attention lets a network look back over a whole story and choose what to read: queries, keys and values, heads, and a distance score, in a small network that remembers who a story is about. What its heads learned, and what one layer cannot do.">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; font: 14px system-ui, -apple-system, "Segoe UI", sans-serif; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>Attention</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='6' cy='24' r='3.5' fill='%232a78d6'/%3E%3Ccircle cx='16' cy='24' r='3.5' fill='%2314171c'/%3E%3Ccircle cx='26' cy='24' r='3.5' fill='%23eb6834'/%3E%3Cpath d='M26 20C24 6 8 6 6 20M26 20C25 12 17 12 16 20' fill='none' stroke='%232a78d6' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* Chapter 7: tokens as chips, shaded by how much attention they get; heads as small cards. */
+.pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 520px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+.panel { position: relative; min-width: 0; }
+.ptitle { font: 600 11px/1.2 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 6px; min-height: 1.2em; }
+.readout { font: 16px/1.5 var(--font-body); color: var(--ink-2); margin: 10px 0 0; font-variant-numeric: tabular-nums; }
+.readout b { color: var(--ink); }
+.status { font: 13px/1.4 var(--font-mono); color: var(--ink-3); margin: 8px 0 0; }
+.btn.small { padding: 7px 10px; font-size: 13px; }
+.hint { font: 13px/1.3 var(--font-display); color: var(--ink-3); }
+.cap2 { font: 13px/1.35 var(--font-display); color: var(--ink-3); margin: 6px 0 0; }
+.cap2 b { color: var(--ink); font-weight: 600; }
+h3 { font: 600 18px/1.3 var(--font-display); color: var(--ink); margin: 22px 0 6px; }
+.ctl-row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 12px; }
+.ctl-row label, .ctl-row .lb { font: 13px var(--font-display); color: var(--ink-2); display: inline-flex; gap: 8px; align-items: center; }
+.in { font: 15px/1.3 var(--font-mono); padding: 8px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); color: var(--ink); min-width: 0; }
+.in:focus-visible, textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.in.wide { flex: 1 1 260px; }
+.in.word { width: 8.5em; }
+textarea.in { width: 100%; box-sizing: border-box; resize: vertical; min-height: 7em; font-size: 14px; line-height: 1.45; }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.presets button { font: 13px/1 var(--font-mono); padding: 6px 9px; border: 1px solid var(--rule); border-radius: 99px; background: var(--well); color: var(--ink-2); cursor: pointer; }
+.presets button[aria-pressed="true"] { background: var(--sheet); color: var(--ink); border-color: var(--ink); }
+.presets button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* tokens: one chip per token; the pieces of one word sit glued together; --w shades a chip by its attention weight */
+.toks { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 5px; font: 13.5px/1 var(--font-mono); }
+.toks .w { display: inline-flex; }
+.tk { display: inline-block; padding: 5px 6px 4px; border: 1px solid var(--rule); background: var(--well); color: var(--ink); border-radius: 6px; white-space: pre; position: relative; }
+.w .tk + .tk { border-left: 1px dashed var(--ink-3); border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
+.w .tk:not(:last-child) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.tk small { display: block; font: 10px/1 var(--font-mono); color: var(--ink-3); margin-top: 3px; text-align: center; }
+.tk.heat { background: color-mix(in srgb, var(--pos) calc(var(--w) * 100%), var(--well)); border-color: color-mix(in srgb, var(--pos) calc(var(--w) * 100%), var(--rule)); }
+.tk.heat.hot { color: var(--sheet); }
+.tk.far { background: color-mix(in srgb, var(--pos) 18%, var(--sheet)); border-color: color-mix(in srgb, var(--pos) 55%, var(--rule)); }
+.tk.name { background: color-mix(in srgb, var(--neg) 22%, var(--sheet)); border-color: color-mix(in srgb, var(--neg) 65%, var(--rule)); }
+.tk.cur { box-shadow: 0 0 0 2px var(--ink); }
+.tk.win { border-style: solid; border-color: var(--ink-3); }
+.tk.dim { color: var(--ink-3); }
+.tk.pick { cursor: pointer; }
+.toks .br { flex-basis: 100%; height: 0; }
+.toks.big { font-size: 15px; }
+.toks.small { font-size: 12px; gap: 4px 3px; }
+.toks.small .tk { padding: 3px 4px 2px; }
+/* probability bars, with a word on the left */
+.bars { display: grid; grid-template-columns: minmax(3.5em, max-content) minmax(0, 1fr) 3.4em; gap: 3px 8px; align-items: center; font: 12.5px/1.2 var(--font-mono); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.bars .bar { height: 10px; background: var(--well); border-radius: 3px; overflow: hidden; }
+.bars .bar i { display: block; height: 100%; background: var(--ink-3); border-radius: 3px; }
+.bars .top { color: var(--ink); font-weight: 600; }
+.bars .bar.top i { background: var(--ink); }
+.bars .hit { color: var(--ink); }
+.bars .bar.hit i { background: var(--pos); }
+.guess { font: 600 15px/1.3 var(--font-display); color: var(--ink); margin: 0 0 6px; }
+.guess small { font: 13px var(--font-body); color: var(--ink-3); font-weight: 400; }
+/* the ladder */
+.ladder { display: grid; gap: 12px; }
+.lr { display: grid; grid-template-columns: minmax(0, 17em) minmax(0, 1fr) 3em; gap: 4px 12px; align-items: center; font: 14px/1.3 var(--font-display); color: var(--ink); }
+.lr .bar { height: 14px; background: var(--well); border-radius: 4px; overflow: hidden; }
+.lr .bar i { display: block; height: 100%; background: var(--ink-3); border-radius: 4px; }
+.lr.best .bar i { background: var(--ink); }
+.lr b { font: 600 14px var(--font-mono); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.lr small { display: block; font: 12.5px var(--font-body); color: var(--ink-3); }
+@media (max-width: 520px) { .lr { grid-template-columns: minmax(0, 1fr) 3em; grid-template-areas: "l v" "b b"; } .lr > span:first-child { grid-area: l; } .lr .bar { grid-area: b; } .lr b { grid-area: v; } }
+/* the split ladder: one group per kind of answer, three thin bars each */
+.split { display: grid; gap: 16px; margin-top: 8px; }
+.sg h4 { font: 600 13.5px/1.3 var(--font-display); color: var(--ink); margin: 0 0 6px; }
+.sg h4 small { font: 12.5px var(--font-body); color: var(--ink-3); font-weight: 400; }
+.sg .lr { font-size: 13px; gap: 3px 12px; }
+.sg .lr .bar { height: 10px; }
+.sg .lr b { font-size: 13px; }
+/* attention weights, token by token */
+.wt { display: grid; grid-template-columns: minmax(4.5em, max-content) 3.6em repeat(3, 4.2em) minmax(0, 1fr) 3.4em; gap: 4px 8px; align-items: center; font: 12.5px/1.2 var(--font-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.wt .h { font: 600 10.5px/1.2 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+.wt .num { text-align: right; }
+.wt .bar { height: 10px; background: var(--well); border-radius: 3px; overflow: hidden; }
+.wt .bar i { display: block; height: 100%; background: var(--pos); border-radius: 3px; }
+.wt b { color: var(--ink); font-weight: 600; }
+@media (max-width: 560px) { .wt { grid-template-columns: minmax(4em, max-content) 3em 3.8em minmax(0, 1fr) 3.2em; } .wt .opt { display: none; } }
+/* strips of numbers */
+.strips { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 10px; align-items: center; font: 13px/1 var(--font-mono); color: var(--ink); }
+.strips canvas { display: block; width: 100%; height: 18px; }
+.strips .lab2 { text-align: right; }
+.strips .lab2 small { color: var(--ink-3); font-size: 10.5px; margin-left: 4px; }
+/* the walk through the network */
+.stages { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px 16px; align-items: start; margin-top: 14px; }
+@media (max-width: 640px) { .stages { grid-template-columns: minmax(0, 1fr); } }
+.stage { min-width: 0; }
+.stage .sh { font: 600 12px/1.25 var(--font-display); color: var(--ink); margin: 0 0 6px; }
+.stage .sd { font: 12px/1.35 var(--font-body); color: var(--ink-3); margin: 6px 0 0; }
+.stage canvas { display: block; width: 100%; }
+/* heads as cards */
+.heads { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+@media (max-width: 700px) { .heads { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.hc { border: 1px solid var(--rule); border-radius: 10px; padding: 8px 9px 9px; min-width: 0; background: var(--sheet); }
+.hc h4 { font: 600 12.5px/1.2 var(--font-display); color: var(--ink); margin: 0 0 4px; }
+.hc h4 small { display: block; font: 11.5px/1.3 var(--font-body); color: var(--ink-3); font-weight: 400; margin-top: 2px; }
+.hc canvas { display: block; width: 100%; height: 62px; }
+.hc .rd { font: 11.5px/1.35 var(--font-mono); color: var(--ink-2); margin-top: 5px; overflow-wrap: anywhere; min-height: 2.7em; }
+.hc .rd b { color: var(--ink); font-weight: 600; }
+.curves { display: block; width: 100%; aspect-ratio: 16 / 7; }
+/* name swaps */
+.swap { display: grid; grid-template-columns: max-content minmax(0, 1fr) minmax(0, 1fr); gap: 4px 14px; font: 13px/1.35 var(--font-mono); color: var(--ink-2); margin-top: 12px; align-items: baseline; }
+.swap .h { font: 600 10.5px/1.2 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+.swap .ok { color: var(--ink); font-weight: 600; }
+.swap .ok::before { content: "✓ "; color: var(--pos); }
+.swap .no::before { content: "✗ "; color: var(--neg); }
+.ex { font: 15px/1.5 var(--font-body); color: var(--ink-2); margin: 4px 0; }
+/* playground */
+.pg-grid { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 28px; padding-top: 18px; }
+@media (max-width: 899px) { .pg-grid { grid-template-columns: minmax(0, 1fr); } }
+.box { min-width: 0; }
+.box h4 { font: 600 14px/1.2 var(--font-display); color: var(--ink); margin: 0 0 8px; }
+.sep { border-top: 1px solid var(--rule); padding-top: 14px; margin-top: 18px; }
+.row-gap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.written { font: 16px/1.55 var(--font-body); color: var(--ink); white-space: pre-wrap; margin: 10px 0 0; min-height: 3em; }
+.written .gen { background: color-mix(in srgb, var(--pos) 14%, var(--sheet)); border-radius: 3px; }
+#pl-toks { max-height: 22em; overflow-y: auto; padding: 2px; }
+.film-cap { min-height: 5.5em; }
+.fpanel { position: relative; aspect-ratio: 1; border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); overflow: hidden; }
+.fpanel > * { position: absolute; inset: 0; }
+.fpanel .fhtml { padding: 14px; overflow: hidden; }
+.fpanel > canvas { width: 100%; height: 100%; display: block; }
+</style>
+</head>
+<body>
+<div class="page">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Inside the Network</a><span aria-hidden="true">›</span><span>Chapter 7</span></nav>
+  <header class="col">
+    <div class="eyebrow">Chapter 7</div>
+    <h1>Attention: looking back over the whole story</h1>
+    <p class="dek">Chapter 6's network read the last 8 tokens, each in a slot of its own, so anything said earlier was gone. Attention lets every position look back over the story, here up to 256 tokens, and choose what to read: it compares what it is looking for with what each earlier token offers, and takes an average weighted toward the best matches. One layer of it, added to chapter 6's parts, remembers who a story is about.</p>
+    <nav class="jump" aria-label="Page shortcuts">
+      <a class="btn primary" href="#playground">Skip to the playground ↓</a>
+      <span class="jump-note">or read the introduction below</span>
+    </nav>
+  </header>
+
+  <main class="col intro">
+    <h2>The problem: remembering the story</h2>
+    <p>Read “Lily found a shiny shell on the beach. She put it in her pocket and ran home to show her mom. Her mom smiled and asked where she had found it.” and you know who comes next: Lily. Language keeps pointing back, to people and things introduced earlier and to what was said a while ago. A translation needs the whole sentence, an answer about a document needs the document, and a chat assistant has to keep track of the conversation. <b>Attention</b> was invented for this: first, in 2014, to let networks that translate look back at the whole sentence they are translating, and then, in 2017, as the core of the <b>transformer</b>, the design behind today's large language models.</p>
+
+    <h3>Why is it hard?</h3>
+    <p>Chapter 6's network read a window of the last 8 tokens, and making the window longer does not fix it. Every slot of the window has its own weights, 32 × 128 = 4,096 of them in the hidden layer, so a window of 256 tokens would need more than a million weights in that layer alone, and what one slot learns about names would not carry over to the others. Counting does even worse, because long stretches of text almost never repeat. Yet the word that comes next was often said long before. Here is a story the networks never saw. A word is marked when it already appeared earlier in the story, but not among the 8 tokens before it, out of chapter 6's reach; orange marks the story's name. (The 100 most common tokens, such as “the”, “she” or “.”, repeat all the time and are left unmarked, except a story's name.)</p>
+
+    <figure class="card" id="story" aria-label="A test story, with the words marked that repeat a word from further back than 8 tokens">
+      <div class="ctl-row">
+        <span class="row-gap" style="margin:0"><button type="button" class="btn small" id="st-prev" data-tip="st-prev">← Story</button><button type="button" class="btn small" id="st-next" data-tip="st-next">Story →</button></span>
+        <span class="hint">Point at a marked token to see both networks' guesses for it.</span>
+      </div>
+      <div class="toks" id="st-toks"></div>
+      <p class="readout" id="st-read">Loading 21,000 stories…</p>
+    </figure>
+
+    <h3>What attention does differently</h3>
+    <ul class="tries">
+      <li><b>It looks things up by content, not by place.</b> Every token offers a short list of numbers, its <b>key</b>, and the position that is reading asks with a list of its own, its <b>query</b>. Tokens whose keys match the query get the most weight, wherever they are.</li>
+      <li><b>The same weights work at every distance.</b> The weights that make queries and keys are shared by all positions, so reading 256 tokens back takes no more of them than reading 8. Only one small score per distance is added, so that order still counts.</li>
+      <li><b>Several lookups at once.</b> The network makes 8 lookups side by side, its <b>heads</b>, and each learns to ask its own question.</li>
+    </ul>
+
+    <figure class="card" aria-label="Four ways of guessing the next token, on the same test stories">
+      <div class="ladder" id="ladder"></div>
+      <p class="cap2" id="ladder-cap">Share of the tokens of 100 test stories whose first guess is right, measured in your browser. The test stories are not among the training stories.</p>
+      <div class="ptitle" style="margin-top:18px">The same, by where the right answer last appeared</div>
+      <div class="split" id="ladder-split"></div>
+    </figure>
+
+    <p id="ladder-after">Measuring…</p>
+
+    <h2>What this is</h2>
+    <p>This film follows one position of a story as it looks back: one head's query meets every earlier key, the scores become weights, and the weights pick what to bring back.</p>
+
+    <figure class="film" id="film" aria-label="Animation: one position of a story looking back with attention, and the guess it makes">
+      <div class="film-stage">
+        <div class="pair">
+          <div class="panel"><div class="ptitle" id="f-lt"></div><div class="fpanel" id="f-left"></div></div>
+          <div class="panel"><div class="ptitle" id="f-rt"></div><div class="fpanel" id="f-right"></div></div>
+        </div>
+      </div>
+      <div class="film-ticker" id="f-ticker" aria-hidden="true"></div>
+      <div class="film-progress"><i id="f-fill"></i></div>
+      <div class="film-bar">
+        <button type="button" class="btn primary" id="f-play">Play</button>
+        <div class="chips" id="f-chips" role="group" aria-label="Jump to a scene">
+          <button type="button" data-i="0" data-tip="film-0">Out of reach</button><button type="button" data-i="1" data-tip="film-1">Query and keys</button><button type="button" data-i="2" data-tip="film-2">Weights</button><button type="button" data-i="3" data-tip="film-3">Values</button><button type="button" data-i="4" data-tip="film-4">Eight heads</button><button type="button" data-i="5" data-tip="film-5">The guess</button><button type="button" data-i="6" data-tip="film-6">In short</button>
+        </div>
+      </div>
+      <p class="film-cap" id="f-cap" aria-live="polite"></p>
+    </figure>
+
+    <h2>The question</h2>
+    <p>Here is a short story whose first sentence names its hero. Its next word is a natural place for the hero's name to come back, though “she” would fit too. Change the name and see which network follows.</p>
+
+    <figure class="card" id="question" aria-label="Both networks guessing the word where a story's hero comes back">
+      <div class="presets" id="qt-pre" role="group" aria-label="Names"></div>
+      <div class="ctl-row" style="margin:12px 0 0"><label>Name <input class="in word" id="qt-in" type="text" spellcheck="false" autocomplete="off" aria-label="The hero's name" data-tip="qt-in"></label></div>
+      <div class="toks" id="qt-toks" style="margin-top:12px"></div>
+      <div class="pair" style="margin-top:14px">
+        <div><p class="guess" id="qt-6-g">Chapter 6's network</p><div class="bars" id="qt-6"></div></div>
+        <div><p class="guess" id="qt-a-g">The attention network</p><div class="bars" id="qt-a"></div></div>
+      </div>
+      <p class="readout" id="qt-read">Loading 21,000 stories…</p>
+    </figure>
+
+    <p id="qt-after">Chapter 6's network sees only the last 8 tokens, outlined above, and the name is not among them: it can only guess a likely name, or something else. The attention network reads the whole story. Try a rare name too, such as “fred”, or an invented one; Secrets 2 and 4 explain what happens. The tools below show how the reading works.</p>
+
+    <h2>Tool 1: a lookup by similarity</h2>
+    <p>Every token gets three short lists of numbers, each made from its row of the embedding table by a small table of weights: a <b>key</b>, what it offers to be found by; a <b>value</b>, what it hands over when it is read; and a <b>query</b>, what it is looking for. To read, a position compares its query with the key of every token up to itself. The comparison is the <b>dot product</b>: multiply the two lists number by number and add up, which is large when they point the same way. Softmax turns the scores into weights that add up to 1, and the position takes the weighted average of the values. Queries and keys have 8 numbers each, values 16. Click any token to make it the one reading, and pick a head.</p>
+
+    <figure class="card" id="tool1" aria-label="One head's scores and weights for one position">
+      <div class="ctl-row" style="margin:0"><input class="in wide" id="t1-in" type="text" spellcheck="false" autocomplete="off" aria-label="Text to read" data-tip="t1-in"></div>
+      <div class="toks" id="t1-toks" style="margin-top:12px"></div>
+      <div class="ctl-row" style="margin:14px 0 8px"><span class="lb">Head <span class="seg" role="group" aria-label="Which head" id="t1-head"></span></span></div>
+      <div class="wt" id="t1-wt"></div>
+      <div class="strips" id="t1-out" style="margin-top:12px"></div>
+      <p class="readout" id="t1-read"></p>
+    </figure>
+
+    <p>The scores are a soft version of looking something up. A dictionary finds the one entry whose key equals what you ask for; attention gives every entry some weight, more the better its key matches, and returns a blend. Because every step is a sum, a product or softmax, gradients flow through all of it, and the small tables that make queries, keys and values are learned like any other weights.</p>
+
+    <h2>Tool 2: where, as well as what</h2>
+    <p>A dot product of a query with a key says nothing about where the key sits: move the earlier tokens around and the weights move with them. But order matters (“the dog chased the cat” is not “the cat chased the dog”), so each head also learns a score for every distance back, from 0, the token itself, to 255, which is added to the dot product before softmax. A head with a high score at distance 1 reads the token just before, whatever it is. A head with flat scores reads by content alone. Here are the 8 heads' distance scores, as learned.</p>
+
+    <figure class="card" id="tool2" aria-label="Each head's learned score for each distance back">
+      <div class="seg" role="group" aria-label="Which head to highlight" id="t2-head"></div>
+      <canvas class="curves" id="t2-cv" style="margin-top:12px" aria-label="Distance scores of the 8 heads" data-tip="t2-cv" data-follow></canvas>
+      <p class="readout" id="t2-read"></p>
+      <div class="row-gap"><button type="button" class="btn small" id="t2-off" data-tip="t2-off">Measure without distance scores</button></div>
+      <p class="readout" id="t2-off-read"></p>
+    </figure>
+
+    <p>GPT-2 marks order differently: it adds a learned row for each position, 0 to 1,023, to the token's row. Scores that depend on how far apart two tokens are, as here, are closest to those of T5 (a learned score per distance, shared by groups of distances) and ALiBi (a fixed penalty growing with distance). Rotary position embeddings, used in many recent large models, also make the score depend on the distance, by turning queries and keys through angles that grow with position.</p>
+
+    <h2>Tool 3: the network around it</h2>
+    <p>The rest is chapter 6's network. The hidden layer reads the token's own row of 32 numbers and the 8 heads' results of 16 numbers each, 160 numbers in all; 128 tanh neurons read them, and an output layer scores the 2,000 tokens. Type a phrase and follow its last token through.</p>
+
+    <figure class="card" id="tool3" aria-label="A phrase passing through the attention network">
+      <div class="ctl-row" style="margin:0"><input class="in wide" id="t3-in" type="text" spellcheck="false" autocomplete="off" aria-label="The start of a story" data-tip="t3-in"></div>
+      <div class="stages">
+        <div class="stage"><p class="sh">The last token's row, and what the 8 heads brought back</p><div class="strips" id="t3-rows"></div><p class="sd">32 + 8 × 16 = 160 numbers<br>table: 2,000 × 32 = 64,000 parameters<br>queries, keys, values: 8 × (8 + 8 + 16) × 32 = 8,192<br>distance scores: 8 × 256 = 2,048</p></div>
+        <div class="stage"><p class="sh">→ 128 tanh neurons</p><canvas id="t3-hid" style="aspect-ratio: 16 / 9" aria-label="The 128 hidden neurons' values"></canvas><p class="sd">each reads all 160 numbers<br>160 × 128 + 128 = 20,608 parameters</p></div>
+        <div class="stage"><p class="sh">→ 2,000 probabilities, the top 10</p><div class="bars" id="t3-out"></div><p class="sd">a score per token, then softmax<br>128 × 2,000 + 2,000 = 258,000 parameters</p></div>
+      </div>
+      <p class="readout" id="t3-read"></p>
+    </figure>
+
+    <p>So the numbers the hidden layer reads for a token now depend on the story before it: the same token in two stories brings its own row, but the heads bring back different results. The token's own row is still the same in every story, but what the hidden layer reads alongside it now comes from anywhere in the window, chosen by content, rather than from 8 fixed slots. That is the start of the fix chapter 6 promised for “one word, one row”. In a single layer, these rebuilt numbers serve only to guess the next token; chapter 8 stacks layers, so that later ones can read them.</p>
+
+    <p>In all, 352,848 numbers to learn, about as many as chapter 6's 354,896: the attention network spends no more weights, but reads up to 256 tokens back instead of 8. Training is chapter 6's too: the same loss, −log of the probability given to the token that came next, and the same Adam. What changes is what a step reads. No position ever reads a later token, so one forward pass over a whole story makes a guess at every position at once, and the gradients of all of them are added up. Each training step reads 8 whole stories, about 2,000 positions, instead of chapter 6's 64 positions picked at random.</p>
+
+    <h2>Secret 1: the heads found jobs</h2>
+    <p>Nobody told the heads what to look for. All 8 started alike, with small random tables and every distance score at 0, so at first each one spread its weight almost evenly over the story. Here is where each head's weight goes in the 100 test stories, by distance back, and which tokens it reads most, at several moments of training.</p>
+
+    <figure class="card" id="heads" aria-label="Where each head looks, by distance back, at moments of training">
+      <div class="seg" role="group" aria-label="Moment of training" id="hd-when"></div>
+      <div class="heads" id="hd-grid"></div>
+      <p class="readout" id="hd-read">Measuring…</p>
+    </figure>
+
+    <p id="hd-after">Measuring…</p>
+
+    <h2>Secret 2: it copies the names it knows</h2>
+    <p>Does the network bring back the name from the story, or just guess a common one? Swap the name everywhere in a story for another, and watch the places where the name comes back.</p>
+
+    <figure class="card" id="swap" aria-label="A story's name swapped for another">
+      <div class="ctl-row"><span class="row-gap" style="margin:0"><button type="button" class="btn small" id="sw-prev" data-tip="sw-prev">← Story</button><button type="button" class="btn small" id="sw-next" data-tip="sw-next">Story →</button></span><span class="lb">New name <span class="presets" id="sw-pre" role="group" aria-label="New name"></span></span></div>
+      <div class="toks small" id="sw-toks"></div>
+      <div class="swap" id="sw-table"></div>
+      <div class="ptitle" style="margin-top:16px">Places where the new name is the first guess, for each new name</div>
+      <div class="ladder" id="sw-names"></div>
+      <p class="readout" id="sw-read">Measuring…</p>
+    </figure>
+
+    <p id="sw-after">Measuring…</p>
+
+    <h2>Secret 3: switch a head off</h2>
+    <p>Secret 1 shows where each head looks. To see what each head is for, switch it off: its 16 numbers become 0, and everything else stays as trained. Pick a head to see how the network's guesses on the 100 test stories change without it.</p>
+
+    <figure class="card" id="knock" aria-label="Right first guesses with one head switched off">
+      <div class="ctl-row"><span class="lb">Switch off head <span class="seg" role="group" aria-label="Which head to switch off" id="ko-head"></span></span></div>
+      <div class="split" id="ko-bars"></div>
+      <p class="readout" id="ko-read">Measuring…</p>
+    </figure>
+
+    <p id="ko-after">Measuring…</p>
+
+    <h2>Secret 4: what one layer cannot do</h2>
+    <p>Copying a whole name is one lookup: find a name earlier in the story and bring it back. Finishing a name made of pieces is two. Give a story's hero an invented name, such as “zarko”, cut into the pieces “z”, “##ark” and “##o”. At a later mention, after “z”, the right next piece is the one that came right after “z” before: the network must find the earlier “z” and then read the token after it.</p>
+
+    <figure class="card" id="invent" aria-label="A story whose hero has an invented name, and how the network continues it">
+      <div class="ctl-row"><span class="row-gap" style="margin:0"><button type="button" class="btn small" id="iv-prev" data-tip="iv-prev">← Story</button><button type="button" class="btn small" id="iv-next" data-tip="iv-next">Story →</button></span><span class="lb">Name <span class="presets" id="iv-pre" role="group" aria-label="Invented name"></span></span></div>
+      <div class="toks small" id="iv-toks"></div>
+      <div class="swap" id="iv-table"></div>
+      <p class="readout" id="iv-read">Measuring…</p>
+    </figure>
+
+    <p id="iv-after">Measuring…</p>
+
+    <h2>The algorithm: attention, and the network</h2>
+    <p>Five parts, from the weights to a training step. This is the JavaScript this page actually runs, or the same program in Python. The tokenizer is chapter 6's.</p>
+    <div class="lens" data-lens-ctl data-label="Explain with"></div>
+    <div class="annot" id="algo" data-reps></div>
+
+    <h2>The playground</h2>
+    <p>Write the start of a story, click any token to see where each head looks from there, and let the network write on. Or train your own network from scratch and watch its heads find their jobs.</p>
+  </main>
+
+  <section class="bench" id="playground" aria-label="Attention playground">
+    <div class="fig">
+      <div class="pg-grid">
+        <div>
+          <div class="box">
+            <h4>Your text</h4>
+            <textarea class="in" id="pl-text" spellcheck="false" aria-label="The start of a story" data-tip="pl-text"></textarea>
+            <div class="ctl-row" style="margin:10px 0 6px"><span class="lb">Head <span class="seg" role="group" aria-label="Which head" id="pl-head"></span></span></div>
+            <div class="toks" id="pl-toks"></div>
+            <p class="status" id="pl-count"></p>
+          </div>
+          <div class="box sep">
+            <h4>What comes next</h4>
+            <div class="bars" id="pl-next"></div>
+            <div class="row-gap"><button type="button" class="btn small" id="pl-take" data-tip="pl-take">Add the top guess</button><button type="button" class="btn primary small" id="pl-write" data-tip="pl-write">Write 60 tokens</button><label class="hint" style="display:inline-flex;gap:6px;align-items:center">Boldness <input type="range" id="pl-temp" min="0" max="4" value="2" data-tip="pl-temp"> <span id="pl-temp-v">0.8</span></label></div>
+            <p class="written" id="pl-written"></p>
+          </div>
+        </div>
+        <div>
+          <div class="box">
+            <h4>Where the clicked token looks</h4>
+            <div class="wt" id="pl-wt"></div>
+            <p class="status" id="pl-wt-read"></p>
+          </div>
+          <div class="box sep">
+            <h4>Which network</h4>
+            <div class="seg" role="group" aria-label="Which network" id="pl-net"><button type="button" data-v="ref" data-tip="net-ref" aria-pressed="true">Trained</button><button type="button" data-v="own" data-tip="net-own" aria-pressed="false">Your own</button></div>
+            <div class="row-gap"><button type="button" class="btn primary small" id="pl-train" data-tip="pl-train">Train</button><button type="button" class="btn small" id="pl-reset" data-tip="pl-reset">Reset</button></div>
+            <p class="status" id="pl-status"></p>
+            <canvas class="curves" id="pl-cv" style="margin-top:10px" aria-label="The chosen network's distance scores" data-tip="pl-cv" data-follow></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="col">
+    <h2>How to read the figures</h2>
+    <dl class="read">
+      <dt>Tokens</dt>
+      <dd>Each chip is one token, as in chapter 6. Pieces of one word sit glued together, the later ones starting with "##". "↵" is a line break, and "&lt;end&gt;" the token that opens every story. A chip outlined in black is the one reading; blue shading shows how much weight it gives each earlier token, darker for more.</dd>
+      <dt>Heads</dt>
+      <dd>The 8 heads are numbered 1 to 8 in the order of the network's weights; the numbers mean nothing else. Distance back counts tokens: 0 is the reading token itself, 1 the token just before it.</dd>
+      <dt>Bars</dt>
+      <dd>Probabilities, or attention weights. The darkest bar is the top one; a blue bar marks the right answer.</dd>
+      <dt>Strips</dt>
+      <dd>A list of numbers drawn as cells: blue for a positive number, orange for a negative one, paper-colored for zero.</dd>
+    </dl>
+
+    <h2>Things to try</h2>
+    <ul class="tries">
+      <li>In the question, type a name of your own, such as “nora”. Is it a single token? Does the attention network still bring it back?</li>
+      <li>In Tool 1, click a word near the end of the sentence and go through the heads. Which look at the token just before, and which reach back to the start?</li>
+      <li>In Tool 2, measure the network without its distance scores. What does it get wrong?</li>
+      <li>In the playground, start a story with a name, press “Write 60 tokens” a few times, and compare with chapter 6's playground: does the hero stay the same?</li>
+      <li>Train your own network and watch its distance scores. How soon does a head start to read the token just before?</li>
+    </ul>
+
+    <h2>What runs where</h2>
+    <p id="runs">Everything runs in your browser, with no machine-learning library. The stories and the tokenizer are chapter 6's: 21,000 stories from the <a href="https://huggingface.co/datasets/roneneldan/TinyStories">TinyStories dataset</a> by Ronen Eldan and Yuanzhi Li (Microsoft Research), shared under the <a href="https://cdla.dev/sharing-1-0/">Community Data License Agreement – Sharing 1.0</a>, 20,000 for training and 1,000 for testing; this page measures on the first 100 test stories. Chapter 6's finished network loads from chapter 6. The attention network was trained in advance with this page's code: <span id="runs-train">…</span> Its weights load from a file, rounded to 32-bit numbers to halve the download. The moments of training in Secret 1 were measured on the same 100 test stories, with checkpoints saved during that run (and, for step 0, the starting weights). Everything else runs live: the counting, the accuracy measurements, the swaps, the training in the playground, and every guess. When this page loaded it checked the backward pass the slow way: <span id="gc-check">the check is running…</span> Browsers round a few math functions very slightly differently, so live training can come out a little differently from one browser to another.</p>
+
+    <h2>Where this is going</h2>
+    <ol class="road">
+      <li><span class="n">1</span><span><a href="../">A network you can touch</a></span><span></span></li>
+      <li><span class="n">2</span><span><a href="../loss-and-gradients/">Loss and gradients: walking downhill</a></span><span></span></li>
+      <li><span class="n">3</span><span><a href="../backprop/">Backprop, one operation at a time</a></span><span></span></li>
+      <li><span class="n">4</span><span><a href="../going-deeper/">Going deeper: why layers help</a></span><span></span></li>
+      <li><span class="n">5</span><span><a href="../seeing/">Seeing: convolutional networks</a></span><span></span></li>
+      <li class="branch"><span class="n">5′</span><span><a href="../listening/">Listening: spectrograms and sound</a></span><span class="tag">Branch</span></li>
+      <li><span class="n">6</span><span><a href="../words/">Words as vectors: tokens and embeddings</a></span><span></span></li>
+      <li class="here"><span class="n">7</span><span>Attention: looking back over the whole story</span><span class="tag">This page</span></li>
+      <li><span class="n">8</span><span>A tiny GPT, trained in your browser</span><span></span></li>
+    </ol>
+    <nav class="chapnav" aria-label="Chapters"><a href="../words/">← Chapter 6: Words as vectors</a><span>Chapter 8: A tiny GPT, coming next</span></nav>
+    <p class="foot">Working prototype, October 2026. Every figure on this page is computed live, except the moments of training in Secret 1.<br><a href="https://github.com/taoyiran/inside-the-network">Source on GitHub</a> · code under MIT, text and figures under CC BY 4.0, TinyStories under CDLA-Sharing-1.0 (Ronen Eldan and Yuanzhi Li).</p>
+  </section>
+  <a class="jump-pill" id="jump-pill" href="#playground" hidden>Playground ↓</a>
+</div>
+
+<script src="../assets/common.js"></script>
+<script src="../words/stories.js"></script>
+<script src="../words/weights.js"></script>
+<script src="weights.js"></script>
+<script id="tok">
+// Text in, tokens out. First the text is tidied: lowercase, and only letters, digits, a few punctuation
+// marks and line breaks. Quotation marks are turned to face the way they open or close, and a spaced hyphen
+// becomes a dash, so the text can be put back together from its tokens: exactly for almost every story here, though
+// a few unusual spellings, such as "3.50" or a space just inside a quotation mark, come back slightly different.
+function tidy(text) {
+  const t = text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[‘’`´]/g, "'").replace(/[“”]/g, '"').replace(/…/g, "...")
+    .replace(/ *(?:[–—]|--+) */g, " — ").replace(/ - /g, " — ")
+    .replace(/[^a-z0-9.,!?;:'"\-—\n ]/g, " ").replace(/[ \t]+/g, " ").replace(/ *\n[ \n]*/g, "\n").trim();
+  return t.split("\n").map((line) => {
+    let out = "", single = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i], before = out ? out[out.length - 1] : " ", after = line[i + 1] || " ", opens = /[ —“‘]/.test(before);
+      if (c === '"') out += opens ? "“" : "”";
+      else if (c === "'" && opens && /[a-z]/.test(after)) { out += "‘"; single = true; }
+      else if (c === "'" && single && !/[a-z]/.test(after)) { out += "’"; single = false; }
+      else out += c;
+    }
+    return out;
+  }).join("\n");
+}
+// Then it is split into words and marks: a word is a run of letters (with apostrophes inside, as in "don't"),
+// and every digit, punctuation mark and line break stands alone. Spaces are dropped; they can be put back.
+const pieces = (text) => tidy(text).match(/[a-z]+(?:'[a-z]+)*|[^ a-z]/g) || [];
+
+// A word starts as its letters. Letters after the first carry "##", meaning "glued to the piece before".
+const letters = (word) => Array.from(word, (c, i) => (i ? "##" + c : c));
+const glue = (a, b) => a + b.slice(2); // "pl" + "##ay" = "play", "##a" + "##y" = "##ay"
+// Byte-pair encoding learns the pieces from text. Count every pair of neighboring pieces inside words,
+// glue the most frequent pair into one new piece, and repeat. Common words end up as one piece;
+// rare words stay split into a few, so any word can still be written.
+// counts: how often each word appears in the text.
+function learnMerges(counts, howMany) {
+  const words = [...counts].map(([w, n]) => ({ s: letters(w), n }));
+  const merges = [];
+  while (merges.length < howMany) {
+    const pairs = new Map();
+    for (const { s, n } of words) for (let i = 0; i + 1 < s.length; i++) { const k = s[i] + " " + s[i + 1]; pairs.set(k, (pairs.get(k) || 0) + n); }
+    let best = "", most = 0;
+    for (const [k, n] of pairs) if (n > most || (n === most && k < best)) { best = k; most = n; }
+    if (!most) break;
+    const [a, b] = best.split(" ");
+    merges.push([a, b]);
+    for (const w of words) {
+      const s = w.s, out = [];
+      for (let i = 0; i < s.length; i++) if (i + 1 < s.length && s[i] === a && s[i + 1] === b) { out.push(glue(a, b)); i++; } else out.push(s[i]);
+      w.s = out;
+    }
+  }
+  return merges;
+}
+
+// To cut a new word, start from its letters and apply the learned merges, earliest learned first.
+// upto: use only the first upto merges (to replay how the pieces grew).
+function cutWord(word, rank, upto = Infinity) {
+  let s = letters(word);
+  for (;;) {
+    let at = -1, best = Infinity;
+    for (let i = 0; i + 1 < s.length; i++) { const r = rank.get(s[i] + " " + s[i + 1]); if (r !== undefined && r < upto && r < best) { best = r; at = i; } }
+    if (at < 0) return s;
+    s = [...s.slice(0, at), glue(s[at], s[at + 1]), ...s.slice(at + 2)];
+  }
+}
+// The vocabulary: "<end>" (the end of a story), the marks, every single letter, then one token per merge.
+// A token's number is its place in this list; the network only ever sees these numbers.
+const END = "<end>";
+function makeTokenizer(merges) {
+  const marks = [END, "\n", ".", ",", "!", "?", ";", ":", "'", "“", "”", "‘", "’", "-", "—", ..."0123456789"];
+  const abc = "abcdefghijklmnopqrstuvwxyz'", single = [...abc.slice(0, 26)].concat([...abc].map((c) => "##" + c));
+  const vocab = [...marks, ...single, ...merges.map(([a, b]) => glue(a, b))];
+  const id = new Map(vocab.map((t, i) => [t, i])), rank = new Map(merges.map(([a, b], i) => [a + " " + b, i])), cache = new Map();
+  function encode(text) {
+    const out = [];
+    for (const p of pieces(text)) {
+      if (!/^[a-z]/.test(p)) { out.push(id.get(p)); continue; }
+      let ids = cache.get(p);
+      if (!ids) { ids = cutWord(p, rank).map((t) => id.get(t)); cache.set(p, ids); }
+      out.push(...ids);
+    }
+    return out;
+  }
+  // Back to text: glue "##" pieces on and put a space between tokens, except before closing marks,
+  // after opening ones, and between digits.
+  const noSpaceBefore = new Set([".", ",", "!", "?", ";", ":", "'", "”", "’", "-", "\n"]), noSpaceAfter = new Set(["“", "‘", "-", "\n"]);
+  function decode(ids) {
+    let text = "", prev = "\n";
+    for (const i of ids) {
+      const t = vocab[i];
+      if (t === END) { text += "\n\n"; prev = "\n"; continue; }
+      if (t.startsWith("##")) text += t.slice(2);
+      else text += (noSpaceBefore.has(t) || noSpaceAfter.has(prev) || (/\d/.test(t) && /\d/.test(prev)) ? "" : " ") + t;
+      prev = t;
+    }
+    return text;
+  }
+  return { vocab, id, merges, rank, encode, decode, size: vocab.length };
+}
+</script>
+<script id="attn">
+// An attention network, written out by hand. Like chapter 6's network, it reads tokens and gives every token in
+// the vocabulary a probability of coming next. Instead of a fixed window of the last 8 tokens, every position
+// looks back over up to T tokens of its story and chooses what to read, with H heads that each choose separately.
+function makeModel({ V, T, d, H, dk, dv, h }, rand, scale = 0.1) {
+  const gauss = () => Math.sqrt(-2 * Math.log(1 - rand())) * Math.cos(2 * Math.PI * rand());
+  const fill = (n, s) => Float64Array.from({ length: n }, () => s * gauss());
+  const D = d + H * dv; // what the hidden layer reads: the token's own row, then what each head brought back
+  return {
+    V, T, d, H, dk, dv, h,
+    E: fill(V * d, scale),                    // the embedding table, V rows of d, as in chapter 6
+    Wq: fill(H * dk * d, 1 / Math.sqrt(d)),   // per head, a query: what this position is looking for
+    Wk: fill(H * dk * d, 1 / Math.sqrt(d)),   // a key: what each token offers, to be found by
+    Wv: fill(H * dv * d, 1 / Math.sqrt(d)),   // a value: what each token hands over when it is read
+    R: new Float64Array(H * T),               // per head, a score for each distance back, 0 to T − 1
+    W1: fill(h * D, 1 / Math.sqrt(D)), b1: new Float64Array(h), // the hidden layer, h neurons
+    W2: fill(V * h, 1 / Math.sqrt(h)), b2: new Float64Array(V), // one score per token
+  };
+}
+
+// Every token gets, for each head, a query (what it is looking for), a key (what it offers, to be found by) and a
+// value (what it hands over when it is read): each is a small table times the token's row. Positions before lo are
+// not needed.
+function project(m, tokens, lo) {
+  const { d, H, dk, dv, E, Wq, Wk, Wv } = m, n = tokens.length;
+  const q = new Float64Array(n * H * dk), k = new Float64Array(n * H * dk), v = new Float64Array(n * H * dv);
+  for (let i = lo; i < n; i++) {
+    const x = tokens[i] * d;
+    for (let c = 0; c < H * dk; c++) {
+      let sq = 0, sk = 0;
+      for (let e = 0; e < d; e++) { sq += Wq[c * d + e] * E[x + e]; sk += Wk[c * d + e] * E[x + e]; }
+      q[i * H * dk + c] = sq; k[i * H * dk + c] = sk;
+    }
+    for (let c = 0; c < H * dv; c++) { let s = 0; for (let e = 0; e < d; e++) s += Wv[c * d + e] * E[x + e]; v[i * H * dv + c] = s; }
+  }
+  return { q, k, v };
+}
+
+// The forward pass over the tokens of a story, for the positions from `from` on (earlier positions are only read).
+// Position i reads the tokens at i − T + 1 … i, never later ones. For each head, token j scores q_i · k_j / √dk
+// plus R[i − j], a score for its distance back; softmax turns the scores into weights w that add up to 1, and the
+// head brings back o = Σ w_j v_j. The hidden layer reads the token's own row and the H results side by side, and
+// every token gets a score, as in chapter 6.
+function forward(m, tokens, from = 0) {
+  const { V, T, d, H, dk, dv, h, E, R, W1, b1, W2, b2 } = m, n = tokens.length, D = d + H * dv, sc = 1 / Math.sqrt(dk);
+  const { q, k, v } = project(m, tokens, Math.max(0, from - T + 1));
+  const N = n - from, w = new Float64Array(N * H * T), u = new Float64Array(N * D), a = new Float64Array(N * h), p = new Float64Array(N * V);
+  for (let r = 0; r < N; r++) {
+    const i = from + r, back = Math.min(i, T - 1), ur = r * D;
+    for (let e = 0; e < d; e++) u[ur + e] = E[tokens[i] * d + e];
+    for (let hd = 0; hd < H; hd++) {
+      const ww = (r * H + hd) * T, qi = (i * H + hd) * dk; // w[ww + t]: the weight on the token t places back
+      let top = -Infinity;
+      for (let t = 0; t <= back; t++) {
+        const kj = ((i - t) * H + hd) * dk;
+        let s = 0; for (let c = 0; c < dk; c++) s += q[qi + c] * k[kj + c];
+        s = s * sc + R[hd * T + t]; w[ww + t] = s; if (s > top) top = s;
+      }
+      let total = 0;
+      for (let t = 0; t <= back; t++) { w[ww + t] = Math.exp(w[ww + t] - top); total += w[ww + t]; }
+      for (let t = 0; t <= back; t++) {
+        w[ww + t] /= total;
+        const vj = ((i - t) * H + hd) * dv;
+        for (let c = 0; c < dv; c++) u[ur + d + hd * dv + c] += w[ww + t] * v[vj + c];
+      }
+    }
+    for (let o = 0; o < h; o++) { let z = b1[o]; for (let c = 0; c < D; c++) z += W1[o * D + c] * u[ur + c]; a[r * h + o] = Math.tanh(z); }
+    let top = -Infinity;
+    for (let t = 0; t < V; t++) { let s = b2[t]; for (let o = 0; o < h; o++) s += W2[t * h + o] * a[r * h + o]; p[r * V + t] = s; if (s > top) top = s; }
+    let total = 0;
+    for (let t = 0; t < V; t++) { p[r * V + t] = Math.exp(p[r * V + t] - top); total += p[r * V + t]; }
+    for (let t = 0; t < V; t++) p[r * V + t] /= total;
+  }
+  return { from, q, k, v, w, u, a, p };
+}
+
+// The backward pass, adding into the gradients g. next[r] is the token that really came after position from + r.
+// The output layer and the hidden layer are chapter 6's. Then each head: o = Σ w_j v_j sends a gradient to every
+// value it read and to every weight; softmax turns the weights' gradients into the scores' gradients; and a score
+// q_i · k_j / √dk + R[i − j] sends its gradient to the query, the key and the distance score. Last, the queries,
+// keys and values send theirs to their small tables and to the rows of the table they were made from.
+function backward(m, tokens, next, f, g) {
+  const { V, T, d, H, dk, dv, h, E, Wq, Wk, Wv, W1, W2 } = m, { from, q, k, v, w, u, a, p } = f, n = tokens.length, D = d + H * dv, sc = 1 / Math.sqrt(dk);
+  const gq = new Float64Array(q.length), gk = new Float64Array(k.length), gv = new Float64Array(v.length);
+  const ga = new Float64Array(h), gu = new Float64Array(D), gw = new Float64Array(T);
+  for (let r = 0; r < n - from; r++) {
+    const i = from + r, back = Math.min(i, T - 1);
+    ga.fill(0); gu.fill(0);
+    for (let t = 0; t < V; t++) {
+      const gs = t === next[r] ? p[r * V + t] - 1 : p[r * V + t]; // softmax with cross-entropy: p − y
+      g.b2[t] += gs;
+      for (let o = 0; o < h; o++) { g.W2[t * h + o] += gs * a[r * h + o]; ga[o] += W2[t * h + o] * gs; }
+    }
+    for (let o = 0; o < h; o++) {
+      const gz = ga[o] * (1 - a[r * h + o] * a[r * h + o]); // tanh′ = 1 − tanh²
+      g.b1[o] += gz;
+      for (let c = 0; c < D; c++) { g.W1[o * D + c] += gz * u[r * D + c]; gu[c] += W1[o * D + c] * gz; }
+    }
+    for (let e = 0; e < d; e++) g.E[tokens[i] * d + e] += gu[e];
+    for (let hd = 0; hd < H; hd++) {
+      const ww = (r * H + hd) * T, qi = (i * H + hd) * dk, go = d + hd * dv;
+      let dot = 0;
+      for (let t = 0; t <= back; t++) {
+        const vj = ((i - t) * H + hd) * dv;
+        let s = 0;
+        for (let c = 0; c < dv; c++) { s += gu[go + c] * v[vj + c]; gv[vj + c] += w[ww + t] * gu[go + c]; }
+        gw[t] = s; dot += w[ww + t] * s;
+      }
+      for (let t = 0; t <= back; t++) {
+        const gs = w[ww + t] * (gw[t] - dot), kj = ((i - t) * H + hd) * dk; // softmax′: w (gw − Σ w gw)
+        g.R[hd * T + t] += gs;
+        for (let c = 0; c < dk; c++) { gq[qi + c] += gs * k[kj + c] * sc; gk[kj + c] += gs * q[qi + c] * sc; }
+      }
+    }
+  }
+  for (let i = Math.max(0, from - T + 1); i < n; i++) {
+    const x = tokens[i] * d;
+    for (let c = 0; c < H * dk; c++) {
+      const a1 = gq[i * H * dk + c], a2 = gk[i * H * dk + c];
+      for (let e = 0; e < d; e++) { g.Wq[c * d + e] += a1 * E[x + e]; g.Wk[c * d + e] += a2 * E[x + e]; g.E[x + e] += Wq[c * d + e] * a1 + Wk[c * d + e] * a2; }
+    }
+    for (let c = 0; c < H * dv; c++) {
+      const b = gv[i * H * dv + c];
+      for (let e = 0; e < d; e++) { g.Wv[c * d + e] += b * E[x + e]; g.E[x + e] += Wv[c * d + e] * b; }
+    }
+  }
+}
+
+// One step of training on a few stories, with Adam, as in chapter 6. Each story is { tokens, next }: its tokens
+// starting with <end> (which opens a story), and the token that came after each. The loss is averaged over all
+// the positions of all the stories.
+const KEYS = ["E", "Wq", "Wk", "Wv", "R", "W1", "b1", "W2", "b2"];
+const zeros = (m) => Object.fromEntries(KEYS.map((key) => [key, new Float64Array(m[key].length)]));
+const makeAdam = (m) => ({ step: 0, m: zeros(m), s: zeros(m) });
+function adamStep(m, g, count, lr, adam) {
+  const t = ++adam.step, c1 = 1 - 0.9 ** t, c2 = 1 - 0.999 ** t;
+  for (const key of KEYS) {
+    const w = m[key], gw = g[key], am = adam.m[key], as = adam.s[key];
+    for (let i = 0; i < w.length; i++) {
+      const slope = gw[i] / count;
+      am[i] = 0.9 * am[i] + 0.1 * slope;
+      as[i] = 0.999 * as[i] + 0.001 * slope * slope;
+      w[i] -= (lr * am[i]) / c1 / (Math.sqrt(as[i] / c2) + 1e-8);
+      gw[i] = 0;
+    }
+  }
+}
+function trainStep(m, batch, lr, adam, g = zeros(m)) {
+  let loss = 0, count = 0;
+  for (const { tokens, next } of batch) {
+    const f = forward(m, tokens);
+    for (let r = 0; r < next.length; r++) loss -= Math.log(f.p[r * m.V + next[r]]);
+    backward(m, tokens, next, f, g);
+    count += next.length;
+  }
+  adamStep(m, g, count, lr, adam);
+  return loss / count;
+}
+</script>
+<script type="text/plain" id="attn-py">
+# An attention network, written out by hand. Like chapter 6's network, it reads tokens and gives every token in
+# the vocabulary a probability of coming next. Instead of a fixed window of the last 8 tokens, every position
+# looks back over up to T tokens of its story and chooses what to read, with H heads that each choose separately.
+import math
+def make_model(V, T, d, H, dk, dv, h, rand, scale=0.1):
+    def gauss(): return math.sqrt(-2 * math.log(1 - rand())) * math.cos(2 * math.pi * rand())
+    def fill(n, s): return [s * gauss() for _ in range(n)]
+    D = d + H * dv  # what the hidden layer reads: the token's own row, then what each head brought back
+    return {
+        "V": V, "T": T, "d": d, "H": H, "dk": dk, "dv": dv, "h": h,
+        "E": fill(V * d, scale),                    # the embedding table, V rows of d, as in chapter 6
+        "Wq": fill(H * dk * d, 1 / math.sqrt(d)),   # per head, a query: what this position is looking for
+        "Wk": fill(H * dk * d, 1 / math.sqrt(d)),   # a key: what each token offers, to be found by
+        "Wv": fill(H * dv * d, 1 / math.sqrt(d)),   # a value: what each token hands over when it is read
+        "R": [0.0] * (H * T),                       # per head, a score for each distance back, 0 to T − 1
+        "W1": fill(h * D, 1 / math.sqrt(D)), "b1": [0.0] * h,  # the hidden layer, h neurons
+        "W2": fill(V * h, 1 / math.sqrt(h)), "b2": [0.0] * V,  # one score per token
+    }
+
+# Every token gets, for each head, a query (what it is looking for), a key (what it offers, to be found by) and a
+# value (what it hands over when it is read): each is a small table times the token's row. Positions before lo are
+# not needed.
+def project(m, tokens, lo):
+    d, H, dk, dv, E, Wq, Wk, Wv = (m[key] for key in ("d", "H", "dk", "dv", "E", "Wq", "Wk", "Wv"))
+    n = len(tokens)
+    q, k, v = [0.0] * (n * H * dk), [0.0] * (n * H * dk), [0.0] * (n * H * dv)
+    for i in range(lo, n):
+        x = E[tokens[i] * d:(tokens[i] + 1) * d]
+        for c in range(H * dk):
+            q[i * H * dk + c] = sum(Wq[c * d + e] * x[e] for e in range(d))
+            k[i * H * dk + c] = sum(Wk[c * d + e] * x[e] for e in range(d))
+        for c in range(H * dv):
+            v[i * H * dv + c] = sum(Wv[c * d + e] * x[e] for e in range(d))
+    return q, k, v
+
+# The forward pass over the tokens of a story, for the positions from `start` on (earlier positions are only read).
+# Position i reads the tokens at i − T + 1 … i, never later ones. For each head, token j scores q_i · k_j / √dk
+# plus R[i − j], a score for its distance back; softmax turns the scores into weights w that add up to 1, and the
+# head brings back o = Σ w_j v_j. The hidden layer reads the token's own row and the H results side by side, and
+# every token gets a score, as in chapter 6.
+def forward(m, tokens, start=0):
+    V, T, d, H, dk, dv, h, E, R, W1, b1, W2, b2 = (m[key] for key in ("V", "T", "d", "H", "dk", "dv", "h", "E", "R", "W1", "b1", "W2", "b2"))
+    D, sc = d + H * dv, 1 / math.sqrt(dk)
+    q, k, v = project(m, tokens, max(0, start - T + 1))
+    w, u, a, p = [], [], [], []  # per position: the weights (per head, by distance back), the inputs, the hidden values, the probabilities
+    for i in range(start, len(tokens)):
+        back = min(i, T - 1)
+        ui, wi = E[tokens[i] * d:(tokens[i] + 1) * d] + [0.0] * (H * dv), []
+        for hd in range(H):
+            qi = q[(i * H + hd) * dk:(i * H + hd + 1) * dk]
+            s = [sum(qi[c] * k[((i - t) * H + hd) * dk + c] for c in range(dk)) * sc + R[hd * T + t] for t in range(back + 1)]
+            top = max(s)
+            e = [math.exp(x - top) for x in s]
+            total = sum(e)
+            wh = [x / total for x in e]
+            for t in range(back + 1):
+                for c in range(dv):
+                    ui[d + hd * dv + c] += wh[t] * v[((i - t) * H + hd) * dv + c]
+            wi.append(wh)
+        ai = [math.tanh(b1[o] + sum(W1[o * D + c] * ui[c] for c in range(D))) for o in range(h)]
+        s = [b2[t] + sum(W2[t * h + o] * ai[o] for o in range(h)) for t in range(V)]
+        top = max(s)
+        e = [math.exp(x - top) for x in s]
+        total = sum(e)
+        w.append(wi); u.append(ui); a.append(ai); p.append([x / total for x in e])
+    return {"start": start, "q": q, "k": k, "v": v, "w": w, "u": u, "a": a, "p": p}
+
+# The backward pass, adding into the gradients g. nxt[r] is the token that really came after position start + r.
+# The output layer and the hidden layer are chapter 6's. Then each head: o = Σ w_j v_j sends a gradient to every
+# value it read and to every weight; softmax turns the weights' gradients into the scores' gradients; and a score
+# q_i · k_j / √dk + R[i − j] sends its gradient to the query, the key and the distance score. Last, the queries,
+# keys and values send theirs to their small tables and to the rows of the table they were made from.
+def backward(m, tokens, nxt, f, g):
+    V, T, d, H, dk, dv, h, E, Wq, Wk, Wv, W1, W2 = (m[key] for key in ("V", "T", "d", "H", "dk", "dv", "h", "E", "Wq", "Wk", "Wv", "W1", "W2"))
+    D, sc, start, q, k, v = d + H * dv, 1 / math.sqrt(dk), f["start"], f["q"], f["k"], f["v"]
+    gq, gk, gv = [0.0] * len(q), [0.0] * len(k), [0.0] * len(v)
+    for r in range(len(tokens) - start):
+        i, back, w, u, a, p = start + r, min(start + r, T - 1), f["w"][r], f["u"][r], f["a"][r], f["p"][r]
+        ga, gu = [0.0] * h, [0.0] * D
+        for t in range(V):
+            gs = p[t] - 1 if t == nxt[r] else p[t]  # softmax with cross-entropy: p − y
+            g["b2"][t] += gs
+            for o in range(h):
+                g["W2"][t * h + o] += gs * a[o]
+                ga[o] += W2[t * h + o] * gs
+        for o in range(h):
+            gz = ga[o] * (1 - a[o] * a[o])  # tanh′ = 1 − tanh²
+            g["b1"][o] += gz
+            for c in range(D):
+                g["W1"][o * D + c] += gz * u[c]
+                gu[c] += W1[o * D + c] * gz
+        for e in range(d):
+            g["E"][tokens[i] * d + e] += gu[e]
+        for hd in range(H):
+            go, wh, gw = gu[d + hd * dv:d + (hd + 1) * dv], w[hd], []
+            for t in range(back + 1):
+                vj = ((i - t) * H + hd) * dv
+                gw.append(sum(go[c] * v[vj + c] for c in range(dv)))
+                for c in range(dv):
+                    gv[vj + c] += wh[t] * go[c]
+            dot = sum(wh[t] * gw[t] for t in range(back + 1))
+            for t in range(back + 1):
+                gs, qi, kj = wh[t] * (gw[t] - dot), (i * H + hd) * dk, ((i - t) * H + hd) * dk  # softmax′: w (gw − Σ w gw)
+                g["R"][hd * T + t] += gs
+                for c in range(dk):
+                    gq[qi + c] += gs * k[kj + c] * sc
+                    gk[kj + c] += gs * q[qi + c] * sc
+    for i in range(max(0, start - T + 1), len(tokens)):
+        x = tokens[i] * d
+        for c in range(H * dk):
+            a1, a2 = gq[i * H * dk + c], gk[i * H * dk + c]
+            for e in range(d):
+                g["Wq"][c * d + e] += a1 * E[x + e]
+                g["Wk"][c * d + e] += a2 * E[x + e]
+                g["E"][x + e] += Wq[c * d + e] * a1 + Wk[c * d + e] * a2
+        for c in range(H * dv):
+            b = gv[i * H * dv + c]
+            for e in range(d):
+                g["Wv"][c * d + e] += b * E[x + e]
+                g["E"][x + e] += Wv[c * d + e] * b
+
+# One step of training on a few stories, with Adam, as in chapter 6. Each story is (tokens, nxt): its tokens
+# starting with <end> (which opens a story), and the token that came after each. The loss is averaged over all
+# the positions of all the stories.
+KEYS = ("E", "Wq", "Wk", "Wv", "R", "W1", "b1", "W2", "b2")
+def zeros(m): return {key: [0.0] * len(m[key]) for key in KEYS}
+def make_adam(m): return {"step": 0, "m": zeros(m), "s": zeros(m)}
+def train_step(m, batch, lr, adam):
+    g, loss, count = zeros(m), 0.0, 0
+    for tokens, nxt in batch:
+        f = forward(m, tokens)
+        loss -= sum(math.log(f["p"][r][nxt[r]]) for r in range(len(nxt)))
+        backward(m, tokens, nxt, f, g)
+        count += len(nxt)
+    adam["step"] += 1
+    t = adam["step"]
+    c1, c2 = 1 - 0.9 ** t, 1 - 0.999 ** t  # the averages start at 0: early on, scale them up
+    for key in KEYS:
+        w, gw, am, as_ = m[key], g[key], adam["m"][key], adam["s"][key]
+        for i in range(len(w)):
+            slope = gw[i] / count
+            am[i] = 0.9 * am[i] + 0.1 * slope
+            as_[i] = 0.999 * as_[i] + 0.001 * slope * slope
+            w[i] -= (lr * am[i]) / c1 / (math.sqrt(as_[i] / c2) + 1e-8)
+    return loss / count
+</script>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const pct = (v) => Math.round(v * 100) + "%";
+  const pct1 = (v) => (v * 100).toFixed(1) + "%";
+  const num = (n) => n.toLocaleString("en-US");
+  const esc = ITN.esc;
+  const reduceMotion = ITN.reduceMotion;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+  const DISPLAY = '"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif';
+
+  // ---------- theme ----------
+  const C = {};
+  function hexRGB(s) {
+    s = s.trim();
+    if (s[0] === "#") { if (s.length === 4) s = "#" + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]; const n = parseInt(s.slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+    const m = s.match(/[\d.]+/g); return m ? m.slice(0, 3).map(Number) : [128, 128, 128];
+  }
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement);
+    for (const k of ["sheet", "well", "ink", "ink-2", "ink-3", "rule", "pos", "neg"]) C[k] = hexRGB(cs.getPropertyValue("--" + k));
+    C.div = new Uint8ClampedArray(256 * 3);
+    for (let k = 0; k < 256; k++) {
+      const t = (k / 255) * 2 - 1, tg = t >= 0 ? C.pos : C.neg, a = Math.pow(Math.abs(t), 0.8);
+      for (let c = 0; c < 3; c++) C.div[k * 3 + c] = C.sheet[c] + (tg[c] - C.sheet[c]) * a;
+    }
+  }
+  const rgba = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  const divColor = (v) => { const k = Math.round((Math.max(-1, Math.min(1, v)) + 1) * 127.5) * 3; return `rgb(${C.div[k]},${C.div[k + 1]},${C.div[k + 2]})`; };
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  function sizeCanvas(cv) {
+    const cw = cv.clientWidth, ch = cv.clientHeight, w = Math.max(1, Math.round(cw * dpr)), h = Math.max(1, Math.round(ch * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, cw, ch);
+    return [cw, ch, ctx];
+  }
+
+  // ---------- the stories and the two trained networks ----------
+  const bytes = (b64) => { const s = atob(b64), a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a; };
+  async function gunzip(b64) {
+    const stream = new Blob([bytes(b64)]).stream().pipeThrough(new DecompressionStream("gzip"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  const u16 = (buf) => { const a = new Uint16Array(buf.length / 2); for (let i = 0; i < a.length; i++) a[i] = buf[2 * i] | (buf[2 * i + 1] << 8); return a; };
+  const f64 = (b64) => { const b = bytes(b64), dv = new DataView(b.buffer), a = new Float64Array(b.length / 4); for (let i = 0; i < a.length; i++) a[i] = dv.getFloat32(4 * i, true); return a; };
+  const HAVE_FILES = typeof ITN_STORIES !== "undefined" && typeof ITN_WEIGHTS !== "undefined" && typeof ITN_ATTN !== "undefined";
+  let FAILED = "";
+  const TK = HAVE_FILES ? makeTokenizer(ITN_STORIES.merges.split("|").map((p) => p.split(" "))) : null;
+  const SHAPE = HAVE_FILES ? ITN_ATTN.shape : { V: 2000, T: 256, d: 32, H: 8, dk: 8, dv: 16, h: 128 };
+  const { V, T: WIN, d: Dm, H: NH, dk: DK, dv: DV } = SHAPE;
+  const sizesOf = ({ V, T, d, H, dk, dv, h }) => ({ E: V * d, Wq: H * dk * d, Wk: H * dk * d, Wv: H * dv * d, R: H * T, W1: h * (d + H * dv), b1: h, W2: V * h, b2: V });
+  function unpack(b64, shape, keys, sizes) { const all = f64(b64), m = { ...shape }; let o = 0; for (const key of keys) { m[key] = all.subarray(o, o + sizes[key]); o += sizes[key]; } return m; }
+  const NET = HAVE_FILES ? unpack(ITN_ATTN.net, SHAPE, KEYS, sizesOf(SHAPE)) : null;
+  // chapter 6's finished network, which reads the last 8 tokens
+  const S6 = HAVE_FILES ? ITN_WEIGHTS.shape : { V: 2000, k: 8, d: 32, h: 128 }, K = S6.k;
+  const NET6 = HAVE_FILES ? unpack(ITN_WEIGHTS.net, S6, ["E", "W1", "b1", "W2", "b2"], { E: S6.V * S6.d, W1: S6.h * S6.k * S6.d, b1: S6.h, W2: S6.V * S6.h, b2: S6.V }) : null;
+  const MOMENTS = HAVE_FILES ? ITN_ATTN.moments : [];
+  const DATA = { ready: false, train: null, test: null, pad: null, stories: [], count: null, mostCommon: 0 };
+  async function loadData() {
+    const [tr, te] = await Promise.all([gunzip(ITN_STORIES.train), gunzip(ITN_STORIES.test)]);
+    DATA.train = u16(tr); DATA.test = u16(te);
+    // the test stories: [first token, the <end> token]; pad is the test tokens with one <end> in front, so that every
+    // story, the first included, can be read as <end> followed by its tokens
+    for (let s = 0, i = 0; i < DATA.test.length; i++) if (DATA.test[i] === 0) { DATA.stories.push([s, i]); s = i + 1; }
+    DATA.pad = new Uint16Array(DATA.test.length + 1); DATA.pad.set(DATA.test, 1);
+    const seen = new Uint32Array(V); for (const t of DATA.train) seen[t]++;
+    DATA.count = seen; DATA.mostCommon = seen.indexOf(Math.max(...seen));
+    DATA.ready = true;
+  }
+  // test story s, as the attention network reads it: tokens = <end>, then the story; next = the story, then <end>
+  const storyOf = (s) => { const [a, b] = DATA.stories[s]; return { tokens: DATA.pad.subarray(a, b + 1), next: DATA.pad.subarray(a + 1, b + 2) }; };
+  // typed text read as the start of a story
+  const textToks = (ids) => Uint16Array.from([0, ...ids]);
+
+  // ---------- guesses ----------
+  // the attention network's probabilities for the token after the last one
+  const probsAfter = (net, toks) => forward(net, toks, toks.length - 1).p;
+  // chapter 6's network, as in chapter 6: the 8 rows side by side, 128 tanh neurons, softmax
+  function probs6(ctx) {
+    const { k, d, h, E, W1, b1, W2, b2 } = NET6, x = new Float64Array(k * d), a = new Float64Array(h), p = new Float64Array(V);
+    for (let j = 0; j < k; j++) for (let i = 0; i < d; i++) x[j * d + i] = E[ctx[j] * d + i];
+    for (let u = 0; u < h; u++) { let z = b1[u]; for (let i = 0; i < k * d; i++) z += W1[u * k * d + i] * x[i]; a[u] = Math.tanh(z); }
+    let top = -Infinity;
+    for (let t = 0; t < V; t++) { let s = b2[t]; for (let u = 0; u < h; u++) s += W2[t * h + u] * a[u]; p[t] = s; if (s > top) top = s; }
+    let total = 0; for (let t = 0; t < V; t++) { p[t] = Math.exp(p[t] - top); total += p[t]; }
+    for (let t = 0; t < V; t++) p[t] /= total;
+    return p;
+  }
+  // chapter 6's context: the 8 tokens before position r of a token list that opens with <end>, with <end> before the start
+  const ctx6 = (toks, r) => { const c = new Array(K).fill(0); for (let j = 0; j < K; j++) { const i = r - K + 1 + j; if (i >= 1) c[j] = toks[i]; } return c; };
+  function topOf(p, n, keep = () => true) {
+    const best = [];
+    for (let t = 0; t < p.length; t++) {
+      if (!keep(t)) continue;
+      if (best.length < n || p[t] > best[best.length - 1][1]) { best.push([t, p[t]]); best.sort((a, b) => b[1] - a[1]); if (best.length > n) best.pop(); }
+    }
+    return best;
+  }
+  const argmax = (p, o = 0, n = p.length - o) => { let b = 0; for (let i = 1; i < n; i++) if (p[o + i] > p[o + b]) b = i; return b; };
+  const show = (t) => { const s = TK.vocab[t]; return s === "\n" ? "↵" : s === END ? "<end>" : s; };
+  const sure = (p) => (p >= 0.995 ? "over 99%" : p < 0.005 ? "under 1%" : pct(p));
+  const quote = (t) => `“${esc(show(t))}”`;
+
+  // ---------- bars ----------
+  function bars(host, rows, fmt = (v) => (v >= 0.995 ? ">99%" : v < 0.005 ? "<1%" : pct(v)), scale = 1) {
+    host.innerHTML = rows.map(([lab, v, fl]) => `<span class="${fl || ""}">${esc(lab)}</span><span class="bar ${fl || ""}"><i style="width:${(100 * Math.max(0, Math.min(1, v / scale))).toFixed(1)}%"></i></span><span class="${fl || ""}">${fmt(v)}</span>`).join("");
+  }
+  const probBars = (host, p, n = 10, hit = -1) => { const top = topOf(p, n); bars(host, top.map(([t, v], i) => [show(t), v, t === hit ? "hit" : i === 0 ? "top" : ""])); return top; };
+
+  // ---------- token chips ----------
+  // ids → chips; the pieces of a word sit together. cls(i) adds classes, heat(i) a weight from 0 to 1 that shades the
+  // chip, tip names the description shown on hover; pick makes the chips clickable (data-i = the index in ids).
+  function chips(host, ids, { cls = () => "", heat = null, nums = false, tip = "", pick = false, first = 0 } = {}) {
+    let h = "", open = false;
+    ids.forEach((t, i) => {
+      const s = TK.vocab[t], piece = s.startsWith("##");
+      if (!piece && open) { h += "</span>"; open = false; }
+      if (!open) { h += `<span class="w">`; open = true; }
+      const label = s === "\n" ? "↵" : s === END ? "<end>" : s, w = heat ? heat(i) : null;
+      const c = `tk ${cls(i)}${w != null ? " heat" + (w > 0.55 ? " hot" : "") : ""}${pick ? " pick" : ""}`;
+      h += `<span class="${c}"${w != null ? ` style="--w:${Math.min(1, w).toFixed(3)}"` : ""}${tip ? ` data-tip="${tip}" data-sel="${first + i}" data-fast` : ""}${pick ? ` data-i="${first + i}"` : ""}>${esc(label)}${nums ? `<small>${t}</small>` : ""}</span>`;
+      if (s === "\n" || (s === END && i > 0)) { h += `</span><span class="br"></span>`; open = false; }
+    });
+    if (open) h += "</span>";
+    host.innerHTML = h;
+  }
+
+  // ---------- strips of numbers ----------
+  function drawStrip(cv, row, scale) {
+    const [W, H, ctx] = sizeCanvas(cv), n = row.length, w = W / n;
+    for (let i = 0; i < n; i++) { ctx.fillStyle = divColor(row[i] / scale); ctx.fillRect(i * w, 0, Math.ceil(w), H); }
+    ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+  }
+  const scaleOf = (a) => { const s = Float64Array.from(a, Math.abs).sort(); return s[Math.floor(0.99 * (s.length - 1))] || 1; };
+  // items: [label, row, note]; every item is drawn on its own scale unless a scale is given
+  function strips(host, items, scale) {
+    if (host.childElementCount !== items.length * 2) host.innerHTML = items.map(() => `<span class="lab2"></span><canvas></canvas>`).join("");
+    items.forEach(([lab, row, note], i) => {
+      host.children[2 * i].innerHTML = esc(lab) + (note ? `<small>${esc(note)}</small>` : "");
+      drawStrip(host.children[2 * i + 1], row, scale || scaleOf(row));
+    });
+  }
+
+  // ---------- head buttons ----------
+  function headButtons(host, tip, withAll = false) {
+    host.innerHTML = (withAll ? `<button type="button" data-v="-1" data-tip="${tip}">All</button>` : "") + Array.from({ length: NH }, (_, h) => `<button type="button" data-v="${h}" data-tip="${tip}">${h + 1}</button>`).join("");
+  }
+  const pressHead = (host, h) => host.querySelectorAll("button[data-v]").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.v) === h)));
+
+  // ---------- names ----------
+  // one-token names from the training stories (each follows "named" at least 20 times there)
+  const NAMES = "tim lily tom sue max lucy mia amy sam bob ben jane jack anna sarah mark emma fred lisa leo joe john ann sally kitty".split(" ");
+  const NAME_IDS = () => NAMES.map((w) => TK.id.get(w)).filter((x) => x !== undefined);
+  // a story's name: the most mentioned one-token name, if any; and the positions r (reading tokens[r], guessing next[r])
+  // where the next token is that name and its last mention is more than 8 tokens back: out of chapter 6's reach
+  function nameOf(tokens) {
+    const ids = NAME_IDS(), cnt = new Map(); for (const x of tokens) if (ids.includes(x)) cnt.set(x, (cnt.get(x) || 0) + 1);
+    if (!cnt.size) return -1;
+    return [...cnt].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0][0];
+  }
+  function farPositions(tokens, next, X) {
+    const at = [];
+    for (let r = 0; r < next.length; r++) if (next[r] === X) { let last = -1; for (let i = r; i >= 1; i--) if (tokens[i] === X) { last = i; break; } if (last >= 1 && r - last >= K) at.push(r); }
+    return at;
+  }
+
+  // ---------- a second thread, for the long measurements and for training ----------
+  // A forward pass over a whole story takes about a tenth of a second, so measurements over many stories, and
+  // training, run in workers (second threads) with the page's own network code, and the page stays smooth.
+  function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  const NB = [[0, 0], [1, 1], [2, 2], [3, 3], [4, 7], [8, 15], [16, 63], [64, 255]], BIN_TICK = ["0", "1", "2", "3", "4", "8", "16", "64"];
+  // the worker's code: the network script, then this. handle() takes the messages; postMessage sends the answers.
+  const LAB_CODE = () => `${$("attn").textContent}
+${mulberry32.toString()}
+const NB = ${JSON.stringify(NB)};
+// every story's first guesses; with stats, also where each head's
+// weight goes: by distance back (NB) and by the token it lands on
+function* score(net, stories, stats) {
+  const { V, T, H } = net, binOf = new Uint8Array(T);
+  NB.forEach(([a, b], k) => { for (let t = a; t <= Math.min(b, T - 1); t++) binOf[t] = k; });
+  const S = stats ? { bins: new Float64Array(H * NB.length), reads: new Float64Array(H * V), seen: new Float64Array(V), n: 0 } : null;
+  const out = [];
+  for (const { tokens, next } of stories) {
+    const f = forward(net, tokens), n = next.length, guess = new Int16Array(n);
+    for (let r = 0; r < n; r++) {
+      let b = 0; for (let t = 1; t < V; t++) if (f.p[r * V + t] > f.p[r * V + b]) b = t;
+      guess[r] = b;
+      if (!S) continue;
+      S.n++; S.seen[tokens[r]]++;
+      for (let h = 0; h < H; h++) for (let t = 0; t <= Math.min(r, T - 1); t++) { const w = f.w[(r * H + h) * T + t]; S.bins[h * NB.length + binOf[t]] += w; S.reads[h * V + tokens[r - t]] += w; }
+    }
+    out.push({ guess });
+    yield;
+  }
+  return { out, stats: S };
+}
+// first guesses at chosen positions of chosen token lists: [{ tokens, at }] → [[guess, …], …]
+function* guessAt(net, list) {
+  const res = [];
+  for (const { tokens, at } of list) {
+    if (!at.length) { res.push([]); continue; }
+    const lo = Math.min(...at), f = forward(net, tokens.subarray(0, Math.max(...at) + 1), lo);
+    res.push(at.map((r) => { let b = 0; for (let t = 1; t < net.V; t++) if (f.p[(r - lo) * net.V + t] > f.p[(r - lo) * net.V + b]) b = t; return b; }));
+    yield;
+  }
+  return res;
+}
+const finish = (gen) => { for (;;) { const r = gen.next(); if (r.done) return r.value; } };
+// a job's network: its own, or the finished network sent once with an earlier job
+let REF = null;
+function netOf(m) { if (m.ref && m.net) REF = m.net; return m.ref ? REF : m.net; }
+// training: 8 whole stories per step, each picked by a random training token, as for the finished network
+let run = null;
+function oneStep(R) {
+  const batch = [];
+  for (let b = 0; b < 8; b++) {
+    const t = Math.floor(R.r() * R.tok.length);
+    let lo = 0, hi = R.st.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (R.st[mid] <= t) lo = mid; else hi = mid - 1; }
+    const a = R.st[lo], e = lo + 1 < R.st.length ? R.st[lo + 1] - 1 : R.tok.length - 1;
+    batch.push({ tokens: R.pad.subarray(a, e + 1), next: R.pad.subarray(a + 1, e + 2) });
+  }
+  const l = trainStep(R.net, batch, R.m.lr, R.adam, R.g);
+  R.loss = R.loss === null ? l : 0.8 * R.loss + 0.2 * l; R.step++;
+}
+function report(R, full) {
+  const msg = { type: "train", step: R.step, loss: R.loss, R: Float64Array.from(R.net.R) };
+  if (full) msg.weights = Object.fromEntries(KEYS.map((key) => [key, Float64Array.from(R.net[key])]));
+  postMessage(msg); R.sent = performance.now();
+}
+function loop() {
+  const R = run; if (!R || !R.on) return;
+  oneStep(R);
+  report(R, performance.now() - R.sent > R.m.every);
+  setTimeout(loop, 0);
+}
+function handle(m) {
+  if (m.type === "job") { postMessage({ type: "job", id: m.id, out: finish((m.fn === "score" ? score : guessAt)(netOf(m), ...m.args)) }); return; }
+  if (m.type === "start") {
+    const tok = m.train, pad = new Uint16Array(tok.length + 1); pad.set(tok, 1);
+    const st = [0]; for (let t = 0; t < tok.length - 1; t++) if (tok[t] === 0) st.push(t + 1);
+    const r = mulberry32(m.seed), net = makeModel(m.shape, r);
+    run = { m, r, net, tok, pad, st: Int32Array.from(st), adam: makeAdam(net), g: zeros(net), step: 0, loss: null, on: true, sent: 0 };
+    report(run, true); setTimeout(loop, 0);
+  } else if (m.type === "run" && run) { const was = run.on; run.on = m.on; if (run.on && !was) setTimeout(loop, 0); if (!run.on) report(run, true); }
+}`;
+  // a worker built from LAB_CODE; where a worker cannot be made, the same code runs on this thread (more slowly,
+  // a story at a time between frames). Returns { send, stop }; onMsg gets the worker's messages.
+  // Everything not yet answered is kept (jobs until their answer, and for training the start and the latest
+  // run message), so that if the worker fails, even after it has answered before, the work is replayed here.
+  function makeLab(onMsg) {
+    let w = null, here = null, stopped = false;
+    const open = new Map(); let start = null, last = null, refMsg = null; // refMsg: the job that carried the finished network
+    const receive = (m) => { if (stopped) return; if (m.type === "job") open.delete(m.id); onMsg(m); };
+    const onThisThread = () => {
+      if (w) { w.terminate(); w = null; }
+      const api = new Function("postMessage", LAB_CODE() + "\nreturn { handle, score, guessAt, netOf };")(receive);
+      here = { api };
+      if (start) { here.api.handle(start); if (last) here.api.handle(last); }
+      if (refMsg) here.api.netOf(refMsg);
+      for (const m of open.values()) run(m);
+    };
+    function run(m) {
+      if (m.type === "job") addJob((function* () { const g = (m.fn === "score" ? here.api.score : here.api.guessAt)(here.api.netOf(m), ...m.args); for (;;) { const r = g.next(); if (r.done) { receive({ type: "job", id: m.id, out: r.value }); return; } yield; } })());
+      else here.api.handle(m);
+    }
+    function send(m) {
+      if (m.type === "job") { open.set(m.id, m); if (m.ref && m.net) refMsg = m; } else if (m.type === "start") { start = m; last = null; } else last = m;
+      if (w) w.postMessage(m); else if (here) run(m);
+    }
+    try {
+      const url = URL.createObjectURL(new Blob([LAB_CODE() + "\nonmessage = (e) => handle(e.data);"], { type: "text/javascript" }));
+      w = new Worker(url);
+      w.onmessage = (e) => receive(e.data);
+      w.onerror = (e) => { e.preventDefault(); onThisThread(); }; // a worker that could not start, or that failed later
+    } catch (e) { onThisThread(); }
+    return { send, stop: () => { stopped = true; if (w) w.terminate(); else if (here) here.api.handle({ type: "run", on: false }); } };
+  }
+  // measurements: one worker, one job at a time. The finished network is sent once (net "ref"); other networks
+  // (your own, or the finished one with a head or the distance scores switched off) go with their job.
+  const LAB = { lab: null, id: 0, cb: new Map(), sentRef: false };
+  function job(fn, net, args, done) {
+    if (!LAB.lab) LAB.lab = makeLab((m) => { if (m.type === "job") { const f = LAB.cb.get(m.id); LAB.cb.delete(m.id); if (f) f(m.out); } });
+    const id = ++LAB.id, msg = { type: "job", id, fn, args };
+    if (net === NET) { msg.ref = true; if (!LAB.sentRef) { msg.net = plainNet(NET); LAB.sentRef = true; } } else msg.net = net;
+    LAB.cb.set(id, done); LAB.lab.send(msg);
+  }
+  const plainNet = (net) => Object.fromEntries(Object.entries(net).map(([k, v]) => [k, v instanceof Float64Array ? Float64Array.from(v) : v]));
+
+  // ---------- background work on this thread, a few milliseconds per frame ----------
+  const JOBS = [];
+  const addJob = (gen, then) => JOBS.push({ gen, then });
+  function runJobs(budget) {
+    const t0 = performance.now();
+    while (JOBS.length && performance.now() - t0 < budget) { const j = JOBS[0]; if (j.gen.next().done) { JOBS.shift(); if (j.then) j.then(); } }
+  }
+
+  // ---------- the test tokens: every token of the first 100 test stories ----------
+  // For each: the right answer, where it last appeared, counting's guess, chapter 6's guess, the attention network's.
+  const NS = 100;
+  const EV = { n: 0, ans: null, where: null, isName: null, count: null, g6: null, ga: null, stats: null, names: [], unigram: 0 };
+  function prepareEval() {
+    const last = DATA.stories[NS - 1][1], n = last + 1, te = DATA.test;
+    EV.n = n; EV.ans = te.subarray(0, n); EV.where = new Uint8Array(n); EV.isName = new Uint8Array(n);
+    // where: 0 = among the last 8 tokens, 1 = earlier in the story, further back, 2 = nowhere earlier in the story
+    for (let s = 0; s < NS; s++) {
+      const [a, b] = DATA.stories[s];
+      for (let t = a; t <= b; t++) { let w = 2; for (let j = t - 1; j >= a; j--) if (te[j] === te[t]) { w = t - j <= K ? 0 : 1; break; } EV.where[t] = w; }
+      const { tokens, next } = storyOf(s), X = nameOf(tokens);
+      EV.names.push(X);
+      if (X >= 0) for (const r of farPositions(tokens, next, X)) EV.isName[a + r] = 1;
+    }
+  }
+  // counting: what followed the last 1 to 4 tokens in the training stories, falling back to fewer when unseen
+  const enc = (c, n) => { let k = 0; for (let j = 0; j < n; j++) k = k * 2048 + c[j]; return k; };
+  function* countJob() {
+    const n = EV.n, te = DATA.test, tables = Array.from({ length: 5 }, () => new Map()), slotOf = Array.from({ length: 5 }, () => new Int32Array(n)), slots = [];
+    for (let s = 0; s < NS; s++) {
+      const [a, b] = DATA.stories[s];
+      for (let t = a; t <= b; t++) {
+        const c = []; for (let j = 1; j <= 4; j++) c.push(t - j >= a ? te[t - j] : 0); // c[0] = the nearest token
+        for (let L = 1; L <= 4; L++) { const k = enc(c, L); let x = tables[L].get(k); if (x === undefined) { x = slots.length; slots.push(new Map()); tables[L].set(k, x); } slotOf[L][t] = x; }
+      }
+    }
+    yield;
+    const tr = DATA.train, c = [0, 0, 0, 0];
+    for (let t = 0; t < tr.length; t++) {
+      for (let L = 1; L <= 4; L++) { const x = tables[L].get(enc(c, L)); if (x === undefined) break; const m = slots[x]; m.set(tr[t], (m.get(tr[t]) || 0) + 1); }
+      if (tr[t] === 0) c.fill(0); else { c[3] = c[2]; c[2] = c[1]; c[1] = c[0]; c[0] = tr[t]; }
+      if ((t & 32767) === 0) yield;
+    }
+    const bestOf = slots.map((m) => { let b = -1, bn = 0; for (const [x, v] of m) if (v > bn || (v === bn && x < b)) { bn = v; b = x; } return b; });
+    EV.unigram = DATA.mostCommon; EV.count = new Int16Array(n);
+    for (let t = 0; t < n; t++) { let g = EV.unigram; for (let L = 1; L <= 4; L++) { const b = bestOf[slotOf[L][t]]; if (b < 0) break; g = b; } EV.count[t] = g; }
+  }
+  // chapter 6's network on every test token
+  function* ch6Job() {
+    const g = new Int16Array(EV.n);
+    for (let s = 0; s < NS; s++) {
+      const [a] = DATA.stories[s], { tokens, next } = storyOf(s);
+      for (let r = 0; r < next.length; r++) { g[a + r] = argmax(probs6(ctx6(tokens, r))); if (r % 24 === 23) yield; }
+    }
+    EV.g6 = g;
+  }
+  const plainStories = (n) => Array.from({ length: n }, (_, s) => storyOf(s)).map(({ tokens, next }) => ({ tokens: Uint16Array.from(tokens), next: Uint16Array.from(next) }));
+  function scoreAll() {
+    job("score", NET, [plainStories(NS), true], ({ out, stats }) => {
+      EV.ga = new Int16Array(EV.n);
+      out.forEach(({ guess }, s) => EV.ga.set(guess, DATA.stories[s][0]));
+      EV.stats = stats;
+      drawLadder(); drawStory(); drawHeads(); headsAfter(); drawKnock(); drawTool2();
+    });
+  }
+  const accOf = (g, keep = () => true) => { let r = 0, n = 0; for (let t = 0; t < EV.n; t++) if (keep(t)) { n++; if (g[t] === EV.ans[t]) r++; } return { acc: n ? r / n : 0, n }; };
+
+  // ---------- the ladder ----------
+  let RANK = null; // each token's place by how common it is in the training stories, 0 = the most common
+  const rankOf = () => RANK || (RANK = (() => { const r = new Int32Array(V); Array.from(DATA.count.keys()).sort((a, b) => DATA.count[b] - DATA.count[a]).forEach((t, i) => (r[t] = i)); return r; })());
+  const GROUPS = [
+    ["Among the last 8 tokens", "chapter 6's network can see it", (t) => EV.where[t] === 0],
+    ["Earlier in the story, further back", "out of chapter 6's reach", (t) => EV.where[t] === 1],
+    ["Further back, and not one of the 100 most common tokens", "not counting tokens such as “the”, “she” or “.”", (t) => EV.where[t] === 1 && rankOf()[EV.ans[t]] >= 100],
+    ["Further back, and the story's name", "", (t) => EV.isName[t] === 1],
+    ["Nowhere earlier in the story", "", (t) => EV.where[t] === 2],
+  ];
+  function drawLadder() {
+    const n = EV.n, uni = EV.count ? accOf(new Int16Array(n).fill(EV.unigram)).acc : null;
+    const rows = [
+      ["Always guess the most common token", EV.count ? `“${show(EV.unigram)}”` : "", uni],
+      ["Count what followed the last 4 tokens", "falling back to fewer when unseen", EV.count ? accOf(EV.count).acc : null],
+      ["Chapter 6's network, reading the last 8 tokens", "354,896 parameters", EV.g6 ? accOf(EV.g6).acc : null],
+      ["The attention network, reading the last 256 tokens", "352,848 parameters", EV.ga ? accOf(EV.ga).acc : null],
+    ];
+    $("ladder").innerHTML = rows.map(([a, b, v], i) => `<div class="lr${i === 3 ? " best" : ""}"><span>${a}${b ? `<small>${b}</small>` : ""}</span><span class="bar"><i style="width:${v == null ? 0 : (100 * v).toFixed(1)}%"></i></span><b>${v == null ? "…" : pct1(v)}</b></div>`).join("");
+    if (n) $("ladder-cap").textContent = `Share of the ${num(n)} tokens of 100 test stories whose first guess is right, measured in your browser. The test stories are not among the training stories.`;
+    if (!EV.count || !EV.g6 || !EV.ga) { $("ladder-split").innerHTML = ""; $("ladder-after").textContent = FAILED || (!EV.n ? "Loading 21,000 stories…" : !EV.count ? "Counting 4.3 million training tokens…" : "Measuring the networks…"); return; }
+    const G = GROUPS.map(([lab, note, keep]) => ({ lab, note, c: accOf(EV.count, keep), six: accOf(EV.g6, keep), at: accOf(EV.ga, keep) }));
+    $("ladder-split").innerHTML = G.map((g) => `<div class="sg"><h4>${esc(g.lab)} <small>· ${pct(g.c.n / n)} of the tokens${g.note ? `; ${esc(g.note)}` : ""}</small></h4>${[["counting", g.c.acc, ""], ["chapter 6's network", g.six.acc, ""], ["the attention network", g.at.acc, " best"]].map(([a, v, c]) => `<div class="lr${c}"><span>${a}</span><span class="bar"><i style="width:${(100 * v).toFixed(1)}%"></i></span><b>${pct1(v)}</b></div>`).join("")}</div>`).join("");
+    // the sentences follow the numbers measured here, whichever way they come out
+    const all6 = accOf(EV.g6).acc, allA = accOf(EV.ga).acc, [near, far, rare, nm, fresh] = G;
+    const cmp = (a, b) => (Math.abs(a - b) < 0.005 ? "about as well as" : a > b ? "better than" : "worse than");
+    const vs = (g) => `${pct1(g.at.acc)} against ${pct1(g.six.acc)}`;
+    $("ladder-after").innerHTML = `With about as many weights, the attention network does ${cmp(allA, all6)} chapter 6's network overall, ${pct1(allA)} against ${pct1(all6)}. The gap is widest where you would expect it. When the answer appeared earlier in the story but further back than 8 tokens, it is right ${vs(far)}; for less common tokens, ${vs(rare)}; and when the answer is the story's name, ${vs(nm)}${nm.six.acc < 0.05 ? `: chapter 6's network, which cannot see the name, almost never guesses it` : ""}. When the answer is among the last 8 tokens, where both can see it, the attention network does ${cmp(near.at.acc, near.six.acc)} chapter 6's, ${vs(near)}; when the answer is new to the story, ${vs(fresh)}.`;
+  }
+
+  // ---------- the problem: a story, its long-range repeats marked ----------
+  const ST = { k: 0 };
+  function drawStory() {
+    if (!DATA.ready) { $("st-read").textContent = FAILED || "Loading 21,000 stories…"; return; }
+    const [a] = DATA.stories[ST.k], { next } = storyOf(ST.k), R = rankOf();
+    const mark = (r) => (EV.isName[a + r] ? "name" : EV.where[a + r] === 1 && R[next[r]] >= 100 ? "far" : "");
+    chips($("st-toks"), Array.from(next), { cls: mark, tip: "st-tok", first: 0 });
+    let far = 0, names = 0; next.forEach((_, r) => { const m = mark(r); if (m === "far") far++; if (m === "name") names++; });
+    let allFar = 0, allNames = 0; for (let t = 0; t < EV.n; t++) { if (EV.isName[t]) allNames++; else if (EV.where[t] === 1 && R[EV.ans[t]] >= 100) allFar++; }
+    $("st-read").innerHTML = `Story ${ST.k + 1} of 100, ${next.length} tokens: <b>${far + names}</b> marked${names ? `, ${names} of them the name “${esc(show(EV.names[ST.k]))}”` : ""}. Over all 100 test stories, ${pct1((allFar + allNames) / EV.n)} of the tokens are marked (the 100 most common tokens are left out, except a story's name), and ${pct1(allNames / EV.n)} of all tokens are a story's name come back from further than 8 tokens.`;
+  }
+  $("st-prev").addEventListener("click", () => { ST.k = (ST.k + NS - 1) % NS; drawStory(); });
+  $("st-next").addEventListener("click", () => { ST.k = (ST.k + 1) % NS; drawStory(); });
+  function storyTip(el) {
+    if (!DATA.ready) return "";
+    const r = Number(el.dataset.sel), [a] = DATA.stories[ST.k], { tokens, next } = storyOf(ST.k), t = a + r, x = next[r];
+    let back = -1; for (let i = r; i >= 1; i--) if (tokens[i] === x) { back = r - i + 1; break; }
+    const where = back < 0 ? "It does not appear earlier in the story." : `It last appeared ${back} tokens earlier${back > WIN ? ", out of reach of both networks (the attention network reads the last 256 tokens)" : back > K ? ", out of reach of chapter 6's network" : ""}.`;
+    const g = (arr) => (arr ? `${quote(arr[t])}${arr[t] === x ? " ✓" : ""}` : "…");
+    return `<b>${quote(x)}</b>. ${where}<br>Chapter 6's network guessed ${g(EV.g6)}; the attention network ${g(EV.ga)}.`;
+  }
+
+  // ---------- the question: who comes back? ----------
+  const QT_TEXT = "there was a little girl named {}. she liked to draw pictures of the sea, the sun and the trees. one day, her mom gave her a big box of new crayons.";
+  const QT_PRE = ["lily", "tom", "mia", "sue", "max", "fred", "zarko"];
+  const QT = { name: "lily" };
+  function drawQuestion() {
+    document.querySelectorAll("#qt-pre button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === QT.name.toLowerCase())));
+    if (!DATA.ready) { $("qt-read").textContent = FAILED || "Loading 21,000 stories…"; return; }
+    const name = QT.name.trim().toLowerCase() || "lily", nameIds = TK.encode(name), ids = TK.encode(QT_TEXT.replace("{}", name)), toks = textToks(ids), n = ids.length;
+    // where the name sits (the story has one slot for it), and the 8 tokens chapter 6 reads
+    const slot = TK.encode(QT_TEXT.split("{}")[0]).length, isName = new Uint8Array(n); for (let j = 0; j < nameIds.length; j++) isName[slot + j] = 1;
+    chips($("qt-toks"), ids, { cls: (i) => [isName[i] ? "name" : "", i >= n - K ? "win" : "dim"].join(" ") });
+    const want = nameIds[0];
+    const p6 = probs6(ctx6(toks, n)), pa = probsAfter(NET, toks);
+    const t6 = probBars($("qt-6"), p6, 8, want), ta = probBars($("qt-a"), pa, 8, want);
+    $("qt-6-g").innerHTML = `Chapter 6's network <small>· top guess ${quote(t6[0][0])}</small>`;
+    $("qt-a-g").innerHTML = `The attention network <small>· top guess ${quote(ta[0][0])}</small>`;
+    const piece = nameIds.length > 1 ? `, or rather its first piece ${quote(want)} (“${esc(name)}” is cut into ${nameIds.map(quote).join(" + ")})` : "";
+    const last = n - slot;
+    const r6 = p6[want], ra = pa[want], rank = (p) => { let r = 1; for (let t = 0; t < V; t++) if (p[t] > p[want]) r++; return r; };
+    $("qt-read").innerHTML = `The answer looked for here is the name${piece} (“she” would fit too), mentioned ${last} tokens before the next word. Chapter 6's network gives it ${sure(r6)}${rank(p6) === 1 ? ", its top guess" : `, its guess number ${num(rank(p6))}`}; the attention network gives it ${sure(ra)}${rank(pa) === 1 ? ", its top guess" : `, its guess number ${num(rank(pa))}`}.`;
+  }
+  $("qt-pre").innerHTML = QT_PRE.map((w) => `<button type="button" data-v="${w}" data-tip="qt-pre">${w}</button>`).join("");
+  $("qt-pre").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; QT.name = b.dataset.v; $("qt-in").value = QT.name; drawQuestion(); });
+  let qtTimer = 0;
+  $("qt-in").addEventListener("input", (e) => { QT.name = e.target.value.replace(/[^a-zA-Z]/g, "").slice(0, 16); clearTimeout(qtTimer); qtTimer = setTimeout(drawQuestion, 120); });
+
+  // ---------- Tool 1: one head's scores and weights ----------
+  const T1 = { text: "lily had a red ball. she gave it to her friend tom. tom said thank you to", sel: -1, head: 0 };
+  // the details of head h at position i: for every token it can read, the dot product, the distance score, the weight
+  function headDetail(net, toks, i, h) {
+    const f = forward(net, toks.subarray(0, i + 1), i), { T, H, dk, dv, d } = net, sc = 1 / Math.sqrt(dk), rows = [];
+    for (let t = 0; t <= Math.min(i, T - 1); t++) {
+      const j = i - t; let s = 0; for (let c = 0; c < dk; c++) s += f.q[(i * H + h) * dk + c] * f.k[(j * H + h) * dk + c];
+      rows.push({ j, t, qk: s * sc, r: net.R[h * T + t], w: f.w[h * T + t] });
+    }
+    return { rows, out: f.u.subarray(d + h * dv, d + (h + 1) * dv), f };
+  }
+  function drawTool1() {
+    if (!NET || !DATA.ready) return;
+    const ids = TK.encode(T1.text), toks = textToks(ids), n = toks.length;
+    const sel = T1.sel < 0 || T1.sel >= n ? n - 1 : T1.sel;
+    pressHead($("t1-head"), T1.head);
+    const { rows, out } = headDetail(NET, toks, sel, T1.head), wOf = new Float64Array(n); rows.forEach((x) => (wOf[x.j] = x.w));
+    const top = Math.max(...rows.map((x) => x.w));
+    chips($("t1-toks"), Array.from(toks), { heat: (i) => (i <= sel ? wOf[i] / top : null), cls: (i) => (i === sel ? "cur" : i > sel ? "dim" : ""), pick: true, tip: "t1-tok" });
+    const shown = rows.slice().sort((a, b) => b.w - a.w).slice(0, 10), f2 = (v) => ITN.fmt(v, 2);
+    $("t1-wt").innerHTML = `<span class="h">token</span><span class="h num">back</span><span class="h num opt">q·k/√8</span><span class="h num opt">distance</span><span class="h num">score</span><span class="h">weight</span><span class="h num"></span>` +
+      shown.map((x) => `<span><b>${esc(show(toks[x.j]))}</b></span><span class="num">${x.t}</span><span class="num opt">${f2(x.qk)}</span><span class="num opt">${f2(x.r)}</span><span class="num">${f2(x.qk + x.r)}</span><span class="bar"><i style="width:${(100 * x.w).toFixed(1)}%"></i></span><span class="num">${x.w >= 0.995 ? ">99%" : x.w < 0.005 ? "<1%" : pct(x.w)}</span>`).join("");
+    strips($("t1-out"), [[`head ${T1.head + 1} brings back`, out, "16 numbers"]]);
+    const b = shown[0], rest = rows.length - shown.length, shownW = shown.reduce((a, x) => a + x.w, 0);
+    $("t1-read").innerHTML = `Head ${T1.head + 1}, reading ${quote(toks[sel])}, can read ${rows.length} token${rows.length > 1 ? "s" : ""} (${sel < WIN ? "itself and every one before it, back to the &lt;end&gt; that opens the text" : "itself and the 255 before it: the window ends there"}). Its largest weight, ${pct(b.w)}, goes to ${quote(toks[b.j])}, ${b.t === 0 ? "itself" : b.t === 1 ? "the token just before" : `${b.t} tokens back`}.${rest > 0 ? ` The ${shown.length} shown take ${pct(shownW)} of the weight; the other ${rest} share the rest.` : ""} Its result is the weighted average of their values, a list of 16 numbers.`;
+  }
+  $("t1-in").addEventListener("input", (e) => { T1.text = e.target.value; T1.sel = -1; drawTool1(); });
+  $("t1-toks").addEventListener("click", (e) => { const c = e.target.closest("[data-i]"); if (!c) return; T1.sel = Number(c.dataset.i); drawTool1(); });
+  $("t1-head").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; T1.head = Number(b.dataset.v); drawTool1(); });
+
+  // ---------- Tool 2: distance scores ----------
+  const T2 = { head: 0, off: null, offBusy: false, pts: null };
+  const Xd = (t, W, padL, padR) => padL + (Math.log1p(t) / Math.log1p(WIN - 1)) * (W - padL - padR);
+  // the distance scores of a network, one line per head; the highlighted head drawn on top
+  function drawCurves(cv, Rv, hi) {
+    const [W, H, ctx] = sizeCanvas(cv), padL = 34, padR = 10, padT = 10, padB = 24;
+    let lo = Infinity, up = -Infinity; for (const v of Rv) { lo = Math.min(lo, v); up = Math.max(up, v); }
+    lo = Math.floor(Math.min(lo, 0)); up = Math.ceil(Math.max(up, 1));
+    const Y = (v) => padT + ((up - v) / (up - lo)) * (H - padT - padB);
+    ctx.font = `11px ${MONO}`; ctx.fillStyle = rgba(C["ink-3"]); ctx.strokeStyle = rgba(C.rule); ctx.lineWidth = 1;
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    const step = up - lo > 8 ? 2 : 1;
+    for (let v = lo; v <= up; v += step) { ctx.beginPath(); ctx.moveTo(padL, Y(v)); ctx.lineTo(W - padR, Y(v)); ctx.stroke(); ctx.fillText(String(v).replace("-", "−"), padL - 6, Y(v)); }
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (const t of [0, 1, 2, 4, 8, 16, 32, 64, 128, 255]) ctx.fillText(t, Xd(t, W, padL, padR), H - padB + 6);
+    const pts = [];
+    for (const h of [...Array(NH).keys()].filter((h) => h !== hi).concat(hi >= 0 ? [hi] : [])) {
+      ctx.strokeStyle = h === hi ? rgba(C.pos) : rgba(C["ink-3"], 0.45); ctx.lineWidth = h === hi ? 2.5 : 1.2; ctx.beginPath();
+      for (let t = 0; t < WIN; t++) { const x = Xd(t, W, padL, padR), y = Y(Rv[h * WIN + t]); if (t) ctx.lineTo(x, y); else ctx.moveTo(x, y); pts.push([x, y, h, t]); }
+      ctx.stroke();
+    }
+    return pts;
+  }
+  const HOVER = { cv: null, pt: null };
+  const nearestPt = (pts, id) => { if (!pts || HOVER.cv !== id || !HOVER.pt) return null; let b = null, bd = 14; for (const p of pts) { const dd = Math.hypot(p[0] - HOVER.pt[0], p[1] - HOVER.pt[1]); if (dd < bd) { bd = dd; b = p; } } return b; };
+  const binShare = (h, from, to) => { const s = EV.stats; if (!s) return null; let a = 0; for (let k = from; k <= to; k++) a += s.bins[h * NB.length + k]; return a / s.n; };
+  function drawTool2() {
+    if (!NET) return;
+    pressHead($("t2-head"), T2.head);
+    T2.pts = drawCurves($("t2-cv"), NET.R, T2.head);
+    const h = T2.head, Rh = NET.R.subarray(h * WIN, (h + 1) * WIN);
+    let best = 0; for (let t = 1; t < WIN; t++) if (Rh[t] > Rh[best]) best = t;
+    const near = binShare(h, 1, 1), far = binShare(h, 6, 7);
+    $("t2-read").innerHTML = `Head ${h + 1}'s highest distance score is at ${best === 0 ? "distance 0, the token itself" : best === 1 ? "distance 1, the token just before" : `distance ${best}`} (${ITN.fmt(Rh[best], 1)}); at distance 1 it is ${ITN.fmt(Rh[1], 1)}, at 30 ${ITN.fmt(Rh[30], 1)}.${near != null ? ` Over the 100 test stories, this head puts ${pct(near)} of its weight on the token just before and ${pct(far)} on tokens 16 or more back.` : ""} Softmax gives each token a weight in proportion to e to the power of its score, so a token whose score is higher by 1 gets about 2.7 times the weight.`;
+    const o = T2.off;
+    const keeps = o && o.nameLeast;
+    $("t2-off-read").innerHTML = T2.offBusy ? "Measuring the 100 test stories with every distance score set to 0…" : !o ? "" : `With every distance score set to 0, the same network gets <b>${pct1(o.all)}</b> of the 100 test stories' tokens right, instead of ${pct1(o.with)}. Each head now sees the story before it as a bag of tokens, in no order. ${keeps ? `Names suffer least: where the answer is the story's name, ${pct1(o.name)} instead of ${pct1(o.nameWith)}, since a name can be found without knowing where it is. Where the answer is new to the story, and the guess rests on the words just before, ${pct1(o.fresh)} instead of ${pct1(o.freshWith)}.` : `Where the answer is the story's name, ${pct1(o.name)} instead of ${pct1(o.nameWith)}; where it is new to the story, ${pct1(o.fresh)} instead of ${pct1(o.freshWith)}.`} (The network was trained with its distance scores, so this shows how much it relies on them, not how well a network trained without them would do.)`;
+  }
+  $("t2-head").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; T2.head = Number(b.dataset.v); drawTool2(); });
+  $("t2-off").addEventListener("click", () => {
+    if (!DATA.ready || !EV.ga || T2.offBusy || T2.off) return;
+    T2.offBusy = true; drawTool2();
+    const net = plainNet(NET); net.R.fill(0);
+    job("score", net, [plainStories(NS), false], ({ out }) => {
+      const g = new Int16Array(EV.n); out.forEach(({ guess }, s) => g.set(guess, DATA.stories[s][0]));
+      const nm = (t) => EV.isName[t] === 1, fresh = (t) => EV.where[t] === 2, near = (t) => EV.where[t] === 0, far = (t) => EV.where[t] === 1;
+      const d = (keep) => accOf(EV.ga, keep).acc - accOf(g, keep).acc;
+      T2.off = { all: accOf(g).acc, with: accOf(EV.ga).acc, name: accOf(g, nm).acc, nameWith: accOf(EV.ga, nm).acc, fresh: accOf(g, fresh).acc, freshWith: accOf(EV.ga, fresh).acc, nameLeast: d(nm) < Math.min(d(near), d(far), d(fresh)) };
+      T2.offBusy = false; drawTool2();
+    });
+  });
+  for (const id of ["t2-cv", "pl-cv"]) for (const ev of ["pointermove", "pointerdown"]) $(id).addEventListener(ev, (e) => { const r = e.currentTarget.getBoundingClientRect(); HOVER.cv = id; HOVER.pt = [e.clientX - r.left, e.clientY - r.top]; ITN.tips.refresh(); });
+
+  // ---------- Tool 3: the network around attention ----------
+  const T3 = { text: "once upon a time, there was a little" };
+  function drawTool3() {
+    if (!NET || !DATA.ready) return;
+    const ids = TK.encode(T3.text), toks = textToks(ids), n = toks.length, f = forward(NET, toks, n - 1);
+    const u = f.u, items = [[show(toks[n - 1]), u.subarray(0, Dm), "own row"]];
+    for (let h = 0; h < NH; h++) items.push([`head ${h + 1}`, u.subarray(Dm + h * DV, Dm + (h + 1) * DV), ""]);
+    strips($("t3-rows"), items, scaleOf(u));
+    const [W, Hh, g] = sizeCanvas($("t3-hid")), cols = 16, rows = 8, cw = W / cols, ch = Hh / rows;
+    for (let o = 0; o < SHAPE.h; o++) { g.fillStyle = divColor(f.a[o]); g.fillRect((o % cols) * cw + 1, Math.floor(o / cols) * ch + 1, cw - 2, ch - 2); }
+    const top = probBars($("t3-out"), f.p, 10);
+    $("t3-read").innerHTML = `The text has ${n - 1} token${n === 2 ? "" : "s"}, plus the &lt;end&gt; in front that opens every story; the last token reads ${n <= WIN ? `all ${n}` : `the last ${WIN}`}. Top guess: <b>${quote(top[0][0])}</b>, ${sure(top[0][1])}. The 10 guesses shown take ${pct(top.reduce((a, x) => a + x[1], 0))} of the probability; the other 1,990 tokens share the rest.`;
+  }
+  $("t3-in").addEventListener("input", (e) => { T3.text = e.target.value; drawTool3(); });
+
+  // ---------- Secret 1: where each head looks, over training ----------
+  // the stored moments: [step, tokens seen, each head's share of weight in each distance bin, each head's 4 most-read tokens]
+  const HD = { sel: -1 };
+  const momentList = () => !HAVE_FILES ? [] : MOMENTS.map(([step, tokens, bins, tops]) => ({ step, tokens, bins, tops })).concat([{ step: ITN_ATTN.steps, tokens: ITN_ATTN.tokens, live: true }]);
+  const short = (n) => (n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + "M" : n >= 1e3 ? Math.round(n / 1e3) + "k" : String(n));
+  // the finished network, measured live: shares by distance, and the tokens read most per appearance (seen at least 5 times)
+  function liveHeads() {
+    const s = EV.stats; if (!s) return null;
+    const bins = Array.from(s.bins, (v) => v / s.n), tops = [];
+    for (let h = 0; h < NH; h++) {
+      const per = []; for (let t = 0; t < V; t++) if (s.seen[t] >= 5) per.push([t, s.reads[h * V + t] / s.seen[t]]);
+      per.sort((a, b) => b[1] - a[1]); tops.push(...per.slice(0, 4).map(([t]) => t));
+    }
+    return { bins, tops };
+  }
+  function drawHeads() {
+    if (!HAVE_FILES) return;
+    const ms = momentList();
+    if (HD.sel < 0) HD.sel = ms.length - 1;
+    const host = $("hd-when");
+    if (host.childElementCount !== ms.length) host.innerHTML = ms.map((m, i) => `<button type="button" data-v="${i}" data-tip="hd-when">${m.live ? "finished" : short(m.tokens)}</button>`).join("");
+    host.querySelectorAll("button[data-v]").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.v) === HD.sel)));
+    const m = ms[HD.sel], d = m.live ? liveHeads() : m;
+    const grid = $("hd-grid");
+    if (grid.childElementCount !== NH) grid.innerHTML = Array.from({ length: NH }, (_, h) => `<div class="hc" data-tip="hd-card" data-sel="${h}"><h4>Head ${h + 1}<small></small></h4><canvas aria-label="Head ${h + 1}'s weight by distance back"></canvas><div class="rd"></div></div>`).join("");
+    if (!d) { $("hd-read").textContent = FAILED || "Measuring the 100 test stories…"; return; }
+    for (let h = 0; h < NH; h++) {
+      const card = grid.children[h], b = d.bins.slice(h * NB.length, (h + 1) * NB.length);
+      const [W, H, ctx] = sizeCanvas(card.querySelector("canvas")), bw = W / NB.length;
+      ctx.font = `9.5px ${MONO}`; ctx.textAlign = "center"; ctx.textBaseline = "top";
+      b.forEach((v, k) => { const bh = Math.max(1, v * (H - 14)); ctx.fillStyle = rgba(k === 1 ? C.pos : C.ink, k === 1 ? 1 : 0.75); ctx.fillRect(k * bw + 2, H - 13 - bh, bw - 4, bh); ctx.fillStyle = rgba(C["ink-3"]); ctx.fillText(BIN_TICK[k], k * bw + bw / 2, H - 11); });
+      const nearS = b[1], farS = b[6] + b[7];
+      card.querySelector("small").textContent = `${pct(nearS)} just before · ${pct(farS)} 16+ back`;
+      card.querySelector(".rd").innerHTML = `reads most: ${d.tops.slice(h * 4, h * 4 + 4).map((t) => `<b>${esc(show(t))}</b>`).join(", ")}`;
+    }
+    const endShare = m.live && EV.stats ? Math.max(...Array.from({ length: NH }, (_, h) => EV.stats.reads[h * V] / EV.stats.n)) : null;
+    $("hd-read").innerHTML = `After <b>${num(m.tokens)}</b> training tokens (${m.live ? `step ${num(m.step)}, the finished network, measured in your browser now` : m.step === 0 ? "the starting weights, before any training" : `step ${num(m.step)}, a checkpoint saved during training`}). Each card shows where a head's weight goes in the 100 test stories, by distance back (blue: the token just before), and the 4 tokens that get the most weight from it each time they appear. The distance groups are 0, 1, 2, 3, 4–7, 8–15, 16–63 and 64–255 tokens back, so the last ones are wide. “&lt;end&gt;” tops most cards because every later position of a story can see it${endShare != null ? `, and some heads put a good share of their weight there (up to ${pct(endShare)} of a head's weight)` : ""}.`;
+  }
+  $("hd-when").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; HD.sel = Number(b.dataset.v); drawHeads(); });
+  function headsAfter() {
+    const d = liveHeads(); if (!d) return;
+    const prev = [], far = [], nameReaders = [], ids = new Set(NAME_IDS());
+    for (let h = 0; h < NH; h++) {
+      const b = d.bins.slice(h * NB.length, (h + 1) * NB.length);
+      if (b[1] >= 0.3) prev.push(h + 1);
+      if (b[6] + b[7] >= 0.5) far.push(h + 1);
+      if (d.tops.slice(h * 4, h * 4 + 4).filter((t) => ids.has(t)).length >= 2) nameReaders.push(h + 1);
+    }
+    const list = (a) => (a.length === 1 ? `head ${a[0]}` : `heads ${a.slice(0, -1).join(", ")} and ${a[a.length - 1]}`), cap = (x) => x[0].toUpperCase() + x.slice(1);
+    $("hd-after").innerHTML = `By the end, the heads had split the work. ${prev.length ? `${cap(list(prev))} put${prev.length === 1 ? "s" : ""} much of ${prev.length === 1 ? "its" : "their"} weight on the token just before, rebuilding part of chapter 6's fixed window.` : ""} ${far.length ? `${cap(list(far))} put${far.length === 1 ? "s" : ""} most of ${far.length === 1 ? "its" : "their"} weight far back, 16 tokens or more.` : ""} ${nameReaders.length ? `The tokens ${list(nameReaders)} read${nameReaders.length === 1 ? "s" : ""} most include names.` : ""} Nothing in the training asked for this division of labor; it is simply what lowered the loss. Larger models show the same: many of their heads can be given a job description, such as “the previous token”, though many cannot.`;
+  }
+
+  // ---------- Secret 2: swapping the name ----------
+  const SWAP_TO = ["lily", "tom", "max", "mia", "sue", "ben", "fred"];
+  const SW = { k: 0, to: "lily", list: null, orig: null, byName: new Map() };
+  // the test stories with a name that comes back from further than 8 tokens
+  const nameStories = () => SW.list || (SW.list = Array.from({ length: NS }, (_, s) => s).filter((s) => { const { tokens, next } = storyOf(s), X = EV.names[s]; return X >= 0 && farPositions(tokens, next, X).length > 0; }));
+  const swapped = (tokens, X, Y) => Uint16Array.from(tokens, (x) => (x === X ? Y : x));
+  // a few tokens before position r, to say where in the story it is
+  const before = (tokens, r, n = 4) => Array.from(tokens.subarray(Math.max(1, r - n + 1), r + 1), show).join(" ");
+  // chapter 6's network at the same places, once its guesses are measured
+  const sixRate = () => { if (!EV.g6) return null; let n = 0, r = 0; for (let t = 0; t < EV.n; t++) if (EV.isName[t]) { n++; if (EV.g6[t] === EV.ans[t]) r++; } return r / n; };
+  function drawSwap() {
+    document.querySelectorAll("#sw-pre button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === SW.to)));
+    if (!DATA.ready || !EV.names.length) { $("sw-read").textContent = FAILED || "Loading 21,000 stories…"; return; }
+    const list = nameStories(), s = list[SW.k % list.length], { tokens, next } = storyOf(s), X = EV.names[s], Y = TK.id.get(SW.to), at = farPositions(tokens, next, X);
+    const same = tokens.includes(Y), sw = same ? tokens : swapped(tokens, X, Y);
+    chips($("sw-toks"), Array.from(sw.subarray(1)), { cls: (i) => (sw[i + 1] === (same ? X : Y) ? "name" : at.includes(i + 1) ? "cur" : "") });
+    const key = `${s}|${SW.to}`;
+    if (SW.rowsKey !== key) {
+      const lo = Math.min(...at), hi = Math.max(...at);
+      const g0 = forward(NET, tokens.subarray(0, hi + 1), lo), g1 = same ? g0 : forward(NET, sw.subarray(0, hi + 1), lo);
+      SW.rows = at.slice(0, 10).map((r) => [r, argmax(g0.p, (r - lo) * V, V), argmax(g1.p, (r - lo) * V, V)]); SW.rowsKey = key;
+    }
+    const rows = SW.rows;
+    $("sw-table").innerHTML = `<span class="h">after</span><span class="h">as written (“${esc(show(X))}”)</span><span class="h">${same ? `“${esc(SW.to)}” is already in this story` : `swapped for “${esc(SW.to)}”`}</span>` +
+      rows.map(([r, a, b]) => `<span>…${esc(before(sw, r))}</span><span class="${a === X ? "ok" : "no"}">${esc(show(a))}</span>${same ? "<span></span>" : `<span class="${b === Y ? "ok" : "no"}">${esc(show(b))}</span>`}`).join("");
+    const B = SW.byName.get(SW.to), six = sixRate();
+    $("sw-read").innerHTML = `Story ${list.indexOf(s) + 1} of the ${list.length} test stories whose name comes back from further than 8 tokens; outlined: the tokens after which the name comes next.${SW.orig ? ` Over all ${num(SW.orig.n)} such places, the attention network's first guess is the story's own name <b>${pct1(SW.orig.rate)}</b> of the time${six != null ? ` (chapter 6's network: ${pct1(six)})` : ""}.` : ""}${B ? ` With the name swapped for “${esc(SW.to)}” in every story that does not already have it, the first guess is “${esc(SW.to)}” <b>${pct1(B.rate)}</b> of the time, and the old name ${pct1(B.old)}.` : " Measuring the swaps…"}`;
+    drawSwapNames();
+  }
+  // every new name's rate, against how often it appears in the training stories
+  function drawSwapNames() {
+    const done = SWAP_TO.filter((w) => SW.byName.has(w));
+    if (!done.length || !DATA.count) { $("sw-names").innerHTML = ""; return; }
+    $("sw-names").innerHTML = SWAP_TO.map((w) => { const B = SW.byName.get(w), c = DATA.count[TK.id.get(w)]; return `<div class="lr${w === SW.to ? " best" : ""}"><span>${w}<small>${num(c)} times in the training stories</small></span><span class="bar"><i style="width:${B ? (100 * B.rate).toFixed(1) : 0}%"></i></span><b>${B ? pct1(B.rate) : "…"}</b></div>`; }).join("");
+  }
+  function swapAll() {
+    const list = nameStories(), orig = [], at = [];
+    for (const s of list) { const { tokens, next } = storyOf(s); at.push(farPositions(tokens, next, EV.names[s])); orig.push({ tokens: Uint16Array.from(tokens), at: at[at.length - 1] }); }
+    job("guessAt", NET, [orig], (res) => {
+      let n = 0, r = 0; list.forEach((s, i) => at[i].forEach((_, j) => { n++; if (res[i][j] === EV.names[s]) r++; }));
+      SW.orig = { n, rate: r / n }; drawSwap(); drawInvent();
+    });
+    for (const w of SWAP_TO) {
+      const Y = TK.id.get(w), keep = list.map((s, i) => i).filter((i) => !storyOf(list[i]).tokens.includes(Y));
+      const items = keep.map((i) => ({ tokens: swapped(storyOf(list[i]).tokens, EV.names[list[i]], Y), at: at[i] }));
+      job("guessAt", NET, [items], (res) => {
+        let n = 0, r = 0, old = 0; keep.forEach((i, q) => at[i].forEach((_, j) => { n++; if (res[q][j] === Y) r++; if (res[q][j] === EV.names[list[i]]) old++; }));
+        SW.byName.set(w, { n, rate: r / n, old: old / n }); drawSwap(); swapAfter();
+      });
+    }
+  }
+  function swapAfter() {
+    if (SW.byName.size < SWAP_TO.length || !SW.orig || !DATA.count) return;
+    const by = SWAP_TO.map((w) => ({ w, c: DATA.count[TK.id.get(w)], ...SW.byName.get(w) })).sort((a, b) => b.rate - a.rate), hi = by[0], lo = by[by.length - 1];
+    const rarest = by.slice().sort((a, b) => a.c - b.c)[0], six = sixRate();
+    $("sw-after").innerHTML = `It does copy: swap in another name and the network brings the new name back, which guessing from habit could not do${six != null ? `, and which chapter 6's network, at ${pct1(six)} for the stories' own names at these places, hardly does at all` : ""}. How well depends on the name, from ${pct1(hi.rate)} for “${hi.w}” to ${pct1(lo.rate)} for “${lo.w}”${lo.w === rarest.w ? `, the rarest of these names in the training stories (${num(lo.c)} times)` : ""}. In this one-layer network, bringing a name back is not a general “copy whatever you find”. The head brings back the name's value, 16 numbers, and the layers above must have learned which token those numbers should raise. They learned that from the training stories, one name at a time, as was the name's own row; a name that appears only a few hundred times there probably gets too little practice. (How often a name appears does not explain everything: among the common names, the order is not the order of their counts.)`;
+  }
+  $("sw-pre").innerHTML = SWAP_TO.map((w) => `<button type="button" data-v="${w}" data-tip="sw-pre">${w}</button>`).join("");
+  $("sw-pre").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; SW.to = b.dataset.v; drawSwap(); });
+  $("sw-prev").addEventListener("click", () => { const n = nameStories().length; SW.k = (SW.k + n - 1) % n; drawSwap(); });
+  $("sw-next").addEventListener("click", () => { SW.k = (SW.k + 1) % nameStories().length; drawSwap(); });
+
+  // ---------- Secret 3: one head switched off ----------
+  // A head is switched off by setting its value table to 0: wherever it looks, it then brings back 16 zeros.
+  const KO = { head: -1, res: new Map(), names: new Map() };
+  const KO_CATS = [["All tokens", () => true], ["The answer is among the last 8 tokens", (t) => EV.where[t] === 0], ["Earlier in the story, further back", (t) => EV.where[t] === 1], ["… and the story's name", (t) => EV.isName[t] === 1], ["Nowhere earlier in the story", (t) => EV.where[t] === 2]];
+  const koAcc = (g) => KO_CATS.map(([, keep]) => accOf(g, keep).acc);
+  // how many places get a name as the first guess, and how many of those are wrong
+  const nameGuesses = (g) => { const ids = new Set(NAME_IDS()); let n = 0, wrong = 0; for (let t = 0; t < EV.n; t++) if (ids.has(g[t])) { n++; if (g[t] !== EV.ans[t]) wrong++; } return { n, wrong }; };
+  function knockAll() {
+    const stories = plainStories(NS);
+    for (let h = 0; h < NH; h++) {
+      const net = plainNet(NET); net.Wv.fill(0, h * DV * Dm, (h + 1) * DV * Dm);
+      job("score", net, [stories, false], ({ out }) => {
+        const g = new Int16Array(EV.n); out.forEach(({ guess }, s) => g.set(guess, DATA.stories[s][0])); KO.res.set(h, koAcc(g)); KO.names.set(h, nameGuesses(g));
+        if (KO.res.size === NH && KO.head < 0) { const base = koAcc(EV.ga); KO.head = [...KO.res.keys()].sort((x, y) => (base[3] - KO.res.get(y)[3]) - (base[3] - KO.res.get(x)[3]))[0]; }
+        drawKnock();
+      });
+    }
+  }
+  function drawKnock() {
+    pressHead($("ko-head"), KO.head);
+    if (!EV.ga) { $("ko-read").textContent = FAILED || "Measuring the 100 test stories…"; return; }
+    const base = koAcc(EV.ga), h = KO.head, r = h >= 0 ? KO.res.get(h) : null;
+    $("ko-bars").innerHTML = KO_CATS.map(([lab], i) => `<div class="sg"><h4>${esc(lab)}</h4><div class="lr"><span>all 8 heads</span><span class="bar"><i style="width:${(100 * base[i]).toFixed(1)}%"></i></span><b>${pct1(base[i])}</b></div><div class="lr best"><span>${h >= 0 ? `head ${h + 1} off` : "one head off"}</span><span class="bar"><i style="width:${r ? (100 * r[i]).toFixed(1) : 0}%"></i></span><b>${r ? pct1(r[i]) : "…"}</b></div></div>`).join("");
+    $("ko-read").innerHTML = KO.res.size < NH ? `Measuring the 100 test stories with each head switched off in turn: ${KO.res.size} of 8 done.` : `With head ${h + 1} switched off, ${pct1(r[0])} of the tokens are guessed right, against ${pct1(base[0])} with all 8 heads${Math.abs(r[3] - base[3]) >= 0.05 ? `; where the answer is the story's name, ${pct1(r[3])} against ${pct1(base[3])}` : ""}.`;
+    if (KO.res.size === NH) koAfter(base);
+  }
+  const pts = (v) => (100 * v).toFixed(1);
+  function koAfter(base) {
+    const R = [...Array(NH).keys()].map((h) => KO.res.get(h)), drop = (h, i) => base[i] - R[h][i];
+    const byAll = [...Array(NH).keys()].sort((x, y) => drop(y, 0) - drop(x, 0)), byName = [...Array(NH).keys()].sort((x, y) => drop(y, 3) - drop(x, 3));
+    const a = byAll[0], n = byName[0], rise = [...Array(NH).keys()].filter((h) => -drop(h, 3) >= 0.05), lo = Math.min(...byAll.map((h) => drop(h, 0))), base6 = nameGuesses(EV.ga);
+    $("ko-after").innerHTML = `${lo > 0 ? `Every head helps overall: switching any one off costs between ${pts(lo)} and ${pts(drop(a, 0))} percentage points.` : `Switching a head off changes the overall score by up to ${pts(drop(a, 0))} percentage points.`} Head ${a + 1} costs the most. ${n !== a ? `Head ${n + 1} is different: without it the network loses only ${pts(drop(n, 0))} points overall, but where the answer is the story's name it falls from ${pct1(base[3])} to ${pct1(R[n][3])}. That head is the one that carries names forward.` : `It is also the head that carries names forward: without it, the name is guessed ${pct1(R[n][3])} of the time instead of ${pct1(base[3])}.`}${rise.length ? ` With ${rise.map((h) => `head ${h + 1}`).join(" or ")} off, the name is guessed right <i>more</i> often where it comes back (${rise.map((h) => pct1(R[h][3])).join(", ")}), but not because ${rise.length > 1 ? "those heads were" : "that head was"} holding the name back: the network then guesses a name far more often everywhere, at ${rise.map((h) => num(KO.names.get(h).n)).join(" and ")} places instead of ${num(base6.n)}, wrongly at ${rise.map((h) => num(KO.names.get(h).wrong)).join(" and ")} instead of ${num(base6.wrong)}. ${rise.length > 1 ? "Those heads help" : "That head helps"} decide when a name should come next at all. A network's parts do not divide their jobs cleanly.` : ""}`;
+  }
+  $("ko-head").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; KO.head = Number(b.dataset.v); drawKnock(); });
+
+  // ---------- Secret 4: invented names ----------
+  const INVENT = ["zarko", "vorna", "quilla", "morvin", "dashu", "tilda"];
+  const IV = { k: 0, name: "zarko", agg: null };
+  // the story with every mention of its name X replaced by the pieces Z; for each mention, where its pieces sit
+  function invented(tokens, X, Z) {
+    const out = [0], mentions = [];
+    for (let i = 1; i < tokens.length; i++) if (tokens[i] === X) { mentions.push(out.length); out.push(...Z); } else out.push(tokens[i]);
+    return { toks: Uint16Array.from(out), mentions };
+  }
+  // how often token b follows token a in the training stories: counted in one pass for all the pairs of the
+  // invented names (other pairs, from a name typed elsewhere, are counted when first asked for)
+  const PAIRS = new Map();
+  function countPairs(pairs) {
+    const want = new Map(pairs.filter(([a, b]) => !PAIRS.has(a * V + b)).map(([a, b]) => [a * V + b, 0]));
+    if (!want.size) return;
+    const tr = DATA.train; for (let t = 0; t + 1 < tr.length; t++) { const k = tr[t] * V + tr[t + 1]; if (want.has(k)) want.set(k, want.get(k) + 1); }
+    for (const [k, n] of want) PAIRS.set(k, n);
+  }
+  const pairCount = (a, b) => { if (!PAIRS.has(a * V + b)) countPairs([[a, b]]); return PAIRS.get(a * V + b); };
+  function drawInvent() {
+    document.querySelectorAll("#iv-pre button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === IV.name)));
+    if (!DATA.ready || !EV.names.length) { $("iv-read").textContent = FAILED || "Loading 21,000 stories…"; return; }
+    const list = nameStories(), s = list[IV.k % list.length], { tokens } = storyOf(s), Z = TK.encode(IV.name), { toks, mentions } = invented(tokens, EV.names[s], Z);
+    const isZ = new Uint8Array(toks.length); for (const m of mentions) for (let j = 0; j < Z.length; j++) isZ[m + j] = 1;
+    chips($("iv-toks"), Array.from(toks.subarray(1)), { cls: (i) => (isZ[i + 1] ? "name" : "") });
+    const key = `${s}|${IV.name}`;
+    if (IV.gKey !== key) { const f = forward(NET, toks); IV.g = mentions.slice(0, 8).map((m) => Z.slice(1).map((z, j) => argmax(f.p, (m + j) * V, V))); IV.gKey = key; }
+    $("iv-table").style.gridTemplateColumns = `max-content repeat(${Math.max(1, Z.length - 1)}, minmax(0, 1fr))`;
+    $("iv-table").innerHTML = Z.length < 2 ? "" : `<span class="h">mention</span>${Z.slice(1).map((z, j) => { const c = pairCount(Z[j], z); return `<span class="h">after “${esc(show(Z[j]))}”, the right piece is “${esc(show(z))}” <span style="text-transform:none">(${c ? `this pair: ${num(c)}× in training` : "a pair never seen in training"})</span></span>`; }).join("")}` +
+      IV.g.map((gs, i) => `<span>${i === 0 ? "first" : `${i + 1}${["", "nd", "rd"][i] || "th"}`}</span>${gs.map((g, j) => `<span class="${g === Z[j + 1] ? "ok" : "no"}">${esc(show(g))}</span>`).join("")}`).join("");
+    const A = IV.agg;
+    $("iv-read").innerHTML = Z.length < 2 ? `“${esc(IV.name)}” is a single token, so there is nothing to finish.` : `“${esc(IV.name)}” is cut into ${Z.map(quote).join(" + ")}; the table shows the attention network's first guess for each next piece, at each mention.${A ? ` Over the ${A.stories} name stories, each given one of the 6 invented names: at later mentions, a piece that never follows the piece before it in the training stories (such as “##ark” after “z”) is the first guess <b>${pct1(A.unseen.later)}</b> of the time (${num(A.unseen.nLater)} pieces); a piece whose pair with the piece before does appear there is the first guess <b>${pct1(A.seen.later)}</b> of the time (${num(A.seen.nLater)} pieces), against ${pct1(A.seen.first)} at the first mention.` : " Measuring all of them…"}`;
+    if (A) $("iv-after").innerHTML = ivAfter(A);
+  }
+  function inventAll() {
+    const list = nameStories(), items = [], meta = [];
+    countPairs(INVENT.flatMap((w) => { const Z = TK.encode(w); return Z.slice(1).map((z, j) => [Z[j], z]); }));
+    list.forEach((s, i) => {
+      const { tokens } = storyOf(s), Z = TK.encode(INVENT[i % INVENT.length]), { toks, mentions } = invented(tokens, EV.names[s], Z), at = [], want = [], first = [], seen = [];
+      mentions.forEach((m, k) => { for (let j = 1; j < Z.length; j++) { at.push(m + j - 1); want.push(Z[j]); first.push(k === 0); seen.push(pairCount(Z[j - 1], Z[j]) > 0); } });
+      items.push({ tokens: toks, at }); meta.push({ want, first, seen });
+    });
+    job("guessAt", NET, [items], (res) => {
+      const c = { seen: { f: 0, fn: 0, l: 0, ln: 0 }, unseen: { f: 0, fn: 0, l: 0, ln: 0 } };
+      meta.forEach(({ want, first, seen }, i) => want.forEach((z, j) => { const k = c[seen[j] ? "seen" : "unseen"], ok = res[i][j] === z; if (first[j]) { k.fn++; k.f += ok; } else { k.ln++; k.l += ok; } }));
+      const rate = (k) => ({ first: k.f / Math.max(1, k.fn), later: k.l / Math.max(1, k.ln), nLater: k.ln });
+      IV.agg = { stories: list.length, seen: rate(c.seen), unseen: rate(c.unseen) };
+      drawInvent();
+    });
+  }
+  function ivAfter(A) {
+    const uses = A.seen.later - A.seen.first >= 0.1;
+    return `${uses ? `So the network does use the story, on the whole: a piece that already appeared in it, and that can follow the piece before it (the training stories have that pair), becomes more likely, from ${pct1(A.seen.first)} at the first mention to ${pct1(A.seen.later)} at later ones. ` : ""}What it ${uses ? "cannot" : "does not"} do is what a reader does: find the earlier “z” and read what came right after it. ${A.unseen.later < 0.05 ? `A pair the training stories never contain, such as “z” then “##ark”, is almost never guessed, however often the story has just shown it. ` : ""}The reason is in how a key is made. In a single layer, every token's key comes from its own row alone, so no key can say “the token before me was z”, and no query can ask for it. A second layer makes this possible: a head in the first layer writes into each position which token came just before it, and a head in the second layer can then find the position whose previous token was “z” and bring back the token there. Researchers who studied small transformers called that second head an <b>induction head</b> (it works with a <b>previous-token head</b> below it), and found evidence that much of their ability to continue patterns seen earlier in a text comes from such heads. Chapter 8 stacks the layers.`;
+  }
+  $("iv-pre").innerHTML = INVENT.map((w) => `<button type="button" data-v="${w}" data-tip="iv-pre">${w}</button>`).join("");
+  $("iv-pre").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; IV.name = b.dataset.v; drawInvent(); });
+  $("iv-prev").addEventListener("click", () => { const n = nameStories().length; IV.k = (IV.k + n - 1) % n; drawInvent(); });
+  $("iv-next").addEventListener("click", () => { IV.k = (IV.k + 1) % nameStories().length; drawInvent(); });
+
+  // ---------- the algorithm in words, math or code ----------
+  const mi = (s) => `<i>${s}</i>`, sub = (s) => `<sub>${s}</sub>`;
+  const ALGO = [
+    { title: "The weights", words: "Chapter 6's embedding table, a row of 32 numbers per token. For each of the 8 heads, three small tables that turn a row into a query and a key of 8 numbers and a value of 16, and a score for every distance back, from 0 to 255. Then chapter 6's hidden layer of 128 tanh neurons, now reading 160 numbers, and the output layer. The embedding table starts as small random numbers, as in chapter 6, and the other tables random, scaled to their number of inputs; the distance scores and the biases start at 0.",
+      math: [`${mi("E")}: 2,000 × 32,&emsp;per head ${mi("h")}: ${mi("W")}${sub("q")}, ${mi("W")}${sub("k")}: 8 × 32,&emsp;${mi("W")}${sub("v")}: 16 × 32,&emsp;${mi("R")}${sub(mi("h"))}: 256`, `${mi("W")}${sub("1")}: 128 × 160, ${mi("b")}${sub("1")}: 128,&emsp;${mi("W")}${sub("2")}: 2,000 × 128, ${mi("b")}${sub("2")}: 2,000&emsp;(352,848 numbers in all)`] },
+    { title: "Queries, keys and values", words: "Every token of the story gets, for each head, a query, a key and a value: its row times the head's three small tables. The same tables serve every position, so a token's key does not depend on where it stands, or on its neighbors.",
+      math: [`${mi("q")}${sub(mi("i"))} = ${mi("W")}${sub("q")} ${mi("E")}[${mi("t")}${sub(mi("i"))}],&emsp;${mi("k")}${sub(mi("j"))} = ${mi("W")}${sub("k")} ${mi("E")}[${mi("t")}${sub(mi("j"))}],&emsp;${mi("v")}${sub(mi("j"))} = ${mi("W")}${sub("v")} ${mi("E")}[${mi("t")}${sub(mi("j"))}]`] },
+    { title: "The forward pass", words: "Position i can read the tokens j from i − 255 to i, never a later one. Each head scores every one of them: the dot product of the query and the key, divided by √8 so that the scores do not grow with the length of the lists, plus the head's score for the distance i − j. Softmax turns the scores into weights that add up to 1, and the head brings back the weighted average of the values. The hidden layer reads the token's own row and the 8 results side by side, and the output layer and softmax give 2,000 probabilities, as in chapter 6.",
+      math: [`${mi("s")}${sub(mi("ij"))} = ${mi("q")}${sub(mi("i"))} · ${mi("k")}${sub(mi("j"))} / √8 + ${mi("R")}[${mi("i")} − ${mi("j")}],&emsp;${mi("w")}${sub(mi("ij"))} = e<sup>${mi("s")}${sub(mi("ij"))}</sup> / Σ${sub(mi("j′"))} e<sup>${mi("s")}${sub(mi("ij′"))}</sup>,&emsp;${mi("o")}${sub(mi("i"))} = Σ${sub(mi("j"))} ${mi("w")}${sub(mi("ij"))} ${mi("v")}${sub(mi("j"))}`, `${mi("x")}${sub(mi("i"))} = [ ${mi("E")}[${mi("t")}${sub(mi("i"))}], ${mi("o")}${sub(mi("i"))}<sup>(1)</sup>, …, ${mi("o")}${sub(mi("i"))}<sup>(8)</sup> ],&emsp;${mi("a")} = tanh(${mi("W")}${sub("1")}${mi("x")}${sub(mi("i"))} + ${mi("b")}${sub("1")}),&emsp;${mi("p")} = softmax(${mi("W")}${sub("2")}${mi("a")} + ${mi("b")}${sub("2")})`] },
+    { title: "The backward pass", words: "Through the output and hidden layers as in chapter 6, down to the 160 numbers that were read: 32 go to the token's own row, 16 to each head's result. A result is a weighted sum, so its gradient goes to every value it read, in proportion to the weight, and to every weight, as the dot product with that value. Softmax turns the weights' gradients into the scores' gradients, and each score sends its gradient to the query, the key and the distance score. Last, the queries, keys and values send theirs to their small tables and to the rows they were made from.",
+      math: [`∂loss/∂${mi("v")}${sub(mi("j"))} += ${mi("w")}${sub(mi("ij"))} ∂loss/∂${mi("o")}${sub(mi("i"))},&emsp;∂loss/∂${mi("w")}${sub(mi("ij"))} = ∂loss/∂${mi("o")}${sub(mi("i"))} · ${mi("v")}${sub(mi("j"))}`, `∂loss/∂${mi("s")}${sub(mi("ij"))} = ${mi("w")}${sub(mi("ij"))} (∂loss/∂${mi("w")}${sub(mi("ij"))} − Σ${sub(mi("j′"))} ${mi("w")}${sub(mi("ij′"))} ∂loss/∂${mi("w")}${sub(mi("ij′"))})`, `∂loss/∂${mi("q")}${sub(mi("i"))} += ∂loss/∂${mi("s")}${sub(mi("ij"))} ${mi("k")}${sub(mi("j"))} / √8,&emsp;∂loss/∂${mi("k")}${sub(mi("j"))} += ∂loss/∂${mi("s")}${sub(mi("ij"))} ${mi("q")}${sub(mi("i"))} / √8,&emsp;∂loss/∂${mi("R")}[${mi("i")} − ${mi("j")}] += ∂loss/∂${mi("s")}${sub(mi("ij"))}`] },
+    { title: "A training step, with Adam", words: "Read a few whole stories. One forward pass per story gives a guess at every position, since no position reads a later token; add up the gradients of all the positions and average them. Then step with Adam, as in chapter 6. The finished network read 8 stories per step at a learning rate of 0.008, slowing to 0 over the last 30% of its 19,000 steps.",
+      math: [`loss = −(1/${mi("N")}) Σ${sub(mi("i"))} log ${mi("p")}${sub(mi("i"))}(next${sub(mi("i"))}),&emsp;${mi("N")} = the positions of all the stories in the step`, `${mi("m")} ← 0.9 ${mi("m")} + 0.1 ${mi("g")},&emsp;${mi("s")} ← 0.999 ${mi("s")} + 0.001 ${mi("g")}²,&emsp;${mi("w")} ← ${mi("w")} − η (${mi("m")} / (1 − 0.9<sup>${mi("t")}</sup>)) / (√(${mi("s")} / (1 − 0.999<sup>${mi("t")}</sup>)) + 10<sup>−8</sup>)`] },
+  ];
+  let SRC = "";
+  function renderAlgo() {
+    if (!SRC) return;
+    const js = SRC.split(/\n\s*\n/), py = $("attn-py").textContent.trim().split(/\n\s*\n/), ok = js.length === ALGO.length && py.length === ALGO.length;
+    if (!ok) console.warn(`renderAlgo: expected ${ALGO.length} sections, got ${js.length} (JS) and ${py.length} (Python)`);
+    $("algo").innerHTML = ALGO.map((a, i) => `<div class="ablock"><div class="atitle"><span class="n">${i + 1}</span>${a.title}</div>${ITN.view.reps({ words: a.words, math: a.math, js: ok ? js[i] : js.join("\n\n"), py: ok ? py[i] : py.join("\n\n") })}</div>`).join("");
+  }
+  ITN.source("attn").then((a) => { SRC = a; renderAlgo(); });
+  ITN.view.onChange(renderAlgo);
+
+  // ---------- the film ----------
+  const FILM_TEXT = QT_TEXT.replace("{}", "lily");
+  const film = (() => {
+    const SC = [{ k: "reach", d: 8000 }, { k: "query", d: 8500 }, { k: "weights", d: 7500 }, { k: "values", d: 8000 }, { k: "heads", d: 10400 }, { k: "guess", d: 7500 }, { k: "short", d: 6500 }];
+    const TOTAL = SC.reduce((a, x) => a + x.d, 0), startOf = (i) => SC.slice(0, i).reduce((a, x) => a + x.d, 0);
+    const at = (t) => { let i = 0; while (i < SC.length - 1 && t >= SC[i].d) { t -= SC[i].d; i++; } return { i, u: Math.min(1, t / SC[i].d) }; };
+    let t = 0, playing = false, last = 0, started = false, autoPaused = false, capKey = "", drawn = "", loop = 0, visible = false, A = null;
+    const chipsEl = [...$("f-chips").querySelectorAll("button")];
+    const setLabel = () => { $("f-play").textContent = playing ? "Pause" : t >= TOTAL ? "Replay" : t > 0 ? "Resume" : "Play"; };
+    function assets() {
+      if (A) return A;
+      const ids = TK.encode(FILM_TEXT), toks = textToks(ids), n = toks.length, i = n - 1, X = TK.id.get("lily");
+      const f = forward(NET, toks, i), p6 = probs6(ctx6(toks, i));
+      // the head that puts the most weight on the name
+      const onName = (h) => { let s = 0; for (let t = 0; t <= Math.min(i, WIN - 1); t++) if (toks[i - t] === X) s += f.w[h * WIN + t]; return s; };
+      let head = 0; for (let h = 1; h < NH; h++) if (onName(h) > onName(head)) head = h;
+      const det = headDetail(NET, toks, i, head);
+      // each head's largest weight: [head, position, weight, distance back]
+      const lines = Array.from({ length: NH }, (_, q) => { let b = 0; for (let t = 1; t <= Math.min(i, WIN - 1); t++) if (f.w[q * WIN + t] > f.w[q * WIN + b]) b = t; return [q, i - b, f.w[q * WIN + b], b]; });
+      A = { ids, toks, n, i, X, f, p6, head, det, lines, top: topOf(f.p, 8), top6: topOf(p6, 8), byW: det.rows.slice().sort((a, b) => b.w - a.w), byS: det.rows.slice().sort((a, b) => b.qk + b.r - (a.qk + a.r)) };
+      return A;
+    }
+    function panel(id, html) { const el = $(id); if (el.dataset.html !== html) { el.dataset.html = html; el.innerHTML = html; } return el; }
+    function toksPanel(id, heat, cls) { const el = panel(id, `<div class="fhtml"><div class="toks small"></div></div>`); chips(el.querySelector(".toks"), Array.from(A.toks), { heat, cls }); }
+    function caption(k) {
+      const a = assets(), g = a.top[0], name = show(a.X), b = a.byW[0];
+      switch (k) {
+        case "reach": return `<b>Out of reach.</b> The story names its hero once, in its first sentence, ${a.i - a.toks.indexOf(a.X) + 1} tokens before the next word, which is a good place for the name again. Chapter 6's network reads only the last 8 tokens, outlined, where the name is not. Its top guess is ${quote(a.top6[0][0])}, and it gives “${name}” ${sure(a.p6[a.X])}.`;
+        case "query": return `<b>Query and keys.</b> The last token, ${quote(a.toks[a.i])}, asks with its query; every token up to it offers its key. Head ${a.head + 1} scores each one: the dot product of query and key, divided by √8, plus the head's score for the distance back. The highest score goes to ${quote(a.toks[a.byS[0].j])}.`;
+        case "weights": return `<b>Weights.</b> Softmax turns the ${a.det.rows.length} scores into weights that add up to 1. A score higher by 1 means a weight about 2.7 times larger, so the best matches take most of it: ${quote(a.toks[b.j])}, ${b.t} tokens back, gets ${pct(b.w)}.`;
+        case "values": return `<b>Values.</b> Each token hands over its value, 16 numbers, and the head brings back their weighted average. With most of the weight on “${name}”, the result is mostly “${name}”'s value: the name has been carried ${b.t} tokens forward.`;
+        case "heads": return `<b>Eight heads.</b> The network makes 8 such lookups at once, each with its own small tables and distance scores, so each can look for something different. Here, each head's largest weight goes to: ${a.lines.map(([q, j, , b]) => `head ${q + 1}, ${quote(a.toks[j])} ${b === 0 ? "(itself)" : b === 1 ? "(just before)" : j === 0 ? "(the opening &lt;end&gt;)" : `(${b} back)`}`).join("; ")}.`;
+        case "guess": return `<b>The guess.</b> The hidden layer reads the token's own row and the 8 heads' results, 160 numbers, and the output layer scores every token. Top guess: ${quote(g[0])}, at ${pct(g[1])}${g[0] === a.X ? ", the name from the first sentence" : ""}.`;
+        case "short": return "<b>In short.</b> Every position asks a question, every earlier token offers an answer, and the best matches are read, from anywhere in the window. The small tables that make the questions and answers are learned like any other weights.";
+      }
+      return "";
+    }
+    function render(force) {
+      const { i, u } = at(t), k = SC[i].k;
+      chipsEl.forEach((c, n) => c.classList.toggle("on", n === i));
+      $("f-fill").style.width = (100 * t) / TOTAL + "%";
+      if (!NET || !DATA.ready) { $("f-ticker").textContent = FAILED || "loading 21,000 stories…"; return; }
+      const a = assets(), last = a.i;
+      const sub2 = k === "heads" ? Math.min(NH - 1, Math.floor(u * NH)) : k === "query" || k === "weights" ? Math.floor(Math.min(1, u / 0.6) * 20) : 0;
+      const key2 = `${k}|${sub2}`;
+      if (!force && key2 === drawn) return;
+      drawn = key2;
+      let lt = "", rt = "", ticker = "";
+      const wOf = (h) => { const w = new Float64Array(a.n); let top = 0; for (let t = 0; t <= Math.min(last, WIN - 1); t++) { w[last - t] = a.f.w[h * WIN + t]; top = Math.max(top, w[last - t]); } return (j) => w[j] / top; };
+      const nameCls = (j) => [a.toks[j] === a.X ? "name" : "", j === last ? "cur" : ""].join(" ");
+      if (k === "reach") {
+        toksPanel("f-left", null, (j) => [a.toks[j] === a.X ? "name" : "", j > last - K ? "win" : "dim"].join(" "));
+        const host = panel("f-right", `<div class="fhtml"><div class="bars"></div></div>`).querySelector(".bars");
+        bars(host, a.top6.map(([x, v], n) => [show(x), v, x === a.X ? "hit" : n === 0 ? "top" : ""]));
+        lt = "The story so far"; rt = "Chapter 6's guesses, from the last 8"; ticker = `chapter 6 reads: ${Array.from(a.toks.subarray(last - K + 1, last + 1), show).join(" ")}`;
+      } else if (k === "query" || k === "weights") {
+        const sh = sub2 / 20, rows = k === "query" ? a.byS : a.byW;
+        const lo = Math.min(...a.det.rows.map((x) => x.qk + x.r)), hi = Math.max(...a.det.rows.map((x) => x.qk + x.r));
+        const sOf = new Float64Array(a.n), wTop = a.byW[0].w; a.det.rows.forEach((x) => (sOf[x.j] = k === "query" ? (x.qk + x.r - lo) / (hi - lo) : x.w / wTop));
+        toksPanel("f-left", (j) => (j <= last ? sOf[j] * sh : null), nameCls);
+        const host = panel("f-right", `<div class="fhtml"><div class="bars"></div></div>`).querySelector(".bars");
+        if (k === "query") bars(host, rows.slice(0, 9).map((x, n) => [`${show(a.toks[x.j])} ·${x.t}`, ((x.qk + x.r - lo) / (hi - lo)) * sh, n === 0 ? "top" : ""]), (v) => ITN.fmt(lo + v / Math.max(sh, 1e-9) * (hi - lo), 1));
+        else bars(host, rows.slice(0, 9).map((x, n) => [`${show(a.toks[x.j])} ·${x.t}`, x.w * sh, a.toks[x.j] === a.X ? "hit" : n === 0 ? "top" : ""]), (v) => pct(v / Math.max(sh, 1e-9)));
+        lt = `Head ${a.head + 1}: ${k === "query" ? "scores" : "weights"}, darker for more`; rt = k === "query" ? "The highest scores (·distance back)" : "The largest weights (·distance back)";
+        ticker = k === "query" ? `score = q · k / √8 + R[distance]: ${rows.slice(0, 3).map((x) => `${show(a.toks[x.j])} ${ITN.fmt(x.qk, 1)} ${x.r >= 0 ? "+" : "−"} ${ITN.fmt(Math.abs(x.r), 1)}`).join(" · ")}` : `weights add up to 1: ${rows.slice(0, 3).map((x) => `${show(a.toks[x.j])} ${pct(x.w)}`).join(" · ")}`;
+      } else if (k === "values") {
+        toksPanel("f-left", wOf(a.head), nameCls);
+        const el = panel("f-right", `<div class="fhtml"><div class="strips"></div></div>`).querySelector(".strips"), v = a.f.v, H = NH, top3 = a.byW.slice(0, 4);
+        const val = (j) => v.subarray((j * H + a.head) * DV, (j * H + a.head + 1) * DV);
+        strips(el, top3.map((x) => [`${show(a.toks[x.j])} × ${pct(x.w)}`, val(x.j)]).concat([["= result", a.det.out]]), scaleOf(a.det.out));
+        lt = `Head ${a.head + 1}'s weights`; rt = "Values, and their weighted average"; ticker = `result = ${top3.map((x) => `${pct(x.w)} × value(${show(a.toks[x.j])})`).join(" + ")} + …`;
+      } else if (k === "heads") {
+        const h = sub2, w = wOf(h);
+        toksPanel("f-left", w, (j) => (j === last ? "cur" : ""));
+        const lines = a.lines;
+        panel("f-right", `<div class="fhtml"><div class="bars" style="grid-template-columns:max-content minmax(0,1fr) 3.4em"></div></div>`);
+        bars($("f-right").querySelector(".bars"), lines.map(([q, j, wv, b]) => [`head ${q + 1}: ${show(a.toks[j])} ·${b}`, wv, q === h ? "top" : ""]));
+        lt = `Head ${h + 1}'s weights`; rt = "Each head's largest weight (·distance back)"; ticker = `head ${h + 1} looks most at “${show(a.toks[lines[h][1]])}”, ${lines[h][3]} back`;
+      } else if (k === "guess") {
+        toksPanel("f-left", null, (j) => (a.toks[j] === a.X ? "name" : j === last ? "cur" : ""));
+        const host = panel("f-right", `<div class="fhtml"><div class="bars"></div></div>`).querySelector(".bars");
+        bars(host, a.top.map(([x, v], n) => [show(x), v, x === a.X ? "hit" : n === 0 ? "top" : ""]));
+        lt = "The story so far"; rt = "The attention network's guesses"; ticker = `“… ${Array.from(a.toks.subarray(a.i - 3, a.i + 1), show).join(" ")}” → ${a.top.slice(0, 3).map(([x, v]) => `${show(x)} ${pct(v)}`).join(" · ")}`;
+      } else {
+        toksPanel("f-left", wOf(a.head), nameCls);
+        const host = panel("f-right", `<div class="fhtml"><div class="bars"></div></div>`).querySelector(".bars");
+        bars(host, [["chapter 6", a.p6[a.X], ""], ["attention", a.f.p[a.X], "hit"]]);
+        lt = "Where head " + (a.head + 1) + " looked"; rt = `Probability of “${show(a.X)}”`; ticker = "query · key → softmax → weighted average of values → the guess";
+      }
+      $("f-lt").textContent = lt; $("f-rt").textContent = rt; $("f-ticker").textContent = ticker;
+      if (k !== capKey) { capKey = k; $("f-cap").innerHTML = caption(k); }
+    }
+    function tick(id, now) {
+      if (!playing || id !== loop) return;
+      if (DATA.ready) t = Math.min(TOTAL, t + Math.min(64, now - last));
+      last = now;
+      if (t >= TOTAL) { playing = false; setLabel(); }
+      render();
+      if (playing) requestAnimationFrame((n) => tick(id, n));
+    }
+    function play2() { if (t >= TOTAL) t = 0; playing = true; started = true; autoPaused = false; last = performance.now(); setLabel(); const id = ++loop; requestAnimationFrame((n) => tick(id, n)); }
+    $("f-play").addEventListener("click", () => { if (playing) { playing = false; setLabel(); render(); } else play2(); });
+    chipsEl.forEach((c, n) => c.addEventListener("click", () => { t = startOf(n); capKey = ""; drawn = ""; if (!playing) play2(); else render(); }));
+    new IntersectionObserver((en) => {
+      visible = en[0].isIntersecting;
+      if (visible && !started && !reduceMotion && DATA.ready) play2();
+      else if (visible && autoPaused) play2();
+      else if (!visible && playing) { playing = false; autoPaused = true; setLabel(); }
+    }, { threshold: 0.5 }).observe($("film"));
+    return { render, setLabel, ready: () => { if (visible && !started && !reduceMotion) play2(); else render(true); }, reset: () => { drawn = ""; } };
+  })();
+
+  // ---------- the playground ----------
+  const PG = { which: "ref", seed: 2, run: null, running: false, net: null, R: null, step: 0, loss: null, preview: null, dirty: true, eval: null, evalAt: 0, evalBusy: false, lastEval: 0, sel: -1, head: -1, pts: null };
+  const TEMPS = [0, 0.5, 0.8, 1, 1.3];
+  // your own network: the worker's latest copy of it, or before any training its random starting weights
+  const ownNet = () => PG.net || (PG.preview && PG.preview.seed === PG.seed ? PG.preview : (PG.preview = { seed: PG.seed, ...makeModel(SHAPE, mulberry32(PG.seed)) }));
+  const pgNet = () => (PG.which === "own" ? ownNet() : NET);
+  const EVAL_STORIES = 20; // your network is measured on the first 20 test stories, about a minute apart
+  function onOwn(msg) {
+    if (msg.type !== "train") return;
+    PG.step = msg.step; PG.loss = msg.loss; PG.R = msg.R;
+    if (msg.weights) {
+      PG.net = { ...SHAPE, ...msg.weights };
+      if (!PG.evalBusy && PG.step > 0 && performance.now() - PG.lastEval > 60000) {
+        PG.evalBusy = true; PG.lastEval = performance.now(); const at = PG.step, seed = PG.seed;
+        const stories = plainStories(EVAL_STORIES);
+        job("score", plainNet(PG.net), [stories, false], ({ out }) => { if (seed !== PG.seed) return; let r = 0, n = 0; out.forEach(({ guess }, s) => { const { next } = stories[s]; guess.forEach((g, i) => { n++; if (g === next[i]) r++; }); }); PG.eval = { acc: r / n, n }; PG.evalAt = at; PG.evalBusy = false; PG.dirty = true; });
+      }
+    }
+    PG.dirty = true;
+  }
+  function drawPlayground() {
+    if (!NET || !DATA.ready) { $("pl-status").textContent = FAILED || "Loading 21,000 stories…"; return; }
+    const net = pgNet(), ids = TK.encode($("pl-text").value), toks = textToks(ids), n = toks.length;
+    const sel = PG.sel < 0 || PG.sel >= n ? n - 1 : PG.sel;
+    pressHead($("pl-head"), PG.head);
+    // the clicked token's weights: one head's, or the average over the heads
+    const f = forward(net, toks.subarray(0, sel + 1), sel), w = new Float64Array(sel + 1);
+    for (let h = 0; h < NH; h++) if (PG.head < 0 || PG.head === h) for (let t = 0; t <= Math.min(sel, WIN - 1); t++) w[sel - t] += f.w[h * WIN + t] / (PG.head < 0 ? NH : 1);
+    const top = Math.max(...w);
+    chips($("pl-toks"), Array.from(toks), { heat: (i) => (i <= sel ? w[i] / top : null), cls: (i) => (i === sel ? "cur" : i > sel ? "dim" : ""), pick: true, tip: "pl-tok" });
+    $("pl-count").textContent = `${n - 1} tokens, plus the <end> that opens the story. ${n > WIN ? `Each position reads the last ${WIN}.` : "Every position can read every token up to itself."}`;
+    const list = Array.from(w, (x, j) => [j, x]).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    $("pl-wt").innerHTML = `<span class="h">token</span><span class="h num">back</span><span class="h num opt"></span><span class="h num opt"></span><span class="h num"></span><span class="h">${PG.head < 0 ? "average weight, 8 heads" : `head ${PG.head + 1}'s weight`}</span><span class="h num"></span>` +
+      list.map(([j, x]) => `<span><b>${esc(show(toks[j]))}</b></span><span class="num">${sel - j}</span><span class="opt"></span><span class="opt"></span><span></span><span class="bar"><i style="width:${(100 * x).toFixed(1)}%"></i></span><span class="num">${x < 0.005 ? "<1%" : pct(x)}</span>`).join("");
+    $("pl-wt-read").innerHTML = `${quote(toks[sel])}, token ${sel} of ${n - 1}. Click another token to see where it looks.`;
+    probBars($("pl-next"), probsAfter(net, toks), 10);
+    PG.pts = drawCurves($("pl-cv"), net === NET ? NET.R : PG.R || net.R, PG.head);
+    $("pl-status").textContent = PG.which === "ref" ? `the finished network: ${num(ITN_ATTN.steps)} steps, ${num(ITN_ATTN.tokens)} training tokens. Below: its distance scores.` : !PG.step ? `your network, seed ${PG.seed}: not trained yet, so its guesses come from random starting weights, and every distance score is 0` : `your network: step ${num(PG.step)} · ${num(PG.step * 8)} stories · loss ${PG.loss.toFixed(2)}` + (PG.eval ? ` · right first guess on ${num(PG.eval.n)} test tokens: ${pct(PG.eval.acc)} (at step ${num(PG.evalAt)})` : "");
+    $("pl-train").textContent = PG.running ? "Pause" : PG.step ? "Resume" : "Train";
+    document.querySelectorAll("#pl-net button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === PG.which)));
+    $("pl-temp-v").textContent = TEMPS[Number($("pl-temp").value)];
+    ITN.tips.refresh();
+  }
+  // pick the next token: always the top one at boldness 0, otherwise at random with the probabilities raised to 1/boldness
+  function sample(p, temp) {
+    if (temp === 0) return argmax(p);
+    let total = 0; const q = new Float64Array(p.length); for (let i = 0; i < p.length; i++) { q[i] = Math.pow(p[i], 1 / temp); total += q[i]; }
+    let r = Math.random() * total; for (let i = 0; i < q.length; i++) { r -= q[i]; if (r <= 0) return i; }
+    return argmax(p);
+  }
+  let pgTextTimer = 0;
+  $("pl-text").addEventListener("input", () => { clearTimeout(pgTextTimer); pgTextTimer = setTimeout(() => { PG.sel = -1; PG.dirty = true; }, 80); });
+  $("pl-toks").addEventListener("click", (e) => { const c = e.target.closest("[data-i]"); if (!c) return; PG.sel = Number(c.dataset.i); PG.dirty = true; });
+  $("pl-head").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; PG.head = Number(b.dataset.v); PG.dirty = true; });
+  $("pl-temp").addEventListener("input", () => { PG.dirty = true; });
+  $("pl-take").addEventListener("click", () => {
+    if (!NET || !DATA.ready) return;
+    const ids = TK.encode($("pl-text").value); ids.push(argmax(probsAfter(pgNet(), textToks(ids))));
+    $("pl-text").value = TK.decode(ids).replace(/\n\n$/, ""); PG.sel = -1; PG.dirty = true;
+  });
+  $("pl-write").addEventListener("click", () => {
+    if (!NET || !DATA.ready) return;
+    const start = TK.encode($("pl-text").value), ids = start.slice(), temp = TEMPS[Number($("pl-temp").value)], net = pgNet();
+    for (let n = 0; n < 60; n++) { const t = sample(probsAfter(net, textToks(ids)), temp); ids.push(t); if (t === 0) break; }
+    const a = TK.decode(start), b = TK.decode(ids).slice(a.length);
+    $("pl-written").innerHTML = `${esc(a)}<span class="gen">${esc(b)}</span>`;
+  });
+  $("pl-net").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; PG.which = b.dataset.v; PG.dirty = true; });
+  $("pl-train").addEventListener("click", () => {
+    if (!DATA.ready) return;
+    PG.running = !PG.running;
+    if (!PG.run) { PG.run = makeLab(onOwn); PG.run.send({ type: "start", train: DATA.train, shape: SHAPE, seed: PG.seed, lr: 0.008, every: 1000 }); }
+    else PG.run.send({ type: "run", on: PG.running });
+    if (PG.running) PG.which = "own";
+    PG.dirty = true;
+  });
+  $("pl-reset").addEventListener("click", () => {
+    if (PG.run) PG.run.stop();
+    Object.assign(PG, { run: null, running: false, seed: PG.seed + 1, net: null, R: null, step: 0, loss: null, eval: null, evalBusy: false, lastEval: 0, dirty: true });
+  });
+
+  // ---------- one loop for everything that moves ----------
+  function frame(now) { try { step(now); } finally { requestAnimationFrame(frame); } }
+  function step() {
+    runJobs(JOBS.length ? 10 : 0);
+    if (PG.dirty) { PG.dirty = false; drawPlayground(); }
+  }
+
+  // ---------- check the backward pass the slow way ----------
+  function gradientCheck() {
+    const r = mulberry32(5), net = makeModel(SHAPE, r);
+    for (const key of KEYS) net[key].set(NET[key]); // the finished network's weights, so the gradients are those of a real network
+    const { tokens } = storyOf(0), toks = Uint16Array.from(tokens.subarray(0, 40)), from = 30, next = Array.from(toks.subarray(from + 1), (x) => (x + 7) % V).concat([1]); // wrong next tokens, for large gradients
+    const g = zeros(net); backward(net, toks, next, forward(net, toks, from), g);
+    const loss = () => { const { p } = forward(net, toks, from); let s = 0; next.forEach((x, r) => (s -= Math.log(p[r * V + x]))); return s; };
+    let worst = 0, n = 0;
+    for (const key of KEYS) for (let tries = 0, got = 0; tries < 4000 && got < 5; tries++) {
+      const i = Math.floor(r() * net[key].length); if (Math.abs(g[key][i]) < 1e-3) continue;
+      const v = net[key][i], h = 1e-5; net[key][i] = v + h; const a = loss(); net[key][i] = v - h; const b = loss(); net[key][i] = v;
+      const nm = (a - b) / (2 * h); worst = Math.max(worst, Math.abs(nm - g[key][i]) / (Math.abs(nm) + Math.abs(g[key][i]))); got++; n++;
+    }
+    $("gc-check").textContent = worst < 1e-5 ? `across ${n} weights, from every part of the network (the table, the queries, keys and values, the distance scores and both layers), the backward pass and the slow way agree, with a largest relative difference of ${worst.toExponential(0)}.` : `the largest relative difference was ${worst.toExponential(1)}, larger than expected.`;
+  }
+
+  // ---------- descriptions on hover, keyboard focus, or after a tap ----------
+  const FILM_TIPS = ["The name, out of chapter 6's reach.", "One head's scores for every earlier token.", "The scores turned into weights.", "The weighted average of the values.", "Where each of the 8 heads looks.", "The attention network's guess.", "The chapter in one sentence."];
+  for (let i = 0; i < 7; i++) ITN.tips.add({ [`film-${i}`]: () => `${FILM_TIPS[i]} <span class="hint">Click to jump here</span>` });
+  const curveTip = (id) => {
+    const p = nearestPt(id === "t2-cv" ? T2.pts : PG.pts, id); if (!p) return "Point at a line to read it.";
+    const [, , h, t] = p, Rv = id === "t2-cv" || PG.which === "ref" ? NET.R : PG.R || pgNet().R;
+    return `<b>Head ${h + 1}</b>, distance ${t}${t === 0 ? " (the token itself)" : t === 1 ? " (the token just before)" : ""}: score ${ITN.fmt(Rv[h * WIN + t], 2)}.`;
+  };
+  ITN.tips.add({
+    "lens-math": () => "<b>Math</b>: the same steps written as formulas.",
+    "st-prev": () => "The previous test story.", "st-next": () => "The next test story.",
+    "st-tok": storyTip,
+    "qt-pre": () => "Use this name.", "qt-in": () => "Type a name; it is put into the first sentence of the story.",
+    "t1-in": () => "Type any text; the network reads it as the start of a story.",
+    "t1-tok": (el) => (el.dataset.sel === "0" ? "The <end> token that opens every story. Click to make it the token that reads." : "Click to make this the token that reads."),
+    "t1-head": () => "Show this head's scores and weights.",
+    "t2-head": () => "Highlight this head's distance scores.", "t2-cv": () => curveTip("t2-cv"),
+    "t2-off": () => "Measure the 100 test stories again with every distance score set to 0. Takes a few seconds.",
+    "t3-in": () => "Type the start of a story; the network reads it, up to its last 256 tokens.",
+    "hd-when": () => "Show the heads at this moment of training.",
+    "ko-head": () => "Show the network's right first guesses with this head switched off.",
+    "hd-card": (el) => { const h = Number(el.dataset.sel); return `Head ${h + 1}: the share of its weight at each distance back, over every position of the 100 test stories. Blue: the token just before.`; },
+    "sw-prev": () => "The previous story with a name.", "sw-next": () => "The next story with a name.", "sw-pre": () => "Swap the story's name for this one, everywhere.",
+    "iv-prev": () => "The previous story with a name.", "iv-next": () => "The next story with a name.", "iv-pre": () => "Give the story's hero this invented name.",
+    "pl-text": () => "Type the start of a story. Capitals and spaces are tidied away before the network reads it.",
+    "pl-tok": () => "Click to see where this token looks.",
+    "pl-head": () => "Shade the text by this head's weights (All: the average of the 8 heads).",
+    "pl-take": () => "Add the network's top guess to your text (your text is shown tidied, as the network reads it).",
+    "pl-write": () => "Let the network write up to 60 tokens, one at a time, each picked at random, with chances set by its probability and the boldness.",
+    "pl-temp": () => "Boldness 0 always takes the top guess; higher values give unlikely tokens more of a chance.",
+    "net-ref": () => "The network trained in advance, used everywhere on this page.", "net-own": () => "The network you train here.",
+    "pl-train": () => (PG.running ? "Pause training." : "Train a network from scratch on the 20,000 training stories, 8 whole stories per step, as the finished one was. A step takes a second or two."),
+    "pl-reset": () => `Start over from new random weights (seed ${PG.seed} → ${PG.seed + 1}).`,
+    "pl-cv": () => curveTip("pl-cv"),
+  });
+
+  // ---------- resize, theme, boot ----------
+  function redrawAll() { film.reset(); film.render(true); drawLadder(); drawStory(); drawQuestion(); drawTool1(); drawTool2(); drawTool3(); drawHeads(); drawSwap(); drawKnock(); drawInvent(); PG.dirty = true; }
+  let rq = 0, lastW = 0; new ResizeObserver(() => { const w = document.body.clientWidth; if (w === lastW) return; lastW = w; cancelAnimationFrame(rq); rq = requestAnimationFrame(redrawAll); }).observe(document.body);
+  const retheme = () => { readTheme(); redrawAll(); };
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  ITN.pill();
+  readTheme();
+  headButtons($("t1-head"), "t1-head"); headButtons($("t2-head"), "t2-head"); headButtons($("ko-head"), "ko-head"); headButtons($("pl-head"), "pl-head", true);
+  $("t1-in").value = T1.text; $("t3-in").value = T3.text; $("qt-in").value = QT.name;
+  $("pl-text").value = "Once upon a time, there was a little girl named Lily. She had a small dog called Max.";
+  if (HAVE_FILES) $("runs-train").textContent = `${num(ITN_ATTN.steps)} steps of 8 whole stories from the training stories, ${num(ITN_ATTN.tokens)} tokens in all, about ${Math.round(ITN_ATTN.tokens / 4300373)} passes over them, with a learning rate of 0.008 that slows down to 0 over the last 30% of the steps; each step's positions were shared out among 16 processor cores, which changes only the order in which their gradients are added up.`;
+  film.setLabel(); drawLadder(); drawTool2(); drawHeads(); ITN.view.sync();
+  requestAnimationFrame(frame);
+  const fail = (msg) => { FAILED = msg; for (const id of ["st-read", "qt-read", "t1-read", "t2-read", "t3-read", "hd-read", "sw-read", "ko-read", "iv-read", "pl-status", "ladder-after"]) $(id).textContent = msg; $("f-ticker").textContent = msg; };
+  if (!HAVE_FILES) fail("The stories or the trained weights did not load (../words/stories.js, ../words/weights.js, weights.js).");
+  else if (typeof DecompressionStream === "undefined") fail("This browser cannot unpack the stories. A recent Chrome, Edge, Firefox or Safari can.");
+  else loadData().then(() => {
+    prepareEval();
+    drawStory(); drawQuestion(); drawTool1(); drawTool2(); drawTool3(); drawSwap(); drawInvent(); film.ready(); PG.dirty = true;
+    gradientCheck();
+    scoreAll(); swapAll(); inventAll(); knockAll();
+    addJob(countJob(), () => drawLadder());
+    addJob(ch6Job(), () => { drawLadder(); drawStory(); drawSwap(); swapAfter(); });
+  }, (err) => fail("The stories could not be unpacked: " + err.message)).catch((err) => fail("Something went wrong while preparing the figures: " + err.message));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
+})();
+</script>
+</body>
+</html>
