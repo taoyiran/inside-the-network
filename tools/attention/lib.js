@@ -33,6 +33,13 @@ function loadModel(name) {
   for (const key of ATN.KEYS) { m[key] = new Float64Array(b.buffer.slice(b.byteOffset + o, b.byteOffset + o + n[key] * 8)); o += n[key] * 8; }
   return m;
 }
+// the shipped attention/weights.js (window.ITN_ATTN), and the network in it as the page has it: 32-bit floats
+function shippedFile() { const ctx = {}; new Function("window", fs.readFileSync(path.join(__dirname, "..", "..", "attention", "weights.js"), "utf8"))(ctx); return ctx.ITN_ATTN; }
+function loadShipped() {
+  const W = shippedFile(), b = Buffer.from(W.net, "base64"), m = { ...W.shape }, n = sizes(W.shape); let o = 0;
+  for (const key of ATN.KEYS) { m[key] = new Float64Array(n[key]); for (let i = 0; i < n[key]; i++, o += 4) m[key][i] = b.readFloatLE(o); }
+  return m;
+}
 // loss and right first guesses over whole stories
 function evaluate(m, stories) {
   let loss = 0, right = 0, n = 0;
@@ -80,4 +87,4 @@ function headStats(m, stories) {
 }
 // a run's seed, from the settings line its log starts with
 const seedOf = (run) => JSON.parse(fs.readFileSync(work("runs", run + ".txt"), "utf8").split("\n")[0]).seed;
-module.exports = { ...W6, W6, WORK6: W6.WORK, PAGE, html, script, work, storyAt, argmax, NAME_WORDS, names, nameOf, farPositions, NB, headStats, seedOf, ATN, storiesOf, sizes, saveModel, loadModel, evaluate };
+module.exports = { ...W6, W6, WORK6: W6.WORK, PAGE, html, script, work, storyAt, argmax, NAME_WORDS, names, nameOf, farPositions, NB, headStats, seedOf, ATN, storiesOf, sizes, saveModel, loadModel, shippedFile, loadShipped, evaluate };

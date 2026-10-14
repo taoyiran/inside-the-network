@@ -128,6 +128,17 @@ On the page's 21,730 test tokens (every token of the first 100 test stories):
 
 **What the heads do** (weight by distance back, over every position of the 100 test stories): heads 1 to 3 read mostly the last few tokens, head 3 most sharply (41% of its weight on the token just before); head 4 splits between the token just before (31%) and far back; heads 5 to 8 read mostly 8 or more tokens back. Head 6 reads names (its most-read tokens per appearance, after `<end>`: "sara", "leo", "mia", "lily"), head 7 nouns such as "baby", "people", "fish", and heads 5 and 8 the opening of the story. `<end>` tops the list of 7 of the 8 heads, because every later position can see it; head 8 puts about 11% of all its weight there.
 
+**The score is not the rows' cosine** (`angles.js`, on the shipped weights). The dot-product part of a score is q_i · k_j / √8 = E_{t_i}ᵀ W_qᵀ W_k E_{t_j} / √8: a 32 × 32 bilinear form per head, made of the two learned 8 × 32 tables, of rank at most 8 and not symmetric, so it is not an inner product on the rows and defines no angle between them. Over all 2,573,660 pairs (position i reads j ≤ i, fewer than 256 back) in the 100 test stories, and the 301,066 distinct ordered pairs of tokens among them:
+
+| Head | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Correlation of q·k/√8 with the cosine of the two rows | −0.07 | 0.02 | 0.09 | 0.04 | 0.05 | −0.12 | −0.07 | 0.04 |
+| Correlation of "a reads b" with "b reads a" | −0.03 | −0.14 | −0.12 | 0.08 | −0.05 | 0.05 | −0.19 | 0.06 |
+| An earlier copy of the same token (cosine 1): q·k/√8 above the median of its position's | 30% | 59% | 65% | 68% | 62% | 32% | 36% | 78% |
+| Positions where the key closest in angle to the query is not the one with the largest dot product | 51.3% | 60.2% | 54.0% | 51.7% | 65.5% | 55.6% | 61.5% | 47.6% |
+
+The last row is about the angle inside a head's own 8-number query/key space: there it orders a position's keys much as the dot product does (rank correlation 0.95 to 0.98 by head, averaged over the 20,830 positions with 10 or more keys), but the keys' lengths vary 2.2- to 2.9-fold between the 10th and 90th percentile of the 2,000 tokens, enough to change which key comes first about half the time. In head 6, "to" reading "lily" gets 2.46 with a cosine of −0.04 between the rows, "to" reading "to" −1.74, "tom" reading "lily" 0.23 with a cosine of 0.70, and "to" reading "tom" 1.97 against "tom" reading "to" −1.55. The page shows these numbers live under Tool 1, and the cosine of the rows as a column of Tool 1's table.
+
 **Switching heads off** (a head's value table set to 0), on the same tokens:
 
 | Head off | All | Last 8 | Further back | The name | New |

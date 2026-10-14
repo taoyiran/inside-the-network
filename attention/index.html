@@ -90,6 +90,8 @@ textarea.in { width: 100%; box-sizing: border-box; resize: vertical; min-height:
 .wt { display: grid; grid-template-columns: minmax(4.5em, max-content) 3.6em repeat(3, 4.2em) minmax(0, 1fr) 3.4em; gap: 4px 8px; align-items: center; font: 12.5px/1.2 var(--font-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .wt .h { font: 600 10.5px/1.2 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
 .wt .num { text-align: right; }
+.wt.cos { grid-template-columns: minmax(4.5em, max-content) 3.6em repeat(3, 4.2em) minmax(0, 1fr) 3.4em 5.6em; }
+.wt .cmp { color: var(--ink-3); white-space: nowrap; }
 .wt .bar { height: 10px; background: var(--well); border-radius: 3px; overflow: hidden; }
 .wt .bar i { display: block; height: 100%; background: var(--pos); border-radius: 3px; }
 .wt b { color: var(--ink); font-weight: 600; }
@@ -210,10 +212,10 @@ table.sizes tr.here td { background: color-mix(in srgb, var(--pos) 8%, var(--she
         <button type="button" class="btn small" id="aw-reset" data-tip="aw-reset">Reset the query</button>
       </div>
       <p class="film-cap" id="aw-cap" aria-live="polite"></p>
-      <p class="hint">Drag the blue arrow to ask a different question: the scores, weights and values follow.</p>
+      <p class="hint">Drag the blue arrow to ask a different question: the scores, weights and values follow. Point it at the short key of “loves” and see which key wins.</p>
     </figure>
 
-    <p>That is all attention is: <b>compare</b> (a query against the key of every token up to itself, by dot product), <b>weigh</b> (softmax), and <b>blend</b> (a weighted average of the values). The real network does exactly this, with lists of 8 and 16 numbers and 8 heads at once, and with two additions to each score: the dot product is divided by √8, so that scores do not grow with the length of the lists, and a learned score for the distance back is added (Tool 2). In the toy, the queries, keys and values were picked by hand. In the real network they are made from each token's row by small tables of weights, and those tables are learned by gradient descent, like every other weight.</p>
+    <p>That is all attention is: <b>compare</b> (a query against the key of every token up to itself, by dot product), <b>weigh</b> (softmax), and <b>blend</b> (a weighted average of the values). The real network does exactly this, with lists of 8 and 16 numbers and 8 heads at once, and with two additions to each score: the dot product is divided by √8, so that scores do not grow with how many numbers the lists hold, and a learned score for the distance back is added (Tool 2). In the toy, the queries, keys and values were picked by hand. In the real network they are made from each token's row by small tables of weights, and those tables are learned by gradient descent, like every other weight.</p>
 
     <h2>What this is</h2>
     <p>Now the real network. This film follows one position of a story as it looks back: one head's query meets every earlier key, the scores become weights, and the weights pick what to bring back.</p>
@@ -252,17 +254,21 @@ table.sizes tr.here td { background: color-mix(in srgb, var(--pos) 8%, var(--she
 
     <p id="qt-after">Chapter 6's network sees only the last 8 tokens, outlined above, and the name is not among them: it can only guess a likely name, or something else. The attention network reads the whole story. Try a rare name too, such as “fred”, or an invented one; Secrets 2 and 4 explain what happens. The tools below show how the reading works.</p>
 
-    <h2>Tool 1: a lookup by similarity</h2>
-    <p>Every token gets three short lists of numbers, each made from its row of the embedding table by a small table of weights: a <b>key</b>, what it offers to be found by; a <b>value</b>, what it hands over when it is read; and a <b>query</b>, what it is looking for. To read, a position compares its query with the key of every token up to itself. The comparison is the <b>dot product</b>: multiply the two lists number by number and add up, which is large when they point the same way. Softmax turns the scores into weights that add up to 1, and the position takes the weighted average of the values. Queries and keys have 8 numbers each, values 16. Click any token to make it the one reading, and pick a head.</p>
+    <h2>Tool 1: a lookup by content</h2>
+    <p>Every token gets three short lists of numbers, each made from its row of the embedding table by a small table of weights: a <b>key</b>, what it offers to be found by; a <b>value</b>, what it hands over when it is read; and a <b>query</b>, what it is looking for. To read, a position compares its query with the key of every token up to itself. The comparison is the <b>dot product</b>: multiply the two lists number by number and add up. Softmax turns the scores into weights that add up to 1, and the position takes the weighted average of the values. Queries and keys have 8 numbers each, values 16. Click any token to make it the one reading, and pick a head.</p>
 
     <figure class="card" id="tool1" aria-label="One head's scores and weights for one position">
       <div class="ctl-row" style="margin:0"><input class="in wide" id="t1-in" type="text" spellcheck="false" autocomplete="off" aria-label="Text to read" data-tip="t1-in"></div>
       <div class="toks" id="t1-toks" style="margin-top:12px"></div>
       <div class="ctl-row" style="margin:14px 0 8px"><span class="lb">Head <span class="seg" role="group" aria-label="Which head" id="t1-head"></span></span></div>
-      <div class="wt" id="t1-wt"></div>
+      <div class="wt cos" id="t1-wt"></div>
       <div class="strips" id="t1-out" style="margin-top:12px"></div>
       <p class="readout" id="t1-read"></p>
     </figure>
+
+    <p><b>Not chapter 6's closeness.</b> In chapter 6, two words were close when their rows pointed the same way, measured by the cosine of the angle between them. Attention's score is not that. The query and the key are made from the rows by two different tables, and each head has its own pair, so each head learns its own sense of which keys fit which queries. On a wide screen, the table's last column gives that cosine for this network's own rows, only to compare. <span id="t1-ex"></span> Over all 2.6 million pairs of a token and a token it can read in the 100 test stories, the dot product does not follow the cosine of the two rows in any head (correlations between −0.12 and 0.09).</p>
+
+    <p>Between a query and a key, the angle counts, but not alone. The dot product is the query's length times the key's length times the cosine of the angle between them (each arrow's length, not how many numbers it holds). Dividing by √8 is the same for every pair, so it is not chapter 6's cosine, which divides the dot product of two rows by both their lengths. The angle still orders a position's keys much as the dot product does, but the keys' lengths often decide which comes first: a long key that points further off can beat a shorter one that points closer to the query's way. In 48% to 65% of the positions of the test stories, depending on the head, the key closest in direction to the query is not the one with the largest dot product. (In symbols, with x for a token's row: q<sub>i</sub> · k<sub>j</sub> = x<sub>i</sub><sup>T</sup> W<sub>q</sub><sup>T</sup> W<sub>k</sub> x<sub>j</sub>. The 32 × 32 table W<sub>q</sub><sup>T</sup> W<sub>k</sub> is made of two learned tables, differs in each head, has rank at most 8 and is not symmetric, so it measures no angle between rows at all.)</p>
 
     <p>The scores are a soft version of looking something up. A dictionary finds the one entry whose key equals what you ask for; attention gives every entry some weight, more the better its key matches, and returns a blend. Because every step is a sum, a product or softmax, gradients flow through all of it, and the small tables that make queries, keys and values are learned like any other weights.</p>
 
@@ -330,6 +336,8 @@ table.sizes tr.here td { background: color-mix(in srgb, var(--pos) 8%, var(--she
     <dl class="read">
       <dt>Attention</dt>
       <dd>A way for each position to read other positions by content: compare its query with their keys, turn the scores into weights with softmax, and take the weighted average of their values.</dd>
+      <dt>Query, key and value</dt>
+      <dd>Three short lists made from each token's row by three small tables of a head: what the token is looking for, what it offers to be found by, and what it hands over when it is read. A query and a key are compared by their dot product, a match the head has learned, not the closeness of the two words' rows.</dd>
       <dt>Self-attention</dt>
       <dd>Attention whose queries, keys and values all come from the same text, as on this page. When the keys and values come from another text, as when a translation reads the sentence it translates, it is called cross-attention.</dd>
       <dt>Causal attention</dt>
@@ -1330,6 +1338,18 @@ function handle(m) {
 
   // ---------- Tool 1: one head's scores and weights ----------
   const T1 = { text: "lily had a red ball. she gave it to her friend tom. tom said thank you to", sel: -1, head: 0 };
+  // the cosine of the angle between two tokens' rows, chapter 6's closeness (not part of attention's score)
+  function rowCos(net, a, b) {
+    const { d, E } = net; let s = 0, x = 0, y = 0;
+    for (let e = 0; e < d; e++) { s += E[a * d + e] * E[b * d + e]; x += E[a * d + e] ** 2; y += E[b * d + e] ** 2; }
+    return s / Math.sqrt(x * y);
+  }
+  // head h's dot product, q · k / √dk, when token a reads token b (queries and keys depend on the token alone)
+  function pairQK(net, h, a, b) {
+    const { H, dk } = net, { q, k } = project(net, Uint16Array.of(a, b), 0); let s = 0;
+    for (let c = 0; c < dk; c++) s += q[h * dk + c] * k[(H + h) * dk + c];
+    return s / Math.sqrt(dk);
+  }
   // the details of head h at position i: for every token it can read, the dot product, the distance score, the weight
   function headDetail(net, toks, i, h) {
     const f = forward(net, toks.subarray(0, i + 1), i), { T, H, dk, dv, d } = net, sc = 1 / Math.sqrt(dk), rows = [];
@@ -1348,11 +1368,24 @@ function handle(m) {
     const top = Math.max(...rows.map((x) => x.w));
     chips($("t1-toks"), Array.from(toks), { heat: (i) => (i <= sel ? wOf[i] / top : null), cls: (i) => (i === sel ? "cur" : i > sel ? "dim" : ""), pick: true, tip: "t1-tok" });
     const shown = rows.slice().sort((a, b) => b.w - a.w).slice(0, 10), f2 = (v) => ITN.fmt(v, 2);
-    $("t1-wt").innerHTML = `<span class="h">token</span><span class="h num">back</span><span class="h num opt">q·k/√8</span><span class="h num opt">distance</span><span class="h num">score</span><span class="h">weight</span><span class="h num"></span>` +
-      shown.map((x) => `<span><b>${esc(show(toks[x.j]))}</b></span><span class="num">${x.t}</span><span class="num opt">${f2(x.qk)}</span><span class="num opt">${f2(x.r)}</span><span class="num">${f2(x.qk + x.r)}</span><span class="bar"><i style="width:${(100 * x.w).toFixed(1)}%"></i></span><span class="num">${x.w >= 0.995 ? ">99%" : x.w < 0.005 ? "<1%" : pct(x.w)}</span>`).join("");
+    $("t1-wt").innerHTML = `<span class="h">token</span><span class="h num">back</span><span class="h num opt">q·k/√8</span><span class="h num opt">distance</span><span class="h num">score</span><span class="h">weight</span><span class="h num"></span><span class="h num opt cmp" data-tip="t1-cos">rows' cos</span>` +
+      shown.map((x) => `<span><b>${esc(show(toks[x.j]))}</b></span><span class="num">${x.t}</span><span class="num opt">${f2(x.qk)}</span><span class="num opt">${f2(x.r)}</span><span class="num">${f2(x.qk + x.r)}</span><span class="bar"><i style="width:${(100 * x.w).toFixed(1)}%"></i></span><span class="num">${x.w >= 0.995 ? ">99%" : x.w < 0.005 ? "<1%" : pct(x.w)}</span><span class="num opt cmp">${f2(rowCos(NET, toks[sel], toks[x.j]))}</span>`).join("");
     strips($("t1-out"), [[`head ${T1.head + 1} brings back`, out, "16 numbers"]]);
     const b = shown[0], rest = rows.length - shown.length, shownW = shown.reduce((a, x) => a + x.w, 0);
+    drawNotCloseness();
     $("t1-read").innerHTML = `Head ${T1.head + 1}, reading ${quote(toks[sel])}, can read ${rows.length} token${rows.length > 1 ? "s" : ""} (${sel < WIN ? "itself and every one before it, back to the &lt;end&gt; that opens the text" : "itself and the 255 before it: the window ends there"}). Its largest weight, ${pct(b.w)}, goes to ${quote(toks[b.j])}, ${b.t === 0 ? "itself" : b.t === 1 ? "the token just before" : `${b.t} tokens back`}.${rest > 0 ? ` The ${shown.length} shown take ${pct(shownW)} of the weight; the other ${rest} share the rest.` : ""} Its result is the weighted average of their values, a list of 16 numbers.`;
+  }
+  // the examples under Tool 1: head 6's dot products against the cosine of the two rows, by token; shown only while
+  // the numbers bear the words out (they do for the shipped weights: tools/attention/angles.js)
+  function drawNotCloseness() {
+    if (!NET || $("t1-ex").textContent) return;
+    const id = (w) => TK.id.get(w), h = 5;
+    if (["to", "lily", "red", "tom", "ball"].some((w) => id(w) === undefined)) return;
+    const QK = (a, b) => pairQK(NET, h, id(a), id(b)), CS = (a, b) => rowCos(NET, id(a), id(b)), qk = (a, b) => ITN.fmt(QK(a, b), 2), cs = (a, b) => ITN.fmt(CS(a, b), 2);
+    const holds = Math.abs(CS("to", "lily")) < 0.15 && Math.abs(CS("to", "red")) < 0.15 && QK("to", "lily") > 1 && QK("to", "red") > 1 && QK("to", "to") < Math.min(QK("to", "lily"), QK("to", "red")) - 1 &&
+      CS("tom", "lily") > 0.5 && QK("tom", "lily") < QK("tom", "ball") && Math.abs(CS("tom", "ball")) < 0.15 && QK("to", "tom") * QK("tom", "to") < 0;
+    if (!holds) return;
+    $("t1-ex").innerHTML = `In head ${h + 1}, for example, “to” gives “lily” a dot product of ${qk("to", "lily")} and “red” ${qk("to", "red")} (here and below divided by √8, as everywhere on this page), though their rows are nearly at right angles to its own (cosines ${cs("to", "lily")} and ${cs("to", "red")}), and another “to”, a copy of itself with cosine 1, only ${qk("to", "to")}. “tom” gives “lily”, whose row is close to its own (cosine ${cs("tom", "lily")}), only ${qk("tom", "lily")}, less than “ball” (${qk("tom", "ball")}, cosine ${cs("tom", "ball")}). Nor is it the same both ways: “to” reading “tom” gets ${qk("to", "tom")}, “tom” reading “to” ${qk("tom", "to")}. On a wide screen, the table above shows most of these with its starting text and head ${h + 1}: let the last “to” read, then click the first “to” (it reads itself) and the second “tom”. (“tom” reading “to” scores too low to be among the 10 rows shown.)`;
   }
   $("t1-in").addEventListener("input", (e) => { T1.text = e.target.value; T1.sel = -1; drawTool1(); });
   $("t1-toks").addEventListener("click", (e) => { const c = e.target.closest("[data-i]"); if (!c) return; T1.sel = Number(c.dataset.i); drawTool1(); });
@@ -1690,13 +1723,15 @@ function handle(m) {
   // number on the canvas is computed from these: the dot products, softmax and the weighted average are real arithmetic.
   const TOY = {
     words: ["lily", "has", "a", "dog", ".", "the", "dog", "loves"],
-    keys: [[0.3, 2.0], [-1.2, 0.3], [-1.0, -0.9], [1.7, 0.2], [0.3, -1.4], [-1.5, -0.2], [1.7, 0.2], [0.7, 0.6]],
+    keys: [[0.3, 2.0], [-1.2, 0.3], [-1.0, -0.9], [2.2, 0.4], [0.3, -1.4], [-1.5, -0.2], [2.2, 0.4], [0.7, 0.6]],
     vals: [[0.9, -0.8, 0.7], [-0.2, 0.4, 0.1], [0.1, -0.1, -0.3], [-0.7, 0.6, -0.5], [0.0, 0.2, 0.2], [0.2, 0.0, -0.2], [-0.7, 0.6, -0.5], [0.3, 0.5, -0.6]],
     // each token's own query, for the last step (every token reads at once); the last one is the query of "loves"
     queries: [[0.5, 0.5], [0.6, 1.5], [-0.4, 0.6], [0.4, 1.4], [1.5, 0.3], [-0.5, -0.4], [0.4, 1.4], [0.4, 1.8]],
     q: [0.4, 1.8], // the query of "loves", which the reader can drag
   };
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
+  // the angle between two arrows, in degrees (90 when one has no length: the dot product is 0 either way)
+  const angleOf = (a, b) => { const n = Math.hypot(...a) * Math.hypot(...b); return n ? (Math.acos(Math.max(-1, Math.min(1, dot(a, b) / n))) * 180) / Math.PI : 90; };
   // the reading token i's scores and weights over tokens 0…i, with query q
   function toyAttend(i, q) {
     const s = TOY.keys.slice(0, i + 1).map((k) => dot(q, k)), top = Math.max(...s), e = s.map((x) => Math.exp(x - top)), tot = e.reduce((a, x) => a + x, 0);
@@ -1705,21 +1740,32 @@ function handle(m) {
   }
   const f2 = (v) => ITN.fmt(v, 2);
   function awLayout(W) {
-    const wide = W >= 560, H = wide ? Math.round(W * 0.72) : Math.round(W * 1.6), pad = 8, n = TOY.words.length, bw = (W - 2 * pad) / n, th = 40;
+    // on narrow screens the box sits under the compass and needs about 150 px for its longest step
+    const wide = W >= 560, th = 40, H = wide ? Math.round(W * 0.72) : Math.max(Math.round(W * 1.6), Math.round(2 * W * 0.28 + 52 + 150 + 104 + th + 6)), pad = 8, n = TOY.words.length, bw = (W - 2 * pad) / n;
     const rowY = H - th - 6;
     const r = wide ? Math.min(W * 0.19, H * 0.27) : W * 0.28, cx = wide ? pad + r + 22 : W / 2, cy = r + 20;
     const box = wide ? { x: cx + r + 36, y: 14, w: W - (cx + r + 36) - pad, h: rowY - 120 } : { x: pad, y: cy + r + 32, w: W - 2 * pad, h: rowY - 104 - (cy + r + 32) };
     return { W, H, wide, pad, n, bw, th, rowY, r, cx, cy, box, unit: (r * 0.86) / 2.4, zero: rowY - 30, xs: Array.from({ length: n }, (_, i) => pad + bw * (i + 0.5)) };
   }
   const AW = { L: null, drag: false, user: false, cap: "" };
-  const awScenes = [{ k: "question", d: 6500 }, { k: "keys", d: 8500 }, { k: "query", d: 6500 }, { k: "compare", d: 13000 }, { k: "softmax", d: 9500 }, { k: "values", d: 11000 }, { k: "guess", d: 8000 }, { k: "every", d: 12000 }];
+  const awScenes = [{ k: "question", d: 6500 }, { k: "keys", d: 8500 }, { k: "query", d: 6500 }, { k: "compare", d: 16000 }, { k: "softmax", d: 9500 }, { k: "values", d: 11000 }, { k: "guess", d: 8000 }, { k: "every", d: 12000 }];
   function awCaption(k) {
     const A = toyAttend(7, TOY.q), top = A.w.indexOf(Math.max(...A.w));
     switch (k) {
       case "question": return "<b>The question.</b> The network must guess the word after “the dog loves”. A good guess is “lily”, said at the very start. In a real story the name can be dozens or hundreds of tokens back; attention lets the last token, “loves”, look back over all of them and choose what to read.";
       case "keys": return "<b>Keys.</b> Every token offers a <b>key</b>: a short list of numbers, made from its row by a small table of weights. Here a key has 2 numbers, so it can be drawn as an arrow. Both “dog”s get the same key: a key comes from the token's row alone. (In GPT-2 the two would differ a little, because a row for its position is added to each token's row first; this page's network marks positions differently, so here both get the same key.)";
       case "query": return "<b>The query.</b> The token that reads, “loves”, asks with a <b>query</b>, made from its row by another small table. Here it points the same way as the key of “lily”: in this toy, it is looking for a person.";
-      case "compare": return "<b>Compare.</b> The query is compared with every key by the <b>dot product</b>: multiply the two lists number by number and add up. It measures how far the key reaches along the query, times the query's length: large when they point the same way, 0 at right angles, negative when they point apart.";
+      case "compare": {
+        // a key that wins although it points further off than another: possible only because it is longer
+        let pair = null;
+        for (let a = 0; a < 8; a++) for (let b = 0; b < 8; b++) {
+          const da = angleOf(TOY.q, TOY.keys[a]), db = angleOf(TOY.q, TOY.keys[b]);
+          if (A.s[b] > 0 && A.s[a] > A.s[b] && da > db && (!pair || da - db > pair.gap)) pair = { a, b, da, db, gap: da - db };
+        }
+        const w = (j) => `“${TOY.words[j]}”`, deg = (x) => `${Math.round(x)}°`;
+        const longer = pair ? ` so the key's length counts as well as the angle: ${w(pair.a)} points further off than ${w(pair.b)} (${deg(pair.da)} against ${deg(pair.db)}) but scores more (${f2(A.s[pair.a])} against ${f2(A.s[pair.b])}), because its key is longer.` : ", so the key's length counts as well as the angle.";
+        return `<b>Compare.</b> The query meets every key in a <b>dot product</b>: multiply the two lists number by number and add up. That equals the query's length times how far the key reaches along it (the thick line drawn along the query),${longer} And these arrows stand for a query and keys, which the real network makes with two different tables, not for the words' rows: this is not chapter 6's closeness of words.`;
+      }
       case "softmax": return `<b>Softmax.</b> The scores become <b>weights</b> that add up to 1: take e to the power of each score, then divide by the total. A score higher by 1 means a weight 2.7 times larger, so the best match, “${TOY.words[top]}”, takes ${pct(A.w[top])} of the weight.`;
       case "values": return `<b>Values.</b> Every token also has a <b>value</b>: what it hands over when it is read, here 3 numbers drawn as colored cells. The reader takes the weighted average of all the values. With ${pct(A.w[0])} of the weight on “lily”, what arrives is mostly Lily's value.`;
       case "guess": return "<b>The guess.</b> The rest of the network reads the token's own row together with what attention brought, and scores every word in the vocabulary. With Lily's value just brought in, “lily” is an easy guess. (In this toy only the attention is computed; in the real network the rest is chapter 6's hidden and output layers.)";
@@ -1742,7 +1788,7 @@ function handle(m) {
     ctx.font = `600 10.5px ${DISPLAY}`; ctx.fillStyle = rgba(C["ink-3"]); ctx.textAlign = "left"; ctx.fillText(k === "every" ? "QUERIES AND KEYS" : "KEYS AND THE QUERY", cx - r, cy - r - 10);
     const keysShown = k === "question" ? 0 : k === "keys" ? Math.floor(seg(u, 0.05, 0.85) * 8 + 0.0001) : 8;
     const cur = k === "compare" ? Math.min(R, Math.floor(seg(u, 0.03, 0.88) * (R + 1))) : -1;
-    const labeled = new Set(), order = [...Array(keysShown).keys()].sort((a, b) => Number(a === cur) - Number(b === cur)); // the highlighted key last, on top
+    const labeled = new Set(), labelBoxes = [], order = [...Array(keysShown).keys()].sort((a, b) => Number(a === cur) - Number(b === cur)); // the highlighted key last, on top
     for (const j of order) {
       const [x, y] = P(TOY.keys[j]), hl = j === cur || (cur >= 0 && TOY.keys[j].join() === TOY.keys[cur].join());
       const later = k === "every" && j > Math.min(R, Math.floor(u * (R + 1)));
@@ -1752,7 +1798,8 @@ function handle(m) {
       ctx.font = `${hl ? 600 : 400} 11.5px ${MONO}`; ctx.fillStyle = rgba(hl ? C.ink : C["ink-2"]);
       const ang = Math.atan2(cy - y, x - cx), lx = x + Math.cos(ang) * 12, ly = y - Math.sin(ang) * 12;
       ctx.textAlign = Math.cos(ang) > 0.3 ? "left" : Math.cos(ang) < -0.3 ? "right" : "center";
-      ctx.fillText(TOY.words[j] + (twice > 1 ? ` ×${twice}` : ""), lx, ly);
+      const label = TOY.words[j] + (twice > 1 ? ` ×${twice}` : ""), lw = ctx.measureText(label).width, x0 = ctx.textAlign === "left" ? lx : ctx.textAlign === "right" ? lx - lw : lx - lw / 2;
+      ctx.fillText(label, lx, ly); labelBoxes.push([x0, ly - 7, x0 + lw, ly + 7]);
     }
     if (k !== "question" && k !== "keys" && k !== "every") {
       const grow = k === "query" ? seg(u, 0.1, 0.5) : 1, q = [TOY.q[0] * grow, TOY.q[1] * grow], [qx, qy] = P(q);
@@ -1763,7 +1810,14 @@ function handle(m) {
         ctx.strokeStyle = rgba(C.neg, 0.55); ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, py); ctx.stroke();
       }
       if (grow > 0.02) arrow(ctx, cx, cy, qx, qy, rgba(C.pos), 3.5);
-      if (grow > 0.5) { ctx.font = `600 12px ${MONO}`; ctx.fillStyle = rgba(C.pos); ctx.textAlign = "left"; ctx.fillText("query", qx + 8, qy - 4); }
+      if (grow > 0.5) {
+        // the label beside the tip, at the first spot clear of the keys' labels
+        ctx.font = `600 12px ${MONO}`; ctx.fillStyle = rgba(C.pos); const qw = ctx.measureText("query").width;
+        const spots = [[qx + 8, qy - 4, "left"], [qx - 8, qy - 10, "right"], [qx + 6, qy + 14, "left"], [qx - 6, qy + 14, "right"], [qx, qy - 18, "center"]];
+        const clear = ([x, y, al]) => { const x0 = al === "left" ? x : al === "right" ? x - qw : x - qw / 2; return !labelBoxes.some(([a, b, c, d]) => x0 < c + 3 && x0 + qw > a - 3 && y - 7 < d && y + 7 > b); };
+        const [lx, ly, al] = spots.find(clear) || spots[0];
+        ctx.textAlign = al; ctx.fillText("query", lx, ly);
+      }
       if (AW.user || k === "values" || k === "softmax" || k === "guess") { ctx.font = `12px ${DISPLAY}`; ctx.fillStyle = rgba(C["ink-3"]); ctx.textAlign = "center"; ctx.fillText("drag the blue arrow", cx, cy + r + 12); }
     }
     if (k === "every") {
@@ -1828,11 +1882,11 @@ function handle(m) {
       title("Dot product of query and key"); const kk = TOY.keys[cur];
       line(`query · key(${TOY.words[cur]})`, { b: true });
       line(`= ${f2(TOY.q[0])} × ${f2(kk[0])} + ${f2(TOY.q[1])} × ${f2(kk[1])}`);
-      line(`= ${f2(dot(TOY.q, kk))}`, { b: true, c: dot(TOY.q, kk) >= 0 ? C.ink : C.neg, gap: 26 });
-      // the angle between the two arrows, and what it does to the score
-      const deg = Math.round((Math.acos(Math.max(-1, Math.min(1, dot(TOY.q, kk) / Math.hypot(...TOY.q) / Math.hypot(...kk)))) * 180) / Math.PI);
-      line(`the arrows are ${deg}° apart:`, { font: DISPLAY, c: C["ink-2"], gap: 17 });
-      line(deg < 25 ? "nearly the same way, so the score is large" : deg < 75 ? "partly the same way, so it is positive" : deg <= 105 ? "nearly at right angles, so it is near 0" : "pointing apart, so it is negative", { font: DISPLAY, c: C["ink-2"] });
+      line(`= ${f2(dot(TOY.q, kk))}`, { b: true, c: dot(TOY.q, kk) >= 0 ? C.ink : C.neg });
+      // the same number as lengths and an angle (rounded, hence ≈): the angle alone does not decide it
+      line(`≈ ${f2(Math.hypot(...TOY.q))} × ${f2(Math.hypot(...kk))} × cos ${Math.round(angleOf(TOY.q, kk))}°`, { gap: 26 });
+      line("query length × key length × cosine", { font: DISPLAY, c: C["ink-2"], gap: 17 });
+      line("of the angle between the arrows", { font: DISPLAY, c: C["ink-2"] });
     } else if (k === "softmax") {
       title("Scores → weights"); const order = A.s.map((s, j) => j).sort((a, b) => A.s[b] - A.s[a]), tot = A.ex.reduce((a, x) => a + x, 0);
       for (const j of order.slice(0, L.wide ? 4 : 3)) line(TOY.words[j].padEnd(6) + `e^${f2(A.s[j])}`.padEnd(8) + ` = ${f2(A.ex[j])}`.padEnd(9) + (u > 0.45 ? ` → ${pct(A.w[j])}` : ""), { size: 12, gap: 18 });
@@ -1887,8 +1941,11 @@ function handle(m) {
     const A = toyAttend(7, TOY.q), by = new Map(); A.w.forEach((w, j) => { const e = by.get(TOY.words[j]) || { w: 0, n: 0 }; e.w += w; e.n++; by.set(TOY.words[j], e); });
     const order = [...by].sort((a, b) => b[1].w - a[1].w), say = ([word, e]) => (e.n > 1 ? `the ${e.n} “${word}”s together ${pct(e.w)}` : `“${word}” ${pct(e.w)}`);
     const best = A.s.indexOf(Math.max(...A.s)); // the token with the largest dot product (the two "dog"s share theirs)
+    // the key pointing closest to the query's way; when another key beats it, the winner's key is longer
+    const near = TOY.keys.reduce((b, kk, j) => (angleOf(v, kk) < angleOf(v, TOY.keys[b]) ? j : b), 0);
+    const nearNote = TOY.words[near] !== TOY.words[best] && A.s[best] > A.s[near] && A.s[best] > 0 ? ` The key that points closest to its way is that of “${TOY.words[near]}”, ${Math.round(angleOf(v, TOY.keys[near]))}° off, but the key of “${TOY.words[best]}”, ${Math.round(angleOf(v, TOY.keys[best]))}° off, is longer and wins.` : "";
     if (!final) { AW.user = true; aw.hold(awScenes.findIndex((s) => s.k === "values"), AW.cap || "<b>Your query.</b> Let go of the arrow to read what it does."); return true; }
-    AW.cap = `<b>Your query.</b> The query (${f2(v[0])}, ${f2(v[1])}) gets its largest dot product, ${f2(A.s[best])}, with the key of “${TOY.words[best]}”. The weights go: ${say(order[0])}, then ${say(order[1])}. Point the arrow another way to read other tokens; make it longer to make the choice sharper (the scores grow with the query's length), shorter to spread the weight more evenly.`;
+    AW.cap = `<b>Your query.</b> The query (${f2(v[0])}, ${f2(v[1])}) gets its largest dot product, ${f2(A.s[best])}, with the key of “${TOY.words[best]}”.${nearNote} The weights go: ${say(order[0])}, then ${say(order[1])}. Point the arrow another way to read other tokens; make it longer to make the choice sharper (the scores grow with the query's length), shorter to spread the weight more evenly.`;
     AW.user = true; aw.hold(awScenes.findIndex((s) => s.k === "values"), AW.cap);
     return true;
   }
@@ -2341,6 +2398,7 @@ function handle(m) {
     "t1-in": () => "Type any text; the network reads it as the start of a story.",
     "t1-tok": (el) => (el.dataset.sel === "0" ? "The <end> token that opens every story. Click to make it the token that reads." : "Click to make this the token that reads."),
     "t1-head": () => "Show this head's scores and weights.",
+    "t1-cos": () => "The cosine of the angle between the two tokens' rows in this network's table: closeness of words as chapter 6 measured it. It is not part of the score, and is shown only to compare.",
     "t2-head": () => "Highlight this head's distance scores.", "t2-cv": () => curveTip("t2-cv"),
     "t2-off": () => "Measure the 100 test stories again with every distance score set to 0. Takes a few seconds.",
     "t3-in": () => "Type the start of a story; the network reads it, up to its last 256 tokens.",
