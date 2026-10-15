@@ -41,10 +41,10 @@ function loadShipped() {
   return m;
 }
 // loss and right first guesses over whole stories
-function evaluate(m, stories) {
+function evaluate(m, stories, code = ATN) {
   let loss = 0, right = 0, n = 0;
   for (const { tokens, next } of stories) {
-    const { p } = ATN.forward(m, tokens);
+    const { p } = code.forward(m, tokens);
     for (let r = 0; r < next.length; r++) {
       loss -= Math.log(p[r * m.V + next[r]]);
       let b = 0; for (let i = 1; i < m.V; i++) if (p[r * m.V + i] > p[r * m.V + b]) b = i;

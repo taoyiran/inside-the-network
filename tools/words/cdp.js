@@ -11,6 +11,7 @@ async function open(url, { width = 1200, height = 900, dark = false, inject = ""
   ws.addEventListener("message", (e) => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) { pend.get(m.id)(m); pend.delete(m.id); } else if (m.method === "Runtime.consoleAPICalled") logs.push(m.params.type + ": " + m.params.args.map((a) => a.value ?? a.description).join(" ")); else if (m.method === "Runtime.exceptionThrown") logs.push("EXC: " + JSON.stringify(m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text)); });
   const send = (method, params = {}) => new Promise((r) => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
   await send("Runtime.enable"); await send("Page.enable");
+  await send("Network.enable"); await send("Network.setCacheDisabled", { cacheDisabled: true }); // the profile persists: always load the files as they are now
   await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
   await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: dark ? "dark" : "light" }] });
   if (inject) await send("Page.addScriptToEvaluateOnNewDocument", { source: inject });

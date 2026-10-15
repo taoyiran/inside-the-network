@@ -6,10 +6,12 @@
 // own gradient buffer. Then each worker adds up all the workers' gradients for its slice of the weights and applies
 // the page's Adam update to it. Only the order of the additions differs from the page's trainStep.
 // The finished network: node ptrain.js lr=0.008 steps=19000 save=F8 > work/runs/F8.txt
+// rename=p gives the hero of some training stories a made-up name, as for chapter 8's GPT (../gpt/rename.js); each
+// story then also draws a roll and a seed, after the token that picks it. The finished network used no renaming.
 const { Worker, isMainThread, workerData } = require("worker_threads");
-const L = require("./lib.js");
+const L = require("./lib.js"), RN = require("../gpt/rename.js");
 const EARLY = [50, 100, 200, 500]; // also saved, for the early moments of training
-const DEF = { T: 256, d: 32, H: 8, dk: 8, dv: 16, h: 128, lr: 0.008, B: 8, steps: 19000, decay: 0.3, seed: 1, every: 1000, save: "A", workers: 16, stop: 0, val: 300 };
+const DEF = { T: 256, d: 32, H: 8, dk: 8, dv: 16, h: 128, lr: 0.008, B: 8, steps: 19000, decay: 0.3, seed: 1, every: 1000, save: "A", workers: 16, stop: 0, val: 300, rename: 0 };
 if (isMainThread) {
   const a = L.args(DEF), cfg = { V: 2000, T: a.T, d: a.d, H: a.H, dk: a.dk, dv: a.dv, h: a.h }, W = a.workers;
   const { tok, stories, starts } = L.storiesOf("train.bin");
@@ -18,11 +20,12 @@ if (isMainThread) {
   const sz = L.ATN.KEYS.map((key) => m0[key].length), P = sz.reduce((x, y) => x + y, 0);
   const sab = (n, T = Float64Array) => new SharedArrayBuffer(n * T.BYTES_PER_ELEMENT);
   const MAXSEG = 4 * (a.B + 1);
-  const shared = { w: sab(P), am: sab(P), as: sab(P), g: sab(P * W), seg: sab(W * MAXSEG * 3, Int32Array), nseg: sab(W, Int32Array), ctrl: sab(8, Int32Array), stat: sab(W * 3), lr: sab(1), count: sab(1) };
+  const shared = { w: sab(P), am: sab(P), as: sab(P), g: sab(P * W), seg: sab(W * MAXSEG * 3, Int32Array), nseg: sab(W, Int32Array), ctrl: sab(8, Int32Array), stat: sab(W * 3), lr: sab(1), count: sab(1), bst: sab(a.B, Int32Array), roll: sab(a.B), rseed: sab(a.B, Uint32Array) };
   const w = new Float64Array(shared.w); let o = 0; for (const key of L.ATN.KEYS) { w.set(m0[key], o); o += m0[key].length; }
   const seg = new Int32Array(shared.seg), nseg = new Int32Array(shared.nseg), ctrl = new Int32Array(shared.ctrl), lrA = new Float64Array(shared.lr), countA = new Float64Array(shared.count), stat = new Float64Array(shared.stat);
+  const bst = new Int32Array(shared.bst), rollA = new Float64Array(shared.roll), rseedA = new Uint32Array(shared.rseed);
   // a worker that fails would leave the main thread waiting forever: stop the run instead
-  for (let i = 0; i < W; i++) new Worker(__filename, { workerData: { i, W, shared, cfg, sz, MAXSEG, val: a.val } }).on("error", (e) => { console.error(`worker ${i} failed:`, e); process.exit(1); }).on("exit", (code) => { if (code) { console.error(`worker ${i} exited with code ${code}`); process.exit(1); } });
+  for (let i = 0; i < W; i++) new Worker(__filename, { workerData: { i, W, shared, cfg, sz, MAXSEG, val: a.val, rename: a.rename } }).on("error", (e) => { console.error(`worker ${i} failed:`, e); process.exit(1); }).on("exit", (code) => { if (code) { console.error(`worker ${i} exited with code ${code}`); process.exit(1); } });
   const phase = (kind, step = 0, rate = 0) => {
     ctrl[2] = kind; ctrl[3] = step; lrA[0] = rate; Atomics.store(ctrl, 1, 0);
     Atomics.add(ctrl, 0, 1); Atomics.notify(ctrl, 0);
@@ -34,12 +37,12 @@ if (isMainThread) {
   const t0 = Date.now(); let tokens = 0, lossSum = 0, lossN = 0;
   setTimeout(() => {
     for (let s = 1; s <= (a.stop || a.steps); s++) {
-      const picked = []; for (let b = 0; b < a.B; b++) picked.push(storyAt(Math.floor(rand() * tok.length)));
+      const picked = []; for (let b = 0; b < a.B; b++) { bst[b] = storyAt(Math.floor(rand() * tok.length)); if (a.rename) [rollA[b], rseedA[b]] = RN.draw(rand); picked.push(RN.applyRename(stories[bst[b]], a.rename, [rollA[b], rseedA[b]])); }
       // share the positions of the picked stories out evenly: worker i takes positions [i·M/W, (i+1)·M/W) of the run
-      const M = picked.reduce((x, st) => x + stories[st].next.length, 0);
+      const M = picked.reduce((x, st) => x + st.next.length, 0);
       nseg.fill(0); let base = 0;
-      for (const st of picked) {
-        const n = stories[st].next.length;
+      for (const [st, story] of picked.entries()) {
+        const n = story.next.length;
         for (let i = 0; i < W; i++) {
           const lo = Math.max(base, Math.floor((i * M) / W)), hi = Math.min(base + n, Math.floor(((i + 1) * M) / W));
           if (hi > lo) { const k = (i * MAXSEG + nseg[i]++) * 3; seg[k] = st; seg[k + 1] = lo - base; seg[k + 2] = hi - base; }
@@ -58,13 +61,14 @@ if (isMainThread) {
     phase(9); process.exit(0);
   }, 300);
 } else {
-  const { i, W, shared, cfg, sz, MAXSEG, val } = workerData;
+  const { i, W, shared, cfg, sz, MAXSEG, val, rename } = workerData;
   const { stories } = L.storiesOf("train.bin");
   // validation: stories 1,001 to 1,000 + val of the validation file, never the page's 1,000 test stories
   const vs = L.storiesOf("test.bin").stories.slice(1000, 1000 + val).filter((_, j) => j % W === i);
   const P = sz.reduce((x, y) => x + y, 0);
   const w = new Float64Array(shared.w), am = new Float64Array(shared.am), as = new Float64Array(shared.as), gAll = new Float64Array(shared.g);
   const seg = new Int32Array(shared.seg), nseg = new Int32Array(shared.nseg), ctrl = new Int32Array(shared.ctrl), lrA = new Float64Array(shared.lr), countA = new Float64Array(shared.count), stat = new Float64Array(shared.stat);
+  const bst = new Int32Array(shared.bst), rollA = new Float64Array(shared.roll), rseedA = new Uint32Array(shared.rseed);
   const split = (buf, base) => { const m = {}; let q = base; L.ATN.KEYS.forEach((key, j) => { m[key] = buf.subarray(q, q + sz[j]); q += sz[j]; }); return m; };
   const model = { ...cfg, ...split(w, 0) }, g = split(gAll, i * P), mine = gAll.subarray(i * P, (i + 1) * P);
   const lo = Math.floor((i * P) / W), hi = Math.floor(((i + 1) * P) / W);
@@ -74,9 +78,11 @@ if (isMainThread) {
     const kind = ctrl[2];
     if (kind === 9) { Atomics.add(ctrl, 1, 1); Atomics.notify(ctrl, 1); break; }
     if (kind === 1) {
-      mine.fill(0); let loss = 0;
+      mine.fill(0); let loss = 0; const renamed = new Map(); // this step's stories, renamed once each
       for (let s = 0; s < nseg[i]; s++) {
-        const k = (i * MAXSEG + s) * 3, { tokens, next } = stories[seg[k]], from = seg[k + 1], to = seg[k + 2];
+        const k = (i * MAXSEG + s) * 3, b = seg[k], from = seg[k + 1], to = seg[k + 2];
+        if (!renamed.has(b)) renamed.set(b, RN.applyRename(stories[bst[b]], rename, [rollA[b], rseedA[b]]));
+        const { tokens, next } = renamed.get(b);
         const toks = tokens.subarray(0, to), nx = next.subarray(from, to), f = L.ATN.forward(model, toks, from);
         for (let r = 0; r < nx.length; r++) loss -= Math.log(f.p[r * cfg.V + nx[r]]);
         L.ATN.backward(model, toks, nx, f, g);
