@@ -50,6 +50,12 @@ How a network can use anything said earlier in a story, not just the last few to
 
 The stories and the tokenizer are chapter 6's (`words/stories.js`). `attention/weights.js` holds the network trained in advance with the chapter's own code, shared under MIT like the code, with moments saved during its training. How it was trained, measured and checked is in [`docs/chapter-7-training.md`](docs/chapter-7-training.md).
 
+## Chapter 8: A tiny GPT, trained in your browser
+
+A GPT of 4 blocks, built by hand: each block is layer norm, attention with 4 heads (chapter 7's, with a score for each distance back), a residual connection, layer norm, an MLP of 256 GELU neurons and another residual connection, and a last layer norm and an output layer come after the stack. The chapter opens with the problem the stack solves, continuing what the text itself started (in-context learning), shown on test stories whose hero is given an invented name such as "vorna", cut into pieces: one layer of attention cannot find a token by the token before it, and two blocks can. A step-by-step animation shows the trick on a toy whose every number is visible, a previous-token head in block 1 and an induction head in block 2, with a last token you can change. A film follows the real network through an invented name, three tools take it apart (the residual stream, layer norm, a block and the stack), and a second animation goes from chapter 7's network to a GPT, with a glossary. With 1.3 times chapter 7's weights and as much training, it guesses 52.1% of the test tokens right against 46.6%. Five secrets follow: the GPT finishes pieces of invented names that never follow the piece before them in training (61.4% at later mentions, against 0.0% for chapter 7's network, which, retrained the same way, brings back pieces of the name but not in order), and the heads that do it; switching off either the previous-token head or the induction head breaks it, though the induction head does little else; the copying came gradually during training, and only because each time a training story whose hero has a common one-token name was drawn, the hero had an even chance of a made-up name (in TinyStories, about two thirds of the stories have as their hero one of about two dozen one-token names, and on the stories as they are the same network barely learned it), while a small network learns induction live in your browser, in a sudden jump; the logit lens reads the guess partway up the stack; and the same network without residual connections does not learn in 3,000 steps (its first block gets about 1/690,000 of the last block's gradient), while without layer norms it trains as well over 3,000 steps. The playground shades your text by any head, lets the GPT write on, and trains your own GPT from scratch.
+
+The stories and the tokenizer are chapter 6's (`words/stories.js`). `gpt/weights.js` holds the GPT trained in advance with the chapter's own code, shared under MIT like the code, with measurements of checkpoints saved during its training and during the comparison runs. How it was trained, measured and checked is in [`docs/chapter-8-training.md`](docs/chapter-8-training.md).
+
 ## Run it locally
 
 The chapters share files in `assets/`, and some pages read their own code from there to display it, which browsers block for pages opened straight from disk. Serve the folder instead:
@@ -61,12 +67,12 @@ python3 -m http.server 8000
 
 ## Project layout
 
-- `index.html`, `loss-and-gradients/`, `backprop/`, `going-deeper/`, `seeing/`, `listening/`, `words/`, `attention/`: one folder per chapter, each a self-contained page.
+- `index.html`, `loss-and-gradients/`, `backprop/`, `going-deeper/`, `seeing/`, `listening/`, `words/`, `attention/`, `gpt/`: one folder per chapter, each a self-contained page.
 - `assets/site.css`: the shared design tokens and components.
 - `assets/autograd.js`: the shared autograd. Chapters 1 to 3 run on it, and chapter 4 checks its hand-written backward pass against it. Chapter 3 shows it in five parts, split at blank lines, next to a Python translation with the same five parts, so keep exactly five blank-line-separated sections in both.
 - `assets/common.js`: shared helpers: number formatting, hover descriptions, the Words · Math · Code switch.
 - `tools/`: the scripts that built each chapter's data and trained weights, and checked the numbers the pages state (see `tools/README.md`).
-- `docs/`: detailed write-ups of how [chapter 6's](docs/chapter-6-training.md) and [chapter 7's](docs/chapter-7-training.md) networks are trained.
+- `docs/`: detailed write-ups of how [chapter 6's](docs/chapter-6-training.md), [chapter 7's](docs/chapter-7-training.md) and [chapter 8's](docs/chapter-8-training.md) networks are trained.
 
 ## Roadmap
 
@@ -78,12 +84,12 @@ python3 -m http.server 8000
    - 5′. [Listening: spectrograms and sound](https://taoyiran.github.io/inside-the-network/listening/)
 6. [Words as vectors: tokens and embeddings](https://taoyiran.github.io/inside-the-network/words/)
 7. [Attention: looking back over the whole story](https://taoyiran.github.io/inside-the-network/attention/)
-8. A tiny GPT, trained in your browser
+8. [A tiny GPT, trained in your browser](https://taoyiran.github.io/inside-the-network/gpt/)
 
 ## License
 
 - Code: [MIT](LICENSE)
 - Text and figures: [CC BY 4.0](LICENSE-CONTENT.md)
 - Speech Commands recordings and spectrograms in `listening/sounds.js`, and the weights trained on them in `listening/weights.js`: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), from the [Speech Commands dataset](https://www.tensorflow.org/datasets/catalog/speech_commands) by Pete Warden (Google)
-- TinyStories in `words/stories.js` (lowercased, tidied and cut into tokens): [CDLA-Sharing-1.0](https://cdla.dev/sharing-1-0/), from the [TinyStories dataset](https://huggingface.co/datasets/roneneldan/TinyStories) by Ronen Eldan and Yuanzhi Li (Microsoft Research). The network trained on them, in `words/weights.js`, is a result of computation on the data, on which that agreement places no conditions (section 3.5); it is shared under MIT like the code.
+- TinyStories in `words/stories.js` (lowercased, tidied and cut into tokens): [CDLA-Sharing-1.0](https://cdla.dev/sharing-1-0/), from the [TinyStories dataset](https://huggingface.co/datasets/roneneldan/TinyStories) by Ronen Eldan and Yuanzhi Li (Microsoft Research). The networks trained on them, in `words/weights.js`, `attention/weights.js` and `gpt/weights.js`, are results of computation on the data, on which that agreement places no conditions (section 3.5); they are shared under MIT like the code.
 - MNIST digits in `seeing/digits.js`, the weights in `seeing/weights.js` and images made from the digits: [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/), from the [MNIST database](http://yann.lecun.com/exdb/mnist/) by Yann LeCun and Corinna Cortes
