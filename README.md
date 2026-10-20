@@ -2,7 +2,7 @@
 
 *From one neuron to a tiny GPT, with nothing hidden.*
 
-An interactive guide to neural networks that you can see and touch. Every figure is a live computation running in your browser. You don't need a GPU, a server or a machine-learning library.
+An interactive guide to neural networks that you can see and touch. The networks run in your browser, and almost every figure is computed live as you read. You don't need a GPU, a server or a machine-learning library.
 
 **Live site:** https://taoyiran.github.io/inside-the-network/ (an overview of what this is and isn't, with every chapter)
 
