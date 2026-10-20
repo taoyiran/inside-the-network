@@ -4,7 +4,7 @@
 import os, re, sys
 repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 out = sys.argv[1]
-pages = sys.argv[2:] or ["index.html", "loss-and-gradients/index.html", "backprop/index.html", "going-deeper/index.html", "seeing/index.html", "listening/index.html", "words/index.html"]
+pages = sys.argv[2:] or ["touch/index.html", "loss-and-gradients/index.html", "backprop/index.html", "going-deeper/index.html", "seeing/index.html", "listening/index.html", "words/index.html"]
 read = lambda *p: open(os.path.join(repo, *p), encoding="utf8").read()
 css, ag, common = read("assets/site.css"), read("assets/autograd.js"), read("assets/common.js")
 os.makedirs(out, exist_ok=True)
@@ -18,6 +18,6 @@ for src in pages:
     assert n1 == 1 and n3 == 1, (src, n1, n3)
     head = s[s.index("<title>"):s.index("</head>")].rstrip()
     body = s[s.index("<body>") + len("<body>"):s.index("</body>")].strip()
-    name = (os.path.dirname(src) or "network-you-can-touch") + ".html"
+    name = (os.path.dirname(src) or "overview") + ".html"
     open(os.path.join(out, name), "w", encoding="utf8").write(head + "\n\n" + body + "\n")
     print(name, len(head) + len(body), "bytes")

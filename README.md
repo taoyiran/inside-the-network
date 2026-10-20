@@ -1,8 +1,12 @@
 # Inside the Network
 
+*From one neuron to a tiny GPT, with nothing hidden.*
+
 An interactive guide to neural networks that you can see and touch. Every figure is a live computation running in your browser. You don't need a GPU, a server or a machine-learning library.
 
-**Live page:** https://taoyiran.github.io/inside-the-network/
+**Live site:** https://taoyiran.github.io/inside-the-network/ (an overview of what this is and isn't, with every chapter)
+
+**Start with chapter 1:** https://taoyiran.github.io/inside-the-network/touch/
 
 ## Chapter 1: A network you can touch
 
@@ -67,7 +71,8 @@ python3 -m http.server 8000
 
 ## Project layout
 
-- `index.html`, `loss-and-gradients/`, `backprop/`, `going-deeper/`, `seeing/`, `listening/`, `words/`, `attention/`, `gpt/`: one folder per chapter, each a self-contained page.
+- `index.html`: the landing page: what the project is and isn't, how a chapter goes, and the chapters as one path. Its live figure replays chapter 1's network with the shared autograd. It also forwards old links to chapter 1's sections (such as `#playground`) to `touch/`, where chapter 1 now lives.
+- `touch/`, `loss-and-gradients/`, `backprop/`, `going-deeper/`, `seeing/`, `listening/`, `words/`, `attention/`, `gpt/`: one folder per chapter, each a self-contained page.
 - `assets/site.css`: the shared design tokens and components.
 - `assets/autograd.js`: the shared autograd. Chapters 1 to 3 run on it, and chapter 4 checks its hand-written backward pass against it. Chapter 3 shows it in five parts, split at blank lines, next to a Python translation with the same five parts, so keep exactly five blank-line-separated sections in both.
 - `assets/common.js`: shared helpers: number formatting, hover descriptions, the Words · Math · Code switch.
@@ -76,7 +81,7 @@ python3 -m http.server 8000
 
 ## Roadmap
 
-1. [A network you can touch](https://taoyiran.github.io/inside-the-network/)
+1. [A network you can touch](https://taoyiran.github.io/inside-the-network/touch/)
 2. [Loss and gradients: walking downhill](https://taoyiran.github.io/inside-the-network/loss-and-gradients/)
 3. [Backprop, one operation at a time](https://taoyiran.github.io/inside-the-network/backprop/)
 4. [Going deeper: why layers help](https://taoyiran.github.io/inside-the-network/going-deeper/)
